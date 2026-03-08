@@ -20,4 +20,9 @@ class Product extends Model
     {
         return $this->hasMany(TransactionItem::class);
     }
+
+    public function stockMovements(): HasMany
+    {
+        return $this->hasMany(StockMovement::class);
+    }
 }

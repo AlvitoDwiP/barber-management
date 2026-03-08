@@ -43,8 +43,8 @@ class Transaction extends Model
         return $this->belongsTo(PayrollPeriod::class);
     }
 
-    public function transactionDetails(): HasMany
+    public function transactionItems(): HasMany
     {
-        return $this->hasMany(TransactionDetail::class);
+        return $this->hasMany(TransactionItem::class);
     }
 }

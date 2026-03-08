@@ -30,4 +30,9 @@ class PayrollPeriod extends Model
     {
         return $this->hasMany(PayrollResult::class);
     }
+
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(Transaction::class);
+    }
 }

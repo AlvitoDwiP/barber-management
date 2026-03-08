@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
             ServiceSeeder::class,
             ProductSeeder::class,
             EmployeeSeeder::class,
+            ExpenseCategorySeeder::class,
         ]);
     }
 }

@@ -7,7 +7,16 @@
 
 <div>
     <x-input-label for="expense_date" :value="__('Tanggal Pengeluaran')" />
-    <x-text-input id="expense_date" name="expense_date" type="date" class="mt-1 block w-full" :value="$dateValue" required />
+    <x-text-input
+        id="expense_date"
+        name="expense_date"
+        type="text"
+        class="mt-1 block w-full"
+        :value="$dateValue"
+        data-flatpickr="date"
+        autocomplete="off"
+        required
+    />
     <x-input-error :messages="$errors->get('expense_date')" class="mt-2" />
 </div>
 

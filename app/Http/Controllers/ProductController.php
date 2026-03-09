@@ -2,42 +2,60 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Http\Requests\StoreProductRequest;
+use App\Http\Requests\UpdateProductRequest;
+use App\Models\Product;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\View\View;
 
 class ProductController extends Controller
 {
-    public function index()
+    public function index(): View
     {
-        return view('dashboard');
+        $products = Product::query()->latest()->get();
+
+        return view('products.index', compact('products'));
     }
 
-    public function create()
+    public function create(): View
     {
-        abort(501);
+        return view('products.create');
     }
 
-    public function store(Request $request)
+    public function store(StoreProductRequest $request): RedirectResponse
     {
-        abort(501);
+        Product::query()->create($request->validated());
+
+        return redirect()
+            ->route('products.index')
+            ->with('success', 'Data produk berhasil ditambahkan.');
     }
 
-    public function show(string $id)
+    public function show(Product $product): RedirectResponse
     {
-        abort(501);
+        return redirect()->route('products.edit', $product);
     }
 
-    public function edit(string $id)
+    public function edit(Product $product): View
     {
-        abort(501);
+        return view('products.edit', compact('product'));
     }
 
-    public function update(Request $request, string $id)
+    public function update(UpdateProductRequest $request, Product $product): RedirectResponse
     {
-        abort(501);
+        $product->update($request->validated());
+
+        return redirect()
+            ->route('products.index')
+            ->with('success', 'Data produk berhasil diperbarui.');
     }
 
-    public function destroy(string $id)
+    public function destroy(Product $product): RedirectResponse
     {
-        abort(501);
+        $product->delete();
+
+        return redirect()
+            ->route('products.index')
+            ->with('success', 'Data produk berhasil dihapus.');
     }
 }

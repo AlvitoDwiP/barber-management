@@ -37,13 +37,13 @@
 </div>
 
 <div>
-    <x-input-label for="amount" :value="__('Jumlah Nominal Pengeluaran')" />
+    <x-input-label for="amount" :value="__('Jumlah')" />
     <x-text-input id="amount" name="amount" type="number" step="0.01" min="0.01" class="mt-1 block w-full" :value="$amountValue" required />
     <x-input-error :messages="$errors->get('amount')" class="mt-2" />
 </div>
 
 <div>
-    <x-input-label for="note" :value="__('Catatan Pengeluaran (optional)')" />
+    <x-input-label for="note" :value="__('Catatan')" />
     <textarea
         id="note"
         name="note"
@@ -53,15 +53,7 @@
     <x-input-error :messages="$errors->get('note')" class="mt-2" />
 </div>
 
-<div class="flex items-center gap-3 pt-2">
-    <x-primary-button>
-        {{ $submitLabel }}
-    </x-primary-button>
-
-    <a
-        href="{{ route('expenses.index') }}"
-        class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 transition hover:bg-gray-100"
-    >
-        Batal
-    </a>
-</div>
+@include('partials.crud.form-actions', [
+    'submitLabel' => $submitLabel,
+    'cancelUrl' => route('expenses.index'),
+])

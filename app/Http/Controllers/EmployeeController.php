@@ -2,42 +2,60 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Http\Requests\StoreEmployeeRequest;
+use App\Http\Requests\UpdateEmployeeRequest;
+use App\Models\Employee;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\View\View;
 
 class EmployeeController extends Controller
 {
-    public function index()
+    public function index(): View
     {
-        return view('dashboard');
+        $employees = Employee::query()->latest()->get();
+
+        return view('employees.index', compact('employees'));
     }
 
-    public function create()
+    public function create(): View
     {
-        abort(501);
+        return view('employees.create');
     }
 
-    public function store(Request $request)
+    public function store(StoreEmployeeRequest $request): RedirectResponse
     {
-        abort(501);
+        Employee::query()->create($request->validated());
+
+        return redirect()
+            ->route('employees.index')
+            ->with('success', 'Data pegawai berhasil ditambahkan.');
     }
 
-    public function show(string $id)
+    public function show(Employee $employee): RedirectResponse
     {
-        abort(501);
+        return redirect()->route('employees.edit', $employee);
     }
 
-    public function edit(string $id)
+    public function edit(Employee $employee): View
     {
-        abort(501);
+        return view('employees.edit', compact('employee'));
     }
 
-    public function update(Request $request, string $id)
+    public function update(UpdateEmployeeRequest $request, Employee $employee): RedirectResponse
     {
-        abort(501);
+        $employee->update($request->validated());
+
+        return redirect()
+            ->route('employees.index')
+            ->with('success', 'Data pegawai berhasil diperbarui.');
     }
 
-    public function destroy(string $id)
+    public function destroy(Employee $employee): RedirectResponse
     {
-        abort(501);
+        $employee->delete();
+
+        return redirect()
+            ->route('employees.index')
+            ->with('success', 'Data pegawai berhasil dihapus.');
     }
 }

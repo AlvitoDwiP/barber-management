@@ -2,42 +2,60 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Http\Requests\StoreServiceRequest;
+use App\Http\Requests\UpdateServiceRequest;
+use App\Models\Service;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\View\View;
 
 class ServiceController extends Controller
 {
-    public function index()
+    public function index(): View
     {
-        return view('dashboard');
+        $services = Service::query()->latest()->get();
+
+        return view('services.index', compact('services'));
     }
 
-    public function create()
+    public function create(): View
     {
-        abort(501);
+        return view('services.create');
     }
 
-    public function store(Request $request)
+    public function store(StoreServiceRequest $request): RedirectResponse
     {
-        abort(501);
+        Service::query()->create($request->validated());
+
+        return redirect()
+            ->route('services.index')
+            ->with('success', 'Data layanan berhasil ditambahkan.');
     }
 
-    public function show(string $id)
+    public function show(Service $service): RedirectResponse
     {
-        abort(501);
+        return redirect()->route('services.edit', $service);
     }
 
-    public function edit(string $id)
+    public function edit(Service $service): View
     {
-        abort(501);
+        return view('services.edit', compact('service'));
     }
 
-    public function update(Request $request, string $id)
+    public function update(UpdateServiceRequest $request, Service $service): RedirectResponse
     {
-        abort(501);
+        $service->update($request->validated());
+
+        return redirect()
+            ->route('services.index')
+            ->with('success', 'Data layanan berhasil diperbarui.');
     }
 
-    public function destroy(string $id)
+    public function destroy(Service $service): RedirectResponse
     {
-        abort(501);
+        $service->delete();
+
+        return redirect()
+            ->route('services.index')
+            ->with('success', 'Data layanan berhasil dihapus.');
     }
 }

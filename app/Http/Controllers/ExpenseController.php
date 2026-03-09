@@ -2,42 +2,75 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Http\Requests\StoreExpenseRequest;
+use App\Http\Requests\UpdateExpenseRequest;
+use App\Models\Expense;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\View\View;
 
 class ExpenseController extends Controller
 {
-    public function index()
+    private const CATEGORIES = [
+        'listrik',
+        'beli produk stok',
+        'beli alat',
+        'bayar freelance',
+        'lainnya',
+    ];
+
+    public function index(): View
     {
-        return view('dashboard');
+        $expenses = Expense::query()
+            ->latest('expense_date')
+            ->latest('id')
+            ->get();
+
+        return view('expenses.index', compact('expenses'));
     }
 
-    public function create()
+    public function create(): View
     {
-        abort(501);
+        $categories = self::CATEGORIES;
+
+        return view('expenses.create', compact('categories'));
     }
 
-    public function store(Request $request)
+    public function store(StoreExpenseRequest $request): RedirectResponse
     {
-        abort(501);
+        Expense::query()->create($request->validated());
+
+        return redirect()
+            ->route('expenses.index')
+            ->with('success', 'Data pengeluaran berhasil ditambahkan.');
     }
 
-    public function show(string $id)
+    public function show(Expense $expense): RedirectResponse
     {
-        abort(501);
+        return redirect()->route('expenses.edit', $expense);
     }
 
-    public function edit(string $id)
+    public function edit(Expense $expense): View
     {
-        abort(501);
+        $categories = self::CATEGORIES;
+
+        return view('expenses.edit', compact('expense', 'categories'));
     }
 
-    public function update(Request $request, string $id)
+    public function update(UpdateExpenseRequest $request, Expense $expense): RedirectResponse
     {
-        abort(501);
+        $expense->update($request->validated());
+
+        return redirect()
+            ->route('expenses.index')
+            ->with('success', 'Data pengeluaran berhasil diperbarui.');
     }
 
-    public function destroy(string $id)
+    public function destroy(Expense $expense): RedirectResponse
     {
-        abort(501);
+        $expense->delete();
+
+        return redirect()
+            ->route('expenses.index')
+            ->with('success', 'Data pengeluaran berhasil dihapus.');
     }
 }

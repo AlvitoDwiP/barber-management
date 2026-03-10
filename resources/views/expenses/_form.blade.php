@@ -37,13 +37,13 @@
 </div>
 
 <div>
-    <x-input-label for="amount" :value="__('Jumlah')" />
+    <x-input-label for="amount" :value="__('Jumlah Nominal')" />
     <x-text-input id="amount" name="amount" type="number" step="0.01" min="0.01" class="mt-1 block w-full" :value="$amountValue" required />
     <x-input-error :messages="$errors->get('amount')" class="mt-2" />
 </div>
 
 <div>
-    <x-input-label for="note" :value="__('Catatan')" />
+    <x-input-label for="note" :value="__('Catatan Pengeluaran')" />
     <textarea
         id="note"
         name="note"

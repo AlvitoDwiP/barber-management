@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ServiceController;
@@ -18,7 +19,7 @@ Route::get('/dashboard', function () {
 
 Route::middleware('auth')->group(function () {
     Route::resource('transactions', TransactionController::class);
-    Route::get('/payrolls', fn () => view('dashboard'))->name('payrolls.index');
+    Route::resource('payroll', PayrollController::class)->only(['index', 'show']);
     Route::get('/reports', fn () => view('dashboard'))->name('reports.index');
 
     Route::resource('employees', EmployeeController::class);

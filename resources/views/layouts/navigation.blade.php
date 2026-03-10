@@ -48,9 +48,9 @@
         ],
         [
             'label' => 'Penggajian',
-            'route' => 'payrolls.index',
-            'href' => $resolveRoute('payrolls.index'),
-            'active' => request()->routeIs('payrolls.*'),
+            'route' => 'payroll.index',
+            'href' => $resolveRoute('payroll.index'),
+            'active' => request()->routeIs('payroll.*'),
             'icon' => 'payrolls',
         ],
         [

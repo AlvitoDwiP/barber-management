@@ -50,13 +50,6 @@
                                                 Detail
                                             </a>
 
-                                            <form action="{{ route('payroll.open') }}" method="POST">
-                                                @csrf
-                                                <button type="submit" class="btn-brand-primary">
-                                                    Open Payroll
-                                                </button>
-                                            </form>
-
                                             @if ($period->status === 'open')
                                                 <form action="{{ route('payroll.close', $period) }}" method="POST">
                                                     @csrf
@@ -67,6 +60,10 @@
                                                         Close Payroll
                                                     </button>
                                                 </form>
+                                            @else
+                                                <span class="text-xs font-medium uppercase tracking-wide text-slate-500">
+                                                    Sudah ditutup
+                                                </span>
                                             @endif
                                         </div>
                                     </td>

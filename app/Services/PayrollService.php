@@ -10,32 +10,22 @@ use Illuminate\Support\Facades\DB;
 
 class PayrollService
 {
+    private const PAYROLL_STATUS_OPEN = 'open';
+    private const PAYROLL_STATUS_CLOSED = 'closed';
+    private const EMPLOYEE_STATUS_TETAP = 'tetap';
+    private const EXISTING_OPEN_MESSAGE = 'Masih ada payroll open yang belum ditutup.';
+    private const INVALID_CLOSE_MESSAGE = 'Payroll ini sudah ditutup dan tidak dapat diproses ulang.';
+
     public function openPayroll(): PayrollPeriod
     {
         return DB::transaction(function (): PayrollPeriod {
-            $hasOpenPayroll = PayrollPeriod::query()
-                ->where('status', 'open')
-                ->exists();
-
-            if ($hasOpenPayroll) {
-                throw new DomainException('Masih ada payroll open yang belum ditutup.');
-            }
-
-            $latestClosedPayroll = PayrollPeriod::query()
-                ->where('status', 'closed')
-                ->whereNotNull('end_date')
-                ->orderByDesc('end_date')
-                ->orderByDesc('id')
-                ->first();
-
-            $startDate = $latestClosedPayroll !== null
-                ? $latestClosedPayroll->end_date->copy()->addDay()
-                : Carbon::today();
+            $this->assertNoOpenPayrollExists();
+            $startDate = $this->resolveNextOpenStartDate();
 
             return PayrollPeriod::query()->create([
                 'start_date' => $startDate,
                 'end_date' => null,
-                'status' => 'open',
+                'status' => self::PAYROLL_STATUS_OPEN,
                 'closed_at' => null,
             ]);
         });
@@ -49,17 +39,7 @@ class PayrollService
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if ($payrollPeriod->status !== 'open') {
-                throw new DomainException('Payroll ini tidak dapat ditutup karena statusnya bukan open.');
-            }
-
-            if ($payrollPeriod->end_date !== null || $payrollPeriod->closed_at !== null) {
-                throw new DomainException('Payroll ini sudah ditutup.');
-            }
-
-            if ($payrollPeriod->payrollResults()->exists()) {
-                throw new DomainException('Payroll ini sudah memiliki hasil payroll.');
-            }
+            $this->assertPayrollCanBeClosed($payrollPeriod);
 
             $endDate = Carbon::today();
             $startDate = $payrollPeriod->start_date->toDateString();
@@ -68,7 +48,7 @@ class PayrollService
             $resultRows = TransactionDetail::query()
                 ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
                 ->join('employees', 'employees.id', '=', 'transactions.employee_id')
-                ->where('employees.status', 'tetap')
+                ->where('employees.status', self::EMPLOYEE_STATUS_TETAP)
                 ->whereBetween('transactions.transaction_date', [$startDate, $endDateString])
                 ->selectRaw('
                     transactions.employee_id as employee_id,
@@ -100,10 +80,50 @@ class PayrollService
             $payrollPeriod->update([
                 'end_date' => $endDate,
                 'closed_at' => now(),
-                'status' => 'closed',
+                'status' => self::PAYROLL_STATUS_CLOSED,
             ]);
 
             return $payrollPeriod->fresh();
         });
+    }
+
+    private function assertPayrollCanBeClosed(PayrollPeriod $payrollPeriod): void
+    {
+        if ($payrollPeriod->status !== self::PAYROLL_STATUS_OPEN) {
+            throw new DomainException(self::INVALID_CLOSE_MESSAGE);
+        }
+
+        if ($payrollPeriod->end_date !== null || $payrollPeriod->closed_at !== null) {
+            throw new DomainException(self::INVALID_CLOSE_MESSAGE);
+        }
+
+        if ($payrollPeriod->payrollResults()->exists()) {
+            throw new DomainException(self::INVALID_CLOSE_MESSAGE);
+        }
+    }
+
+    private function assertNoOpenPayrollExists(): void
+    {
+        $hasOpenPayroll = PayrollPeriod::query()
+            ->where('status', self::PAYROLL_STATUS_OPEN)
+            ->exists();
+
+        if ($hasOpenPayroll) {
+            throw new DomainException(self::EXISTING_OPEN_MESSAGE);
+        }
+    }
+
+    private function resolveNextOpenStartDate(): Carbon
+    {
+        $latestClosedPayroll = PayrollPeriod::query()
+            ->where('status', self::PAYROLL_STATUS_CLOSED)
+            ->whereNotNull('end_date')
+            ->orderByDesc('end_date')
+            ->orderByDesc('id')
+            ->first();
+
+        return $latestClosedPayroll !== null
+            ? $latestClosedPayroll->end_date->copy()->addDay()
+            : Carbon::today();
     }
 }

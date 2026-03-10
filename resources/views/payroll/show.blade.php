@@ -52,6 +52,12 @@
                     </tbody>
                 </table>
             </div>
+
+            @if ($payrollPeriod->status === 'closed')
+                <p class="mt-3 text-sm text-slate-600">
+                    Payroll ini sudah ditutup dan hasilnya bersifat final.
+                </p>
+            @endif
         </section>
 
         <section class="admin-card">

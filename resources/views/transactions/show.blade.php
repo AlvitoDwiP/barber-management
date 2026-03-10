@@ -15,14 +15,14 @@
                 <div class="flex flex-wrap items-center gap-2">
                     <a
                         href="{{ route('transactions.index') }}"
-                        class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-slate-700 transition hover:bg-slate-100"
+                        class="btn-neutral-warm"
                     >
                         Kembali
                     </a>
 
                     <a
                         href="{{ route('transactions.edit', $transaction) }}"
-                        class="inline-flex items-center rounded-lg border border-[#E5CBC0] bg-[#FAF3EF] px-4 py-2 text-xs font-semibold uppercase tracking-widest text-[#7D4026] transition hover:border-[#D9B4A2] hover:bg-[#F3E5DD]"
+                        class="btn-brand-soft"
                     >
                         Edit
                     </a>

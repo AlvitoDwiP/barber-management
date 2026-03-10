@@ -156,7 +156,7 @@
     </div>
 
     <aside class="space-y-4 xl:sticky xl:top-24 xl:self-start">
-        <section class="brand-tint-panel rounded-xl border p-4">
+        <section class="panel-cream rounded-xl border p-4">
             <h4 class="text-sm font-semibold text-[#7D4026]">Panduan Cepat</h4>
             <ul class="mt-2 space-y-2 text-sm text-[#8B533B]">
                 <li>Transaksi bisa layanan saja, produk saja, atau gabungan.</li>
@@ -165,7 +165,7 @@
             </ul>
         </section>
 
-        <section class="rounded-xl border border-[#E5CBC0] bg-[#FAF3EF] p-4">
+        <section class="panel-cream rounded-xl border p-4">
             <h4 class="text-sm font-semibold text-[#7D4026]">Ringkasan Input</h4>
             <dl class="mt-3 space-y-2 text-sm text-[#8B533B]">
                 <div class="flex items-center justify-between gap-3">

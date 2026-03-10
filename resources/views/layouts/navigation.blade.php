@@ -64,7 +64,7 @@
 @endphp
 
 <nav class="space-y-1">
-    <p class="px-3 pb-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Navigasi</p>
+    <p class="px-3 pb-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#E9CDBF]">Navigasi</p>
 
     @foreach ($menuItems as $item)
         @php

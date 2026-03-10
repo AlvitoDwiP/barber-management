@@ -4,17 +4,24 @@
 
 @layer base {
     :root {
-        --brand-900: #6b3721;
+        --brand-950: #542817;
+        --brand-900: #693422;
         --brand-800: #7d4026;
         --brand-700: #934c2d;
         --brand-600: #a85f3b;
-        --brand-100: #f3e5dd;
-        --brand-50: #faf3ef;
-        --brand-ring: rgba(147, 76, 45, 0.32);
+
+        --cream-100: #f7eee9;
+        --cream-50: #fcf8f5;
+
+        --warm-200: #e6d7cf;
+        --warm-100: #f2ebe6;
+        --warm-50: #f8f5f2;
+
+        --brand-ring: rgba(147, 76, 45, 0.3);
     }
 
     body.admin-body {
-        background-color: #f8f6f4;
+        background-color: var(--warm-50);
         @apply text-slate-800;
     }
 
@@ -29,7 +36,9 @@
     }
 
     .admin-card {
-        @apply rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6;
+        background-color: #ffffff;
+        border-color: var(--warm-200);
+        @apply rounded-2xl border p-5 shadow-sm sm:p-6;
     }
 
     .admin-nav-link {
@@ -38,14 +47,14 @@
     }
 
     .admin-nav-link:hover {
-        background-color: rgba(255, 255, 255, 0.13);
+        background-color: rgba(255, 255, 255, 0.12);
         color: #fffaf7;
     }
 
     .admin-nav-link-active {
         background-color: var(--brand-700);
         color: #fffdfc;
-        box-shadow: inset 0 0 0 1px rgba(255, 240, 230, 0.2);
+        box-shadow: inset 0 0 0 1px rgba(255, 240, 230, 0.24);
     }
 
     .admin-nav-link-disabled {
@@ -60,19 +69,22 @@
     }
 
     .admin-table-wrap {
-        @apply overflow-x-auto rounded-xl border border-slate-200;
+        border-color: var(--warm-200);
+        @apply overflow-x-auto rounded-xl border;
     }
 
     .admin-table {
-        @apply min-w-[880px] divide-y divide-slate-200 text-sm;
+        @apply min-w-[880px] divide-y text-sm;
+        border-color: var(--warm-200);
     }
 
     .admin-table thead {
-        @apply bg-slate-50;
+        background-color: var(--cream-50);
     }
 
     .admin-table th {
-        @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600;
+        @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide;
+        color: #745548;
     }
 
     .admin-table td {
@@ -89,23 +101,68 @@
 
     .payment-badge-qr {
         border-color: #e5cbc0;
-        background-color: var(--brand-50);
+        background-color: var(--cream-50);
         color: var(--brand-800);
     }
 
-    .brand-tint-panel {
+    .panel-cream {
         border-color: #ebd1c4;
-        background-color: var(--brand-50);
+        background-color: var(--cream-50);
         color: #7a462f;
     }
 
     .form-brand-control {
-        @apply mt-1 block w-full rounded-md border-slate-300 shadow-sm;
+        border-color: var(--warm-200);
+        @apply mt-1 block w-full rounded-md shadow-sm;
+    }
+
+    .form-brand-control:hover {
+        border-color: #d8c3b8;
     }
 
     .form-brand-control:focus {
         border-color: var(--brand-600);
         outline: 0;
         box-shadow: 0 0 0 3px var(--brand-ring);
+    }
+
+    .btn-brand-primary {
+        background-color: var(--brand-700);
+        border-color: var(--brand-700);
+        color: #fffdfc;
+        @apply inline-flex items-center justify-center rounded-lg border px-4 py-2 text-xs font-semibold uppercase tracking-widest transition disabled:cursor-not-allowed disabled:opacity-60;
+    }
+
+    .btn-brand-primary:hover {
+        background-color: var(--brand-800);
+        border-color: var(--brand-800);
+    }
+
+    .btn-brand-primary:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--brand-ring);
+    }
+
+    .btn-brand-soft {
+        border-color: #e1c5b8;
+        background-color: var(--cream-50);
+        color: var(--brand-800);
+        @apply inline-flex items-center rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-widest transition;
+    }
+
+    .btn-brand-soft:hover {
+        border-color: #d1ab99;
+        background-color: var(--cream-100);
+    }
+
+    .btn-neutral-warm {
+        border-color: #d9ccc4;
+        background-color: #ffffff;
+        color: #5f5752;
+        @apply inline-flex items-center rounded-lg border px-4 py-2 text-xs font-semibold uppercase tracking-widest transition;
+    }
+
+    .btn-neutral-warm:hover {
+        background-color: var(--warm-100);
     }
 }

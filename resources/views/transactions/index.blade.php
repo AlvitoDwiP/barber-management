@@ -13,7 +13,7 @@
 
                 <a
                     href="{{ route('transactions.create') }}"
-                    class="inline-flex items-center justify-center rounded-lg border border-[#934C2D] bg-[#934C2D] px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white transition hover:border-[#7D4026] hover:bg-[#7D4026] focus:outline-none focus:ring-2 focus:ring-[#A85F3B] focus:ring-offset-2"
+                    class="btn-brand-primary"
                 >
                     Tambah Transaksi
                 </a>
@@ -71,7 +71,7 @@
                     <x-primary-button class="w-full">Filter</x-primary-button>
                     <a
                         href="{{ route('transactions.index') }}"
-                        class="inline-flex w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-slate-700 transition hover:bg-slate-100"
+                        class="btn-neutral-warm w-full justify-center"
                     >
                         Reset
                     </a>
@@ -123,14 +123,14 @@
                             <div class="mt-4 flex flex-wrap items-center gap-2">
                                 <a
                                     href="{{ route('transactions.show', $transaction->id) }}"
-                                    class="inline-flex items-center rounded-lg border border-[#E5CBC0] bg-[#FAF3EF] px-3 py-2 text-xs font-semibold uppercase tracking-widest text-[#7D4026] transition hover:border-[#D9B4A2] hover:bg-[#F3E5DD]"
+                                    class="btn-brand-soft"
                                 >
                                     Detail
                                 </a>
 
                                 <a
                                     href="{{ route('transactions.edit', $transaction->id) }}"
-                                    class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-widest text-slate-700 transition hover:bg-slate-100"
+                                    class="btn-neutral-warm"
                                 >
                                     Edit
                                 </a>
@@ -175,14 +175,14 @@
                                         <div class="flex items-center gap-2">
                                             <a
                                                 href="{{ route('transactions.show', $transaction->id) }}"
-                                                class="inline-flex items-center rounded-lg border border-[#E5CBC0] bg-[#FAF3EF] px-3 py-2 text-xs font-semibold uppercase tracking-widest text-[#7D4026] transition hover:border-[#D9B4A2] hover:bg-[#F3E5DD]"
+                                                class="btn-brand-soft"
                                             >
                                                 Detail
                                             </a>
 
                                             <a
                                                 href="{{ route('transactions.edit', $transaction->id) }}"
-                                                class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-widest text-slate-700 transition hover:bg-slate-100"
+                                                class="btn-neutral-warm"
                                             >
                                                 Edit
                                             </a>

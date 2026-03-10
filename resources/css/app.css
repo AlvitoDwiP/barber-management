@@ -1,3 +1,71 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    body.admin-body {
+        @apply bg-slate-100 text-slate-800;
+    }
+
+    [x-cloak] {
+        display: none !important;
+    }
+}
+
+@layer components {
+    .admin-sidebar {
+        @apply bg-slate-900;
+    }
+
+    .admin-card {
+        @apply rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6;
+    }
+
+    .admin-nav-link {
+        @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white;
+    }
+
+    .admin-nav-link-active {
+        @apply bg-slate-800 text-white;
+    }
+
+    .admin-nav-link-disabled {
+        @apply cursor-not-allowed opacity-60 hover:bg-transparent hover:text-slate-300;
+    }
+
+    .admin-nav-icon {
+        @apply inline-flex h-7 w-7 items-center justify-center rounded-md border border-current border-opacity-20;
+    }
+
+    .admin-table-wrap {
+        @apply overflow-x-auto rounded-xl border border-slate-200;
+    }
+
+    .admin-table {
+        @apply min-w-[880px] divide-y divide-slate-200 text-sm;
+    }
+
+    .admin-table thead {
+        @apply bg-slate-50;
+    }
+
+    .admin-table th {
+        @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600;
+    }
+
+    .admin-table td {
+        @apply whitespace-nowrap px-4 py-3 text-slate-700;
+    }
+
+    .payment-badge {
+        @apply inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-wide;
+    }
+
+    .payment-badge-cash {
+        @apply border-emerald-200 bg-emerald-50 text-emerald-700;
+    }
+
+    .payment-badge-qr {
+        @apply border-indigo-200 bg-indigo-50 text-indigo-700;
+    }
+}

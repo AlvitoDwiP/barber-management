@@ -8,15 +8,23 @@ window.Alpine = Alpine;
 
 Alpine.start();
 
-document.addEventListener('DOMContentLoaded', () => {
+const initDatePickers = () => {
     const dateInputs = document.querySelectorAll('[data-flatpickr="date"]');
 
     dateInputs.forEach((input) => {
+        if (input.dataset.fpInitialized === 'true') {
+            return;
+        }
+
         flatpickr(input, {
             dateFormat: 'Y-m-d',
             altInput: true,
             altFormat: 'd M Y',
             allowInput: false,
         });
+
+        input.dataset.fpInitialized = 'true';
     });
-});
+};
+
+document.addEventListener('DOMContentLoaded', initDatePickers);

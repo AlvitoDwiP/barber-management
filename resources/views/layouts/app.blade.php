@@ -7,31 +7,27 @@
 
         <title>{{ config('app.name', 'Laravel') }}</title>
 
-        <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
 
-        <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="font-sans antialiased">
-        <div class="min-h-screen bg-gray-100">
-            @include('layouts.navigation')
+    <body class="admin-body font-sans antialiased">
+        <div class="min-h-screen" x-data="{ sidebarOpen: false, userMenuOpen: false }" @keydown.escape.window="sidebarOpen = false; userMenuOpen = false">
+            @include('layouts.partials.sidebar')
 
-            <!-- Page Heading -->
-            @isset($header)
-                <header class="bg-white shadow">
-                    <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                        {{ $header }}
-                    </div>
-                </header>
-            @endisset
+            <div class="lg:pl-72">
+                @include('layouts.partials.topbar')
 
-            <!-- Page Content -->
-            <main>
-                <x-flash-message />
-                {{ $slot }}
-            </main>
+                <main class="px-4 pb-8 pt-6 sm:px-6 lg:px-8 lg:pt-8">
+                    @isset($header)
+                        <div class="mb-6">{{ $header }}</div>
+                    @endisset
+
+                    <x-flash-message />
+                    {{ $slot }}
+                </main>
+            </div>
         </div>
     </body>
 </html>

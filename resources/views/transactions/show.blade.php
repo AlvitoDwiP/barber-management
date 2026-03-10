@@ -1,100 +1,104 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ __('Detail Transaksi') }}</h2>
+        <h2 class="text-lg font-semibold leading-tight text-slate-900">{{ __('Detail Transaksi') }}</h2>
     </x-slot>
 
-    <div class="py-8">
-        <div class="max-w-7xl mx-auto space-y-4 sm:px-6 lg:px-8">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 text-gray-900">
-                    <div class="mb-4 flex items-start justify-between gap-4">
-                        <div>
-                            <h3 class="text-lg font-semibold text-gray-900">Informasi Transaksi</h3>
-                            <p class="text-sm text-gray-600">Kode: {{ $transaction->transaction_code }}</p>
-                        </div>
+    <div class="space-y-6">
+        <section class="admin-card">
+            <div class="mb-5 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Kode Transaksi</p>
+                    <h3 class="mt-1 text-xl font-bold text-slate-900">{{ $transaction->transaction_code }}</h3>
+                    <p class="mt-1 text-sm text-slate-500">Informasi ringkas transaksi dan item snapshot.</p>
+                </div>
 
-                        <div class="flex items-center gap-2">
-                            <a
-                                href="{{ route('transactions.index') }}"
-                                class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 transition hover:bg-gray-100"
-                            >
-                                Kembali
-                            </a>
+                <div class="flex flex-wrap items-center gap-2">
+                    <a
+                        href="{{ route('transactions.index') }}"
+                        class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-slate-700 transition hover:bg-slate-100"
+                    >
+                        Kembali
+                    </a>
 
-                            <x-delete-form
-                                :action="route('transactions.destroy', $transaction)"
-                                button-text="Hapus"
-                                confirm-message="Yakin ingin menghapus transaksi ini? Stok produk akan dikembalikan."
-                            />
-                        </div>
-                    </div>
+                    <a
+                        href="{{ route('transactions.edit', $transaction) }}"
+                        class="inline-flex items-center rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-indigo-700 transition hover:bg-indigo-100"
+                    >
+                        Edit
+                    </a>
 
-                    <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
-                        <div class="rounded-md border border-gray-200 p-4">
-                            <p class="text-xs uppercase tracking-wide text-gray-500">Tanggal Transaksi</p>
-                            <p class="mt-1 text-sm font-semibold text-gray-900">
-                                {{ $transaction->transaction_date?->locale('id')->translatedFormat('d F Y') ?? '-' }}
-                            </p>
-                        </div>
-
-                        <div class="rounded-md border border-gray-200 p-4">
-                            <p class="text-xs uppercase tracking-wide text-gray-500">Pegawai</p>
-                            <p class="mt-1 text-sm font-semibold text-gray-900">{{ $transaction->employee?->name ?? '-' }}</p>
-                        </div>
-
-                        <div class="rounded-md border border-gray-200 p-4">
-                            <p class="text-xs uppercase tracking-wide text-gray-500">Metode Pembayaran</p>
-                            <p class="mt-1 text-sm font-semibold uppercase text-gray-900">{{ $transaction->payment_method }}</p>
-                        </div>
-
-                        <div class="rounded-md border border-gray-200 p-4">
-                            <p class="text-xs uppercase tracking-wide text-gray-500">Total Transaksi</p>
-                            <p class="mt-1 text-sm font-semibold text-gray-900">
-                                Rp {{ number_format((float) $transaction->total_amount, 0, ',', '.') }}
-                            </p>
-                        </div>
-                    </div>
+                    <x-delete-form
+                        :action="route('transactions.destroy', $transaction)"
+                        button-text="Hapus"
+                        confirm-message="Yakin ingin menghapus transaksi ini? Stok produk akan dikembalikan."
+                    />
                 </div>
             </div>
 
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 text-gray-900">
-                    <h3 class="mb-4 text-lg font-semibold text-gray-900">Detail Item</h3>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Tanggal Transaksi</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-900">
+                        {{ $transaction->transaction_date?->locale('id')->translatedFormat('d F Y') ?? '-' }}
+                    </p>
+                </div>
 
-                    @if ($transaction->transactionDetails->isEmpty())
-                        <div class="rounded-md border border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-600">
-                            Belum ada detail item pada transaksi ini.
-                        </div>
-                    @else
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 text-sm">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Nama Item</th>
-                                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Tipe</th>
-                                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Harga</th>
-                                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Qty</th>
-                                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Subtotal</th>
-                                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Komisi</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-100 bg-white">
-                                    @foreach ($transaction->transactionDetails as $detail)
-                                        <tr>
-                                            <td class="px-4 py-3">{{ $detail->item_name ?: '-' }}</td>
-                                            <td class="px-4 py-3 uppercase">{{ $detail->item_type }}</td>
-                                            <td class="px-4 py-3">Rp {{ number_format((float) $detail->unit_price, 0, ',', '.') }}</td>
-                                            <td class="px-4 py-3">{{ number_format((int) $detail->qty, 0, ',', '.') }}</td>
-                                            <td class="px-4 py-3">Rp {{ number_format((float) $detail->subtotal, 0, ',', '.') }}</td>
-                                            <td class="px-4 py-3">Rp {{ number_format((float) $detail->commission_amount, 0, ',', '.') }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    @endif
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Pegawai</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-900">{{ $transaction->employee?->name ?? '-' }}</p>
+                </div>
+
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Metode Pembayaran</p>
+                    <p class="mt-1">
+                        <span class="payment-badge {{ $transaction->payment_method === 'cash' ? 'payment-badge-cash' : 'payment-badge-qr' }}">
+                            {{ $transaction->payment_method }}
+                        </span>
+                    </p>
+                </div>
+
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Total Transaksi</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-900">Rp {{ number_format((float) $transaction->total_amount, 0, ',', '.') }}</p>
                 </div>
             </div>
-        </div>
+        </section>
+
+        <section class="admin-card">
+            <h3 class="mb-4 text-base font-semibold text-slate-900">Detail Item</h3>
+
+            @if ($transaction->transactionDetails->isEmpty())
+                <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-600">
+                    Belum ada detail item pada transaksi ini.
+                </div>
+            @else
+                <div class="admin-table-wrap">
+                    <table class="admin-table w-full">
+                        <thead>
+                            <tr>
+                                <th>Nama Item</th>
+                                <th>Tipe</th>
+                                <th>Harga</th>
+                                <th>Qty</th>
+                                <th>Subtotal</th>
+                                <th>Komisi</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 bg-white">
+                            @foreach ($transaction->transactionDetails as $detail)
+                                <tr class="hover:bg-slate-50/70">
+                                    <td>{{ $detail->item_name ?: '-' }}</td>
+                                    <td class="uppercase">{{ $detail->item_type }}</td>
+                                    <td>Rp {{ number_format((float) $detail->unit_price, 0, ',', '.') }}</td>
+                                    <td>{{ number_format((int) $detail->qty, 0, ',', '.') }}</td>
+                                    <td>Rp {{ number_format((float) $detail->subtotal, 0, ',', '.') }}</td>
+                                    <td>Rp {{ number_format((float) $detail->commission_amount, 0, ',', '.') }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </section>
     </div>
 </x-app-layout>

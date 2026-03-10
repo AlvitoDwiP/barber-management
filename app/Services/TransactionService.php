@@ -7,21 +7,18 @@ use App\Models\Service;
 use App\Models\Transaction;
 use DomainException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 class TransactionService
 {
+    private const MINIMUM_ITEM_MESSAGE = 'Transaksi harus berisi minimal 1 item: pilih minimal 1 layanan atau isi qty produk lebih dari 0.';
+
     public function storeTransaction(array $validatedData): Transaction
     {
         return DB::transaction(function () use ($validatedData): Transaction {
-            $serviceIds = $this->extractServiceIds($validatedData);
-            $productQtyById = $this->extractProductQuantities($validatedData);
-
-            if ($serviceIds === [] && $productQtyById === []) {
-                throw new DomainException(
-                    'Transaksi harus memiliki minimal satu layanan atau satu produk dengan qty lebih dari 0.'
-                );
-            }
+            [$serviceIds, $productQtyById] = $this->extractTransactionItems($validatedData);
+            $this->assertHasMinimumItems($serviceIds, $productQtyById);
 
             $transaction = Transaction::query()->create([
                 'transaction_code' => $this->generateTransactionCode(),
@@ -37,13 +34,65 @@ class TransactionService
             $totalAmount += $this->storeServiceDetails($transaction, $serviceIds);
             $totalAmount += $this->storeProductDetails($transaction, $productQtyById);
 
-            $transaction->update([
-                'subtotal_amount' => $totalAmount,
-                'discount_amount' => 0,
-                'total_amount' => $totalAmount,
-            ]);
+            $this->finalizeTransactionTotals($transaction, $totalAmount);
 
             return $transaction;
+        });
+    }
+
+    public function updateTransaction(Transaction $transaction, array $validatedData): Transaction
+    {
+        return DB::transaction(function () use ($transaction, $validatedData): Transaction {
+            $transaction = Transaction::query()
+                ->whereKey($transaction->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            [$serviceIds, $productQtyById] = $this->extractTransactionItems($validatedData);
+            $this->assertHasMinimumItems($serviceIds, $productQtyById);
+
+            $existingDetails = $transaction->transactionDetails()
+                ->select('id', 'item_type', 'product_id', 'qty')
+                ->get();
+
+            $this->restoreOldProductStocks($existingDetails);
+            $transaction->transactionDetails()->delete();
+
+            $transaction->update([
+                'transaction_date' => $validatedData['transaction_date'],
+                'employee_id' => $validatedData['employee_id'],
+                'payment_method' => $validatedData['payment_method'],
+                'subtotal_amount' => 0,
+                'discount_amount' => 0,
+                'total_amount' => 0,
+            ]);
+
+            $totalAmount = 0.0;
+            $totalAmount += $this->storeServiceDetails($transaction, $serviceIds);
+            $totalAmount += $this->storeProductDetails($transaction, $productQtyById);
+
+            $this->finalizeTransactionTotals($transaction, $totalAmount);
+
+            return $transaction;
+        });
+    }
+
+    public function deleteTransaction(Transaction $transaction): void
+    {
+        DB::transaction(function () use ($transaction): void {
+            $transaction = Transaction::query()
+                ->whereKey($transaction->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $existingDetails = $transaction->transactionDetails()
+                ->select('id', 'item_type', 'product_id', 'qty')
+                ->get();
+
+            $this->restoreOldProductStocks($existingDetails);
+
+            $transaction->transactionDetails()->delete();
+            $transaction->delete();
         });
     }
 
@@ -71,6 +120,7 @@ class TransactionService
             $subtotal = $itemPrice;
             $commission = $itemPrice * 0.5;
 
+            // Snapshot diambil dari data master service, bukan dari request frontend.
             $transaction->transactionDetails()->create([
                 'item_type' => 'service',
                 'service_id' => $service->id,
@@ -121,6 +171,7 @@ class TransactionService
 
             $product->decrement('stock', $qty);
 
+            // Snapshot diambil dari data master product, bukan dari request frontend.
             $transaction->transactionDetails()->create([
                 'item_type' => 'product',
                 'service_id' => null,
@@ -136,6 +187,60 @@ class TransactionService
         }
 
         return $total;
+    }
+
+    private function restoreOldProductStocks(Collection $existingDetails): void
+    {
+        $restoreQtyByProductId = $existingDetails
+            ->where('item_type', 'product')
+            ->filter(fn ($detail) => $detail->product_id !== null && (int) $detail->qty > 0)
+            ->groupBy('product_id')
+            ->map(fn ($rows) => (int) $rows->sum('qty'))
+            ->all();
+
+        if ($restoreQtyByProductId === []) {
+            return;
+        }
+
+        $products = Product::query()
+            ->whereIn('id', array_keys($restoreQtyByProductId))
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('id');
+
+        foreach ($restoreQtyByProductId as $productId => $qtyToRestore) {
+            $product = $products->get((int) $productId);
+
+            if (! $product) {
+                continue;
+            }
+
+            $product->increment('stock', $qtyToRestore);
+        }
+    }
+
+    private function assertHasMinimumItems(array $serviceIds, array $productQtyById): void
+    {
+        if ($serviceIds === [] && $productQtyById === []) {
+            throw new DomainException(self::MINIMUM_ITEM_MESSAGE);
+        }
+    }
+
+    private function extractTransactionItems(array $validatedData): array
+    {
+        $serviceIds = $this->extractServiceIds($validatedData);
+        $productQtyById = $this->extractProductQuantities($validatedData);
+
+        return [$serviceIds, $productQtyById];
+    }
+
+    private function finalizeTransactionTotals(Transaction $transaction, float $totalAmount): void
+    {
+        $transaction->update([
+            'subtotal_amount' => $totalAmount,
+            'discount_amount' => 0,
+            'total_amount' => $totalAmount,
+        ]);
     }
 
     private function extractServiceIds(array $validatedData): array

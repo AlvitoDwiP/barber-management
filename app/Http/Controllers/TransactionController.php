@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreTransactionRequest;
+use App\Http\Requests\UpdateTransactionRequest;
 use App\Models\Employee;
 use App\Models\Product;
 use App\Models\Service;
@@ -48,19 +49,12 @@ class TransactionController extends Controller
 
     public function create(): View
     {
-        $employees = Employee::query()
-            ->orderBy('name')
-            ->get(['id', 'name']);
+        ['employees' => $employees, 'services' => $services, 'products' => $products] = $this->getTransactionFormOptions();
 
-        $services = Service::query()
-            ->orderBy('name')
-            ->get(['id', 'name', 'price']);
+        $selectedServices = [];
+        $selectedProducts = [];
 
-        $products = Product::query()
-            ->orderBy('name')
-            ->get(['id', 'name', 'price', 'stock']);
-
-        return view('transactions.create', compact('employees', 'services', 'products'));
+        return view('transactions.create', compact('employees', 'services', 'products', 'selectedServices', 'selectedProducts'));
     }
 
     public function store(StoreTransactionRequest $request, TransactionService $transactionService): RedirectResponse
@@ -88,21 +82,122 @@ class TransactionController extends Controller
 
     public function show(string $id): View
     {
-        return view('transactions.show', compact('id'));
+        $transaction = Transaction::query()
+            ->with([
+                'employee:id,name',
+                'transactionDetails' => fn ($query) => $query->orderBy('id'),
+            ])
+            ->findOrFail($id);
+
+        return view('transactions.show', compact('transaction'));
     }
 
     public function edit(string $id): View
     {
-        return view('transactions.edit', compact('id'));
+        $transaction = Transaction::query()
+            ->with([
+                'transactionDetails' => fn ($query) => $query
+                    ->select('id', 'transaction_id', 'item_type', 'service_id', 'product_id', 'qty')
+                    ->orderBy('id'),
+            ])
+            ->findOrFail($id);
+
+        ['employees' => $employees, 'services' => $services, 'products' => $products] = $this->getTransactionFormOptions();
+        ['selectedServices' => $selectedServices, 'selectedProducts' => $selectedProducts] = $this->mapTransactionSelections($transaction);
+
+        return view('transactions.edit', compact(
+            'transaction',
+            'employees',
+            'services',
+            'products',
+            'selectedServices',
+            'selectedProducts',
+        ));
     }
 
-    public function update(Request $request, string $id): RedirectResponse
+    public function update(
+        UpdateTransactionRequest $request,
+        Transaction $transaction,
+        TransactionService $transactionService
+    ): RedirectResponse
     {
-        abort(501);
+        try {
+            $transaction = $transactionService->updateTransaction($transaction, $request->validated());
+
+            return redirect()
+                ->route('transactions.show', $transaction)
+                ->with('success', 'Transaksi berhasil diperbarui.');
+        } catch (DomainException $exception) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', $exception->getMessage());
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', 'Terjadi kesalahan saat memperbarui transaksi. Silakan coba lagi.');
+        }
     }
 
-    public function destroy(string $id): RedirectResponse
+    public function destroy(Transaction $transaction, TransactionService $transactionService): RedirectResponse
     {
-        abort(501);
+        try {
+            $transactionService->deleteTransaction($transaction);
+
+            return redirect()
+                ->route('transactions.index')
+                ->with('success', 'Transaksi berhasil dihapus. Stok produk terkait telah dikembalikan.');
+        } catch (DomainException $exception) {
+            return redirect()
+                ->back()
+                ->with('error', $exception->getMessage());
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return redirect()
+                ->back()
+                ->with('error', 'Terjadi kesalahan saat menghapus transaksi. Silakan coba lagi.');
+        }
+    }
+
+    private function getTransactionFormOptions(): array
+    {
+        $employees = Employee::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $services = Service::query()
+            ->orderBy('name')
+            ->get(['id', 'name', 'price']);
+
+        $products = Product::query()
+            ->orderBy('name')
+            ->get(['id', 'name', 'price', 'stock']);
+
+        return compact('employees', 'services', 'products');
+    }
+
+    private function mapTransactionSelections(Transaction $transaction): array
+    {
+        $selectedServices = $transaction->transactionDetails
+            ->where('item_type', 'service')
+            ->pluck('service_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $selectedProducts = $transaction->transactionDetails
+            ->where('item_type', 'product')
+            ->filter(fn ($detail) => $detail->product_id !== null && (int) $detail->qty > 0)
+            ->groupBy('product_id')
+            ->map(fn ($rows) => (int) $rows->sum('qty'))
+            ->all();
+
+        return compact('selectedServices', 'selectedProducts');
     }
 }

@@ -17,6 +17,8 @@
                             'employees' => $employees,
                             'services' => $services,
                             'products' => $products,
+                            'selectedServices' => $selectedServices,
+                            'selectedProducts' => $selectedProducts,
                             'submitLabel' => 'Simpan',
                         ])
                     </form>

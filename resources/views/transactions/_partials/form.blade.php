@@ -3,31 +3,23 @@
     $employeeValue = old('employee_id', $transaction?->employee_id);
     $paymentMethodValue = old('payment_method', $transaction?->payment_method);
 
+    $selectedServiceDefaults = collect($selectedServices ?? [])
+        ->map(fn ($id) => (string) $id)
+        ->all();
+
     $oldServices = old('services');
     $selectedServiceIds = is_array($oldServices)
         ? collect($oldServices)->map(fn ($id) => (string) $id)->all()
-        : [];
+        : $selectedServiceDefaults;
 
-    if (! is_array($oldServices) && $transaction?->exists) {
-        $selectedServiceIds = $transaction->transactionDetails()
-            ->where('item_type', 'service')
-            ->pluck('service_id')
-            ->map(fn ($id) => (string) $id)
-            ->all();
-    }
+    $selectedProductDefaults = collect($selectedProducts ?? [])
+        ->map(fn ($qty) => $qty === null ? '' : (string) $qty)
+        ->all();
 
     $oldProducts = old('products');
     $productQtyById = is_array($oldProducts)
         ? collect($oldProducts)->map(fn ($qty) => $qty === null ? '' : (string) $qty)->all()
-        : [];
-
-    if (! is_array($oldProducts) && $transaction?->exists) {
-        $productQtyById = $transaction->transactionDetails()
-            ->where('item_type', 'product')
-            ->pluck('qty', 'product_id')
-            ->map(fn ($qty) => (string) $qty)
-            ->all();
-    }
+        : $selectedProductDefaults;
 @endphp
 
 <div class="space-y-6">

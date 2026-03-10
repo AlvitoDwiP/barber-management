@@ -134,7 +134,7 @@
                                                     <x-delete-form
                                                         :action="route('transactions.destroy', $transaction->id)"
                                                         button-text="Hapus"
-                                                        confirm-message="Yakin ingin menghapus data ini?"
+                                                        confirm-message="Yakin ingin menghapus transaksi ini? Stok produk akan dikembalikan."
                                                     />
                                                 </div>
                                             </td>

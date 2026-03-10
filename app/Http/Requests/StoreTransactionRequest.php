@@ -8,6 +8,8 @@ use Illuminate\Validation\Validator;
 
 class StoreTransactionRequest extends FormRequest
 {
+    private const MINIMUM_ITEM_MESSAGE = 'Transaksi harus berisi minimal 1 item: pilih minimal 1 layanan atau isi qty produk lebih dari 0.';
+
     public function authorize(): bool
     {
         return true;
@@ -33,7 +35,7 @@ class StoreTransactionRequest extends FormRequest
             $products = $this->input('products', []);
 
             $hasSelectedService = is_array($services)
-                && collect($services)->filter(fn ($id) => filled($id))->isNotEmpty();
+                && collect($services)->contains(fn ($id) => (int) $id > 0);
 
             $hasSelectedProduct = is_array($products)
                 && collect($products)->contains(fn ($qty) => (int) $qty > 0);
@@ -41,7 +43,7 @@ class StoreTransactionRequest extends FormRequest
             if (! $hasSelectedService && ! $hasSelectedProduct) {
                 $validator->errors()->add(
                     'services',
-                    'Transaksi harus memiliki minimal satu layanan atau satu produk dengan qty lebih dari 0.'
+                    self::MINIMUM_ITEM_MESSAGE
                 );
             }
 

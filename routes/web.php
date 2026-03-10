@@ -5,6 +5,7 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\TransactionController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -16,7 +17,7 @@ Route::get('/dashboard', function () {
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/transactions', fn () => view('dashboard'))->name('transactions.index');
+    Route::resource('transactions', TransactionController::class);
     Route::get('/payrolls', fn () => view('dashboard'))->name('payrolls.index');
     Route::get('/reports', fn () => view('dashboard'))->name('reports.index');
 

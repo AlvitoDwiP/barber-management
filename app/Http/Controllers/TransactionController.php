@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreTransactionRequest;
 use App\Models\Employee;
 use App\Models\Product;
 use App\Models\Service;
 use App\Models\Transaction;
+use App\Services\TransactionService;
+use DomainException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -60,9 +63,27 @@ class TransactionController extends Controller
         return view('transactions.create', compact('employees', 'services', 'products'));
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreTransactionRequest $request, TransactionService $transactionService): RedirectResponse
     {
-        abort(501);
+        try {
+            $transaction = $transactionService->storeTransaction($request->validated());
+
+            return redirect()
+                ->route('transactions.show', $transaction)
+                ->with('success', 'Transaksi berhasil disimpan.');
+        } catch (DomainException $exception) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', $exception->getMessage());
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', 'Terjadi kesalahan saat menyimpan transaksi. Silakan coba lagi.');
+        }
     }
 
     public function show(string $id): View

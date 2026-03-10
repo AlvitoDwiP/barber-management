@@ -57,12 +57,17 @@
                                                 </button>
                                             </form>
 
-                                            <a
-                                                href="#"
-                                                class="inline-flex items-center rounded-lg border border-transparent bg-red-600 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-red-500"
-                                            >
-                                                Close Payroll
-                                            </a>
+                                            @if ($period->status === 'open')
+                                                <form action="{{ route('payroll.close', $period) }}" method="POST">
+                                                    @csrf
+                                                    <button
+                                                        type="submit"
+                                                        class="inline-flex items-center rounded-lg border border-transparent bg-red-600 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-red-500"
+                                                    >
+                                                        Close Payroll
+                                                    </button>
+                                                </form>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>

@@ -22,7 +22,16 @@ class PayrollController extends Controller
 
     public function show(PayrollPeriod $payroll): View
     {
-        $payrollPeriod = $payroll;
+        $payrollPeriod = $payroll->load([
+            'payrollResults.employee',
+        ]);
+
+        $payrollPeriod->setRelation(
+            'payrollResults',
+            $payrollPeriod->payrollResults
+                ->sortBy(fn ($result) => mb_strtolower($result->employee?->name ?? ''))
+                ->values()
+        );
 
         return view('payroll.show', compact('payrollPeriod'));
     }
@@ -45,6 +54,27 @@ class PayrollController extends Controller
             return redirect()
                 ->route('payroll.index')
                 ->with('error', 'Terjadi kesalahan saat membuka payroll period. Silakan coba lagi.');
+        }
+    }
+
+    public function close(PayrollPeriod $payroll, PayrollService $payrollService): RedirectResponse
+    {
+        try {
+            $payrollService->closePayroll($payroll);
+
+            return redirect()
+                ->route('payroll.show', $payroll)
+                ->with('success', 'Payroll berhasil ditutup.');
+        } catch (DomainException $exception) {
+            return redirect()
+                ->route('payroll.show', $payroll)
+                ->with('error', $exception->getMessage());
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return redirect()
+                ->route('payroll.show', $payroll)
+                ->with('error', 'Terjadi kesalahan saat menutup payroll. Silakan coba lagi.');
         }
     }
 }

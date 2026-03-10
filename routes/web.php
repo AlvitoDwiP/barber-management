@@ -21,6 +21,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('transactions', TransactionController::class);
     Route::resource('payroll', PayrollController::class)->only(['index', 'show']);
     Route::post('/payroll/open', [PayrollController::class, 'open'])->name('payroll.open');
+    Route::post('/payroll/{payroll}/close', [PayrollController::class, 'close'])->name('payroll.close');
     Route::get('/reports', fn () => view('dashboard'))->name('reports.index');
 
     Route::resource('employees', EmployeeController::class);

@@ -11,9 +11,12 @@
                     <p class="text-sm text-slate-500">Daftar periode payroll berdasarkan tanggal mulai terbaru.</p>
                 </div>
 
-                <a href="#" class="btn-brand-primary">
-                    Open Payroll
-                </a>
+                <form action="{{ route('payroll.open') }}" method="POST">
+                    @csrf
+                    <button type="submit" class="btn-brand-primary">
+                        Open Payroll
+                    </button>
+                </form>
             </div>
 
             @if ($payrollPeriods->isEmpty())
@@ -47,9 +50,12 @@
                                                 Detail
                                             </a>
 
-                                            <a href="#" class="btn-brand-primary">
-                                                Open Payroll
-                                            </a>
+                                            <form action="{{ route('payroll.open') }}" method="POST">
+                                                @csrf
+                                                <button type="submit" class="btn-brand-primary">
+                                                    Open Payroll
+                                                </button>
+                                            </form>
 
                                             <a
                                                 href="#"

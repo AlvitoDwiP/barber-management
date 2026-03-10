@@ -31,6 +31,10 @@
 @endphp
 
 <div class="space-y-6">
+    <div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+        Transaksi dapat berisi layanan saja, produk saja, atau kombinasi keduanya.
+    </div>
+
     <div class="rounded-md border border-gray-200 p-4 space-y-4">
         <h3 class="text-base font-semibold text-gray-900">Data Transaksi</h3>
 
@@ -113,6 +117,9 @@
 
     <div class="rounded-md border border-gray-200 p-4 space-y-4">
         <h3 class="text-base font-semibold text-gray-900">Produk (Opsional)</h3>
+        <p class="text-sm text-gray-600">
+            Produk dengan qty 0 akan diabaikan. Isi minimal satu layanan atau satu produk.
+        </p>
 
         <div class="space-y-3">
             @forelse ($products as $product)
@@ -136,7 +143,7 @@
                             min="0"
                             step="1"
                             class="mt-1 block w-full"
-                            :value="$productQtyById[$product->id] ?? ''"
+                            :value="$productQtyById[$product->id] ?? '0'"
                         />
                     </div>
                 </div>

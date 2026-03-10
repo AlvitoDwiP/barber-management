@@ -3,8 +3,19 @@
 @tailwind utilities;
 
 @layer base {
+    :root {
+        --brand-900: #6b3721;
+        --brand-800: #7d4026;
+        --brand-700: #934c2d;
+        --brand-600: #a85f3b;
+        --brand-100: #f3e5dd;
+        --brand-50: #faf3ef;
+        --brand-ring: rgba(147, 76, 45, 0.32);
+    }
+
     body.admin-body {
-        @apply bg-slate-100 text-slate-800;
+        background-color: #f8f6f4;
+        @apply text-slate-800;
     }
 
     [x-cloak] {
@@ -14,7 +25,7 @@
 
 @layer components {
     .admin-sidebar {
-        @apply bg-slate-900;
+        background-color: var(--brand-900);
     }
 
     .admin-card {
@@ -22,19 +33,30 @@
     }
 
     .admin-nav-link {
-        @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white;
+        color: #f7e8df;
+        @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition;
+    }
+
+    .admin-nav-link:hover {
+        background-color: rgba(255, 255, 255, 0.13);
+        color: #fffaf7;
     }
 
     .admin-nav-link-active {
-        @apply bg-slate-800 text-white;
+        background-color: var(--brand-700);
+        color: #fffdfc;
+        box-shadow: inset 0 0 0 1px rgba(255, 240, 230, 0.2);
     }
 
     .admin-nav-link-disabled {
-        @apply cursor-not-allowed opacity-60 hover:bg-transparent hover:text-slate-300;
+        color: #e3c5b5;
+        @apply cursor-not-allowed opacity-70 hover:bg-transparent;
     }
 
     .admin-nav-icon {
-        @apply inline-flex h-7 w-7 items-center justify-center rounded-md border border-current border-opacity-20;
+        border-color: rgba(255, 255, 255, 0.28);
+        background-color: rgba(255, 255, 255, 0.06);
+        @apply inline-flex h-7 w-7 items-center justify-center rounded-md border;
     }
 
     .admin-table-wrap {
@@ -66,6 +88,24 @@
     }
 
     .payment-badge-qr {
-        @apply border-indigo-200 bg-indigo-50 text-indigo-700;
+        border-color: #e5cbc0;
+        background-color: var(--brand-50);
+        color: var(--brand-800);
+    }
+
+    .brand-tint-panel {
+        border-color: #ebd1c4;
+        background-color: var(--brand-50);
+        color: #7a462f;
+    }
+
+    .form-brand-control {
+        @apply mt-1 block w-full rounded-md border-slate-300 shadow-sm;
+    }
+
+    .form-brand-control:focus {
+        border-color: var(--brand-600);
+        outline: 0;
+        box-shadow: 0 0 0 3px var(--brand-ring);
     }
 }

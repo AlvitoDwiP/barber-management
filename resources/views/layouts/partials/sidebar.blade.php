@@ -2,13 +2,13 @@
     $dashboardUrl = \Illuminate\Support\Facades\Route::has('dashboard') ? route('dashboard') : '#';
 @endphp
 
-<aside class="admin-sidebar fixed inset-y-0 left-0 z-40 hidden w-72 border-r border-slate-800/80 lg:flex lg:flex-col">
-    <div class="flex h-16 items-center border-b border-slate-800/80 px-6">
+<aside class="admin-sidebar fixed inset-y-0 left-0 z-40 hidden w-72 border-r border-[#8B533B] lg:flex lg:flex-col">
+    <div class="flex h-16 items-center border-b border-[#8B533B] px-6">
         <a href="{{ $dashboardUrl }}" class="flex items-center gap-3">
-            <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/20 text-sm font-semibold text-indigo-200">HS</span>
+            <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#F3E5DD]/50 bg-[#F3E5DD]/20 text-sm font-semibold text-[#F9EEE8]">HS</span>
             <div>
-                <p class="text-sm font-semibold text-white">Hair Studio</p>
-                <p class="text-xs text-slate-400">Management System</p>
+                <p class="text-sm font-semibold text-[#FFF8F5]">Hair Studio</p>
+                <p class="text-xs text-[#E9CDBF]">Management System</p>
             </div>
         </a>
     </div>
@@ -17,9 +17,9 @@
         @include('layouts.navigation')
     </div>
 
-    <div class="border-t border-slate-800/80 px-6 py-4">
-        <p class="text-xs text-slate-400">Login sebagai</p>
-        <p class="truncate text-sm font-medium text-slate-100">{{ Auth::user()->name }}</p>
+    <div class="border-t border-[#8B533B] px-6 py-4">
+        <p class="text-xs text-[#E9CDBF]">Login sebagai</p>
+        <p class="truncate text-sm font-medium text-[#FFF8F5]">{{ Auth::user()->name }}</p>
     </div>
 </aside>
 
@@ -40,17 +40,17 @@
         x-transition:leave="transform transition ease-in duration-150"
         x-transition:leave-start="translate-x-0"
         x-transition:leave-end="-translate-x-full"
-        class="admin-sidebar relative flex h-full w-72 flex-col border-r border-slate-800/80"
+        class="admin-sidebar relative flex h-full w-72 flex-col border-r border-[#8B533B]"
     >
-        <div class="flex h-16 items-center justify-between border-b border-slate-800/80 px-5">
+        <div class="flex h-16 items-center justify-between border-b border-[#8B533B] px-5">
             <a href="{{ $dashboardUrl }}" class="flex items-center gap-3">
-                <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/20 text-xs font-semibold text-indigo-200">HS</span>
-                <span class="text-sm font-semibold text-white">Hair Studio</span>
+                <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#F3E5DD]/50 bg-[#F3E5DD]/20 text-xs font-semibold text-[#F9EEE8]">HS</span>
+                <span class="text-sm font-semibold text-[#FFF8F5]">Hair Studio</span>
             </a>
 
             <button
                 type="button"
-                class="inline-flex h-9 w-9 items-center justify-center rounded-md text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                class="inline-flex h-9 w-9 items-center justify-center rounded-md text-[#F2DACE] transition hover:bg-[#A66445]/30 hover:text-white"
                 @click="sidebarOpen = false"
                 aria-label="Tutup sidebar"
             >
@@ -64,8 +64,8 @@
             @include('layouts.navigation', ['mobile' => true])
         </div>
 
-        <div class="border-t border-slate-800/80 px-6 py-4">
-            <p class="text-xs text-slate-400">{{ Auth::user()->email }}</p>
+        <div class="border-t border-[#8B533B] px-6 py-4">
+            <p class="text-xs text-[#E9CDBF]">{{ Auth::user()->email }}</p>
         </div>
     </aside>
 </div>

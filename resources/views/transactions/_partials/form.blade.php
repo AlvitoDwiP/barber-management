@@ -58,12 +58,7 @@
 
                 <div>
                     <x-input-label for="employee_id" :value="__('Pegawai')" />
-                    <select
-                        id="employee_id"
-                        name="employee_id"
-                        class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                        required
-                    >
+                    <select id="employee_id" name="employee_id" class="form-brand-control" required>
                         <option value="">Pilih pegawai</option>
                         @foreach ($employees as $employee)
                             <option value="{{ $employee->id }}" @selected((string) $employeeValue === (string) $employee->id)>
@@ -76,12 +71,7 @@
 
                 <div>
                     <x-input-label for="payment_method" :value="__('Metode Pembayaran')" />
-                    <select
-                        id="payment_method"
-                        name="payment_method"
-                        class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                        required
-                    >
+                    <select id="payment_method" name="payment_method" class="form-brand-control" required>
                         <option value="">Pilih metode</option>
                         <option value="cash" @selected($paymentMethodValue === 'cash')>cash</option>
                         <option value="qr" @selected($paymentMethodValue === 'qr')>qr</option>
@@ -97,12 +87,12 @@
                     <h3 class="text-base font-semibold text-slate-900">Pilih Layanan</h3>
                     <p class="text-sm text-slate-500">Pilih satu atau lebih layanan yang diberikan ke pelanggan.</p>
                 </div>
-                <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600" x-text="`${selectedServiceCount()} terpilih`"></span>
+                <span class="rounded-full bg-[#FAF3EF] px-3 py-1 text-xs font-medium text-[#7D4026]" x-text="`${selectedServiceCount()} terpilih`"></span>
             </div>
 
             <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
                 @forelse ($services as $service)
-                    <label class="flex cursor-pointer items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 transition hover:border-indigo-200 hover:bg-indigo-50/40">
+                    <label class="flex cursor-pointer items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 transition hover:border-[#D9B4A2] hover:bg-[#FAF3EF]">
                         <div>
                             <p class="text-sm font-medium text-slate-900">{{ $service->name }}</p>
                             <p class="text-xs text-slate-500">Rp {{ number_format((float) $service->price, 0, ',', '.') }}</p>
@@ -112,7 +102,7 @@
                             type="checkbox"
                             name="services[]"
                             value="{{ $service->id }}"
-                            class="mt-1 rounded border-slate-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                            class="mt-1 rounded border-slate-300 text-[#934C2D] shadow-sm focus:ring-[#A85F3B]"
                             x-model="selectedServices"
                             @checked(in_array((string) $service->id, $selectedServiceIds, true))
                         />
@@ -166,29 +156,29 @@
     </div>
 
     <aside class="space-y-4 xl:sticky xl:top-24 xl:self-start">
-        <section class="rounded-xl border border-indigo-100 bg-indigo-50 p-4">
-            <h4 class="text-sm font-semibold text-indigo-900">Panduan Cepat</h4>
-            <ul class="mt-2 space-y-2 text-sm text-indigo-800">
+        <section class="brand-tint-panel rounded-xl border p-4">
+            <h4 class="text-sm font-semibold text-[#7D4026]">Panduan Cepat</h4>
+            <ul class="mt-2 space-y-2 text-sm text-[#8B533B]">
                 <li>Transaksi bisa layanan saja, produk saja, atau gabungan.</li>
                 <li>Isi 0 pada qty untuk mengabaikan produk.</li>
                 <li>Pastikan pegawai dan metode pembayaran sudah benar.</li>
             </ul>
         </section>
 
-        <section class="rounded-xl border border-slate-200 bg-white p-4">
-            <h4 class="text-sm font-semibold text-slate-900">Ringkasan Input</h4>
-            <dl class="mt-3 space-y-2 text-sm text-slate-600">
+        <section class="rounded-xl border border-[#E5CBC0] bg-[#FAF3EF] p-4">
+            <h4 class="text-sm font-semibold text-[#7D4026]">Ringkasan Input</h4>
+            <dl class="mt-3 space-y-2 text-sm text-[#8B533B]">
                 <div class="flex items-center justify-between gap-3">
                     <dt>Layanan dipilih</dt>
-                    <dd class="font-semibold text-slate-900" x-text="selectedServiceCount()"></dd>
+                    <dd class="font-semibold text-[#6B3721]" x-text="selectedServiceCount()"></dd>
                 </div>
                 <div class="flex items-center justify-between gap-3">
                     <dt>Produk qty &gt; 0</dt>
-                    <dd class="font-semibold text-slate-900" x-text="selectedProductCount()"></dd>
+                    <dd class="font-semibold text-[#6B3721]" x-text="selectedProductCount()"></dd>
                 </div>
                 <div class="flex items-center justify-between gap-3">
                     <dt>Produk tersedia</dt>
-                    <dd class="font-semibold text-slate-900">{{ $products->count() }}</dd>
+                    <dd class="font-semibold text-[#6B3721]">{{ $products->count() }}</dd>
                 </div>
             </dl>
         </section>

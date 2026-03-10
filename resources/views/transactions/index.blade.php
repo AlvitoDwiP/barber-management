@@ -13,7 +13,7 @@
 
                 <a
                     href="{{ route('transactions.create') }}"
-                    class="inline-flex items-center justify-center rounded-lg border border-indigo-600 bg-indigo-600 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-indigo-500"
+                    class="inline-flex items-center justify-center rounded-lg border border-[#934C2D] bg-[#934C2D] px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white transition hover:border-[#7D4026] hover:bg-[#7D4026] focus:outline-none focus:ring-2 focus:ring-[#A85F3B] focus:ring-offset-2"
                 >
                     Tambah Transaksi
                 </a>
@@ -48,11 +48,7 @@
 
                 <div>
                     <x-input-label for="employee_id" :value="__('Pegawai')" />
-                    <select
-                        id="employee_id"
-                        name="employee_id"
-                        class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    >
+                    <select id="employee_id" name="employee_id" class="form-brand-control">
                         <option value="">Semua pegawai</option>
                         @foreach ($employees as $employee)
                             <option value="{{ $employee->id }}" @selected((string) $filters['employee_id'] === (string) $employee->id)>
@@ -64,11 +60,7 @@
 
                 <div>
                     <x-input-label for="payment_method" :value="__('Metode Pembayaran')" />
-                    <select
-                        id="payment_method"
-                        name="payment_method"
-                        class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    >
+                    <select id="payment_method" name="payment_method" class="form-brand-control">
                         <option value="">Semua metode</option>
                         <option value="cash" @selected($filters['payment_method'] === 'cash')>cash</option>
                         <option value="qr" @selected($filters['payment_method'] === 'qr')>qr</option>
@@ -90,7 +82,7 @@
         <section class="admin-card">
             <div class="mb-4 flex items-center justify-between gap-3">
                 <h3 class="text-base font-semibold text-slate-900">Daftar Transaksi</h3>
-                <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">{{ $transactions->total() }} data</span>
+                <span class="rounded-full bg-[#FAF3EF] px-3 py-1 text-xs font-medium text-[#7D4026]">{{ $transactions->total() }} data</span>
             </div>
 
             @if ($transactions->isEmpty())
@@ -131,7 +123,7 @@
                             <div class="mt-4 flex flex-wrap items-center gap-2">
                                 <a
                                     href="{{ route('transactions.show', $transaction->id) }}"
-                                    class="inline-flex items-center rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-indigo-700 transition hover:bg-indigo-100"
+                                    class="inline-flex items-center rounded-lg border border-[#E5CBC0] bg-[#FAF3EF] px-3 py-2 text-xs font-semibold uppercase tracking-widest text-[#7D4026] transition hover:border-[#D9B4A2] hover:bg-[#F3E5DD]"
                                 >
                                     Detail
                                 </a>
@@ -183,7 +175,7 @@
                                         <div class="flex items-center gap-2">
                                             <a
                                                 href="{{ route('transactions.show', $transaction->id) }}"
-                                                class="inline-flex items-center rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-indigo-700 transition hover:bg-indigo-100"
+                                                class="inline-flex items-center rounded-lg border border-[#E5CBC0] bg-[#FAF3EF] px-3 py-2 text-xs font-semibold uppercase tracking-widest text-[#7D4026] transition hover:border-[#D9B4A2] hover:bg-[#F3E5DD]"
                                             >
                                                 Detail
                                             </a>

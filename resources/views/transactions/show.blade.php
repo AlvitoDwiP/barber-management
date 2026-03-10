@@ -22,7 +22,7 @@
 
                     <a
                         href="{{ route('transactions.edit', $transaction) }}"
-                        class="inline-flex items-center rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-indigo-700 transition hover:bg-indigo-100"
+                        class="inline-flex items-center rounded-lg border border-[#E5CBC0] bg-[#FAF3EF] px-4 py-2 text-xs font-semibold uppercase tracking-widest text-[#7D4026] transition hover:border-[#D9B4A2] hover:bg-[#F3E5DD]"
                     >
                         Edit
                     </a>

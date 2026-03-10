@@ -8,8 +8,6 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 space-y-4">
                     <p class="text-sm text-gray-600">Halaman edit transaksi #{{ $id }} (placeholder).</p>
-                    @include('transactions._partials.form')
-                    @include('transactions._partials.items')
                 </div>
             </div>
         </div>

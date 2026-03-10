@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Employee;
+use App\Models\Product;
+use App\Models\Service;
 use App\Models\Transaction;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -43,7 +45,19 @@ class TransactionController extends Controller
 
     public function create(): View
     {
-        return view('transactions.create');
+        $employees = Employee::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $services = Service::query()
+            ->orderBy('name')
+            ->get(['id', 'name', 'price']);
+
+        $products = Product::query()
+            ->orderBy('name')
+            ->get(['id', 'name', 'price', 'stock']);
+
+        return view('transactions.create', compact('employees', 'services', 'products'));
     }
 
     public function store(Request $request): RedirectResponse

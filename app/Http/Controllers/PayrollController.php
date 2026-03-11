@@ -11,18 +11,23 @@ use Illuminate\View\View;
 
 class PayrollController extends Controller
 {
-    public function index(): View
+    public function index(PayrollService $payrollService): View
     {
         $payrollPeriods = PayrollPeriod::query()
             ->orderByDesc('start_date')
             ->orderByDesc('id')
             ->paginate(15);
         $payrollOverlapWarning = (bool) session('payroll_overlap_warning', false);
+        $transactionCountsByPayrollId = [];
 
-        return view('payroll.index', compact('payrollPeriods', 'payrollOverlapWarning'));
+        foreach ($payrollPeriods->getCollection()->where('status', 'open') as $period) {
+            $transactionCountsByPayrollId[$period->id] = $payrollService->countPendingTransactionsForPeriod($period);
+        }
+
+        return view('payroll.index', compact('payrollPeriods', 'payrollOverlapWarning', 'transactionCountsByPayrollId'));
     }
 
-    public function show(PayrollPeriod $payroll): View
+    public function show(PayrollPeriod $payroll, PayrollService $payrollService): View
     {
         $payrollPeriod = $payroll->load([
             'payrollResults.employee',
@@ -34,8 +39,9 @@ class PayrollController extends Controller
                 ->sortBy(fn ($result) => mb_strtolower($result->employee?->name ?? ''))
                 ->values()
         );
+        $transactionCount = $payrollService->countPendingTransactionsForPeriod($payrollPeriod);
 
-        return view('payroll.show', compact('payrollPeriod'));
+        return view('payroll.show', compact('payrollPeriod', 'transactionCount'));
     }
 
     public function open(StorePayrollPeriodRequest $request, PayrollService $payrollService): RedirectResponse

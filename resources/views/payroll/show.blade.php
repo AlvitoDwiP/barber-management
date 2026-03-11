@@ -1,4 +1,8 @@
 <x-app-layout>
+    @php
+        $closePayrollConfirmMessage = "Anda akan menutup payroll untuk periode ini.\nSemua transaksi dalam periode payroll akan dikunci dan tidak dapat dihitung ulang.\nApakah Anda yakin ingin menutup payroll ini?";
+    @endphp
+
     <x-slot name="header">
         <h2 class="text-lg font-semibold leading-tight text-slate-900">{{ __('Payroll Detail') }}</h2>
     </x-slot>
@@ -9,7 +13,11 @@
                 <h1 class="text-xl font-semibold text-slate-900">Detail Payroll Period</h1>
                 <div class="flex items-center gap-2">
                     @if ($payrollPeriod->status === 'open')
-                        <form action="{{ route('payroll.close', $payrollPeriod) }}" method="POST">
+                        <form
+                            action="{{ route('payroll.close', $payrollPeriod) }}"
+                            method="POST"
+                            onsubmit="return confirm(@js($closePayrollConfirmMessage))"
+                        >
                             @csrf
                             <button
                                 type="submit"
@@ -25,6 +33,15 @@
                     </a>
                 </div>
             </div>
+
+            @if ($payrollPeriod->status === 'open')
+                <div class="mb-4 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                    <p>Jumlah transaksi dalam payroll ini: <span class="font-semibold">{{ (int) $transactionCount }} transaksi</span></p>
+                    @if ((int) $transactionCount === 0)
+                        <p class="font-medium text-amber-700">Tidak ada transaksi dalam periode payroll ini.</p>
+                    @endif
+                </div>
+            @endif
 
             <div class="admin-table-wrap">
                 <table class="admin-table w-full min-w-[640px]">

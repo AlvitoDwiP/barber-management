@@ -1,4 +1,8 @@
 <x-app-layout>
+    @php
+        $closePayrollConfirmMessage = "Anda akan menutup payroll untuk periode ini.\nSemua transaksi dalam periode payroll akan dikunci dan tidak dapat dihitung ulang.\nApakah Anda yakin ingin menutup payroll ini?";
+    @endphp
+
     <x-slot name="header">
         <h2 class="text-lg font-semibold leading-tight text-slate-900">{{ __('Penggajian') }}</h2>
     </x-slot>
@@ -113,7 +117,11 @@
                                             </a>
 
                                             @if ($period->status === 'open')
-                                                <form action="{{ route('payroll.close', $period) }}" method="POST">
+                                                <form
+                                                    action="{{ route('payroll.close', $period) }}"
+                                                    method="POST"
+                                                    onsubmit="return confirm(@js($closePayrollConfirmMessage))"
+                                                >
                                                     @csrf
                                                     <button
                                                         type="submit"
@@ -122,6 +130,18 @@
                                                         Close Payroll
                                                     </button>
                                                 </form>
+
+                                                @php
+                                                    $transactionCount = (int) ($transactionCountsByPayrollId[$period->id] ?? 0);
+                                                @endphp
+                                                <p class="w-full text-xs text-slate-600">
+                                                    Jumlah transaksi dalam payroll ini: <span class="font-semibold">{{ $transactionCount }} transaksi</span>
+                                                </p>
+                                                @if ($transactionCount === 0)
+                                                    <p class="w-full text-xs font-medium text-amber-700">
+                                                        Tidak ada transaksi dalam periode payroll ini.
+                                                    </p>
+                                                @endif
                                             @else
                                                 <span class="text-xs font-medium uppercase tracking-wide text-slate-500">
                                                     Sudah ditutup

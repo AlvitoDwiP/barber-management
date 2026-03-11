@@ -59,11 +59,7 @@ class PayrollService
 
             $this->assertPayrollCanBeClosed($payrollPeriod);
 
-            $startDateTime = Carbon::parse($payrollPeriod->start_date)->startOfDay();
-            $effectiveEndDate = $payrollPeriod->end_date !== null
-                ? Carbon::parse($payrollPeriod->end_date)
-                : Carbon::today();
-            $endDateTime = $effectiveEndDate->copy()->endOfDay();
+            [$startDateTime, $endDateTime, $effectiveEndDate] = $this->resolvePayrollDateRange($payrollPeriod);
 
             $transactionIds = Transaction::query()
                 ->whereNull('payroll_id')
@@ -136,6 +132,17 @@ class PayrollService
         });
     }
 
+    public function countPendingTransactionsForPeriod(PayrollPeriod $payrollPeriod): int
+    {
+        [$startDateTime, $endDateTime] = $this->resolvePayrollDateRange($payrollPeriod);
+
+        return Transaction::query()
+            ->whereNull('payroll_id')
+            ->where('transaction_date', '>=', $startDateTime)
+            ->where('transaction_date', '<=', $endDateTime)
+            ->count();
+    }
+
     private function assertPayrollCanBeClosed(PayrollPeriod $payrollPeriod): void
     {
         if ($payrollPeriod->status !== self::PAYROLL_STATUS_OPEN) {
@@ -160,5 +167,19 @@ class PayrollService
         if ($hasOpenPayroll) {
             throw new DomainException(self::EXISTING_OPEN_MESSAGE);
         }
+    }
+
+    /**
+     * @return array{0: Carbon, 1: Carbon, 2: Carbon}
+     */
+    private function resolvePayrollDateRange(PayrollPeriod $payrollPeriod): array
+    {
+        $startDateTime = Carbon::parse($payrollPeriod->start_date)->startOfDay();
+        $effectiveEndDate = $payrollPeriod->end_date !== null
+            ? Carbon::parse($payrollPeriod->end_date)
+            : Carbon::today();
+        $endDateTime = $effectiveEndDate->copy()->endOfDay();
+
+        return [$startDateTime, $endDateTime, $effectiveEndDate];
     }
 }

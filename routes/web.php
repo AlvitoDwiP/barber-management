@@ -1,45 +1,36 @@
 <?php
 
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\TransactionController;
-use App\Models\PayrollPeriod;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/dashboard', function () {
-    $overdueOpenPayroll = PayrollPeriod::query()
-        ->where('status', 'open')
-        ->whereNotNull('end_date')
-        ->whereDate('end_date', '<', now()->toDateString())
-        ->latest('id')
-        ->first();
-
-    $overdueDays = null;
-
-    if ($overdueOpenPayroll) {
-        $overdueDays = Carbon::parse($overdueOpenPayroll->end_date)
-            ->startOfDay()
-            ->diffInDays(now()->startOfDay());
-    }
-
-    return view('dashboard', compact('overdueOpenPayroll', 'overdueDays'));
-})->middleware(['auth', 'verified'])->name('dashboard');
-
 Route::middleware('auth')->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    Route::prefix('reports')->name('reports.')->group(function () {
+        Route::get('/', [ReportController::class, 'index'])->name('index');
+        Route::get('/daily', [ReportController::class, 'daily'])->name('daily');
+        Route::get('/monthly', [ReportController::class, 'monthly'])->name('monthly');
+        Route::get('/payment', [ReportController::class, 'payment'])->name('payment');
+        Route::get('/products', [ReportController::class, 'products'])->name('products');
+        Route::get('/employees', [ReportController::class, 'employees'])->name('employees');
+    });
+
     Route::resource('transactions', TransactionController::class);
     Route::resource('payroll', PayrollController::class)->only(['index', 'show']);
     Route::post('/payroll/open', [PayrollController::class, 'open'])->name('payroll.open');
     Route::post('/payroll/{payroll}/close', [PayrollController::class, 'close'])->name('payroll.close');
-    Route::get('/reports', fn () => view('dashboard'))->name('reports.index');
 
     Route::resource('employees', EmployeeController::class);
     Route::resource('services', ServiceController::class);

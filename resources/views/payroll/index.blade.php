@@ -5,19 +5,81 @@
 
     <div class="space-y-6">
         <section class="admin-card">
-            <div class="mb-4 flex items-center justify-between gap-3">
-                <div>
-                    <h3 class="text-base font-semibold text-slate-900">Periode Payroll</h3>
-                    <p class="text-sm text-slate-500">Daftar periode payroll berdasarkan tanggal mulai terbaru.</p>
+            <div class="mb-4">
+                <h3 class="text-base font-semibold text-slate-900">Periode Payroll</h3>
+                <p class="text-sm text-slate-500">Daftar periode payroll berdasarkan tanggal mulai terbaru.</p>
+            </div>
+
+            <form
+                action="{{ route('payroll.open') }}"
+                method="POST"
+                class="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-4"
+                x-data="{
+                    requiresOverlapConfirm: @js($payrollOverlapWarning ?? false),
+                    overlapConfirmed: @js(old('overlap_confirmation') === '1' || old('overlap_confirmation') === 1),
+                }"
+            >
+                @csrf
+
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <div>
+                        <x-input-label for="start_date" :value="__('Start Date')" />
+                        <x-text-input
+                            id="start_date"
+                            name="start_date"
+                            type="text"
+                            class="mt-1 block w-full"
+                            :value="old('start_date')"
+                            data-flatpickr="date"
+                            autocomplete="off"
+                            required
+                        />
+                        <x-input-error :messages="$errors->get('start_date')" class="mt-2" />
+                    </div>
+
+                    <div>
+                        <x-input-label for="end_date" :value="__('End Date')" />
+                        <x-text-input
+                            id="end_date"
+                            name="end_date"
+                            type="text"
+                            class="mt-1 block w-full"
+                            :value="old('end_date')"
+                            data-flatpickr="date"
+                            autocomplete="off"
+                            required
+                        />
+                        <x-input-error :messages="$errors->get('end_date')" class="mt-2" />
+                    </div>
+
+                    <div class="flex items-end">
+                        <button
+                            type="submit"
+                            class="btn-brand-primary w-full justify-center disabled:cursor-not-allowed disabled:opacity-60"
+                            :disabled="requiresOverlapConfirm && !overlapConfirmed"
+                        >
+                            Open Payroll
+                        </button>
+                    </div>
                 </div>
 
-                <form action="{{ route('payroll.open') }}" method="POST">
-                    @csrf
-                    <button type="submit" class="btn-brand-primary">
-                        Open Payroll
-                    </button>
-                </form>
-            </div>
+                @if ($payrollOverlapWarning ?? false)
+                    <div class="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                        Periode payroll ini bertabrakan dengan payroll lain. Hal ini dapat menyebabkan transaksi dihitung lebih dari satu kali.
+
+                        <label class="mt-3 flex items-start gap-2">
+                            <input
+                                type="checkbox"
+                                name="overlap_confirmation"
+                                value="1"
+                                x-model="overlapConfirmed"
+                                class="mt-1 rounded border-slate-300 text-[#934C2D] shadow-sm focus:ring-[#A85F3B]"
+                            />
+                            <span>Saya memahami bahwa payroll ini overlap dengan payroll lain dan tetap ingin melanjutkan.</span>
+                        </label>
+                    </div>
+                @endif
+            </form>
 
             @if ($payrollPeriods->isEmpty())
                 <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-600">

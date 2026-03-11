@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StorePayrollPeriodRequest;
 use App\Models\PayrollPeriod;
 use App\Services\PayrollService;
 use DomainException;
@@ -16,8 +17,9 @@ class PayrollController extends Controller
             ->orderByDesc('start_date')
             ->orderByDesc('id')
             ->paginate(15);
+        $payrollOverlapWarning = (bool) session('payroll_overlap_warning', false);
 
-        return view('payroll.index', compact('payrollPeriods'));
+        return view('payroll.index', compact('payrollPeriods', 'payrollOverlapWarning'));
     }
 
     public function show(PayrollPeriod $payroll): View
@@ -36,10 +38,32 @@ class PayrollController extends Controller
         return view('payroll.show', compact('payrollPeriod'));
     }
 
-    public function open(PayrollService $payrollService): RedirectResponse
+    public function open(StorePayrollPeriodRequest $request, PayrollService $payrollService): RedirectResponse
     {
         try {
-            $payrollService->openPayroll();
+            $validated = $request->validated();
+            $startDate = $validated['start_date'];
+            $endDate = $validated['end_date'];
+
+            if (PayrollPeriod::query()->where('status', 'open')->exists()) {
+                return redirect()
+                    ->route('payroll.index')
+                    ->withInput()
+                    ->with('error', 'Masih ada payroll yang belum ditutup.');
+            }
+
+            $isOverlap = $payrollService->hasOverlapPeriod($startDate, $endDate);
+            $isConfirmed = $request->boolean('overlap_confirmation');
+
+            if ($isOverlap && ! $isConfirmed) {
+                return redirect()
+                    ->route('payroll.index')
+                    ->withInput()
+                    ->with('payroll_overlap_warning', true)
+                    ->with('error', 'Periode payroll overlap dengan payroll lain. Silakan konfirmasi untuk melanjutkan.');
+            }
+
+            $payrollService->openPayroll($startDate, $endDate);
 
             return redirect()
                 ->route('payroll.index')

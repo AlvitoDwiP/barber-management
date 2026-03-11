@@ -19,19 +19,34 @@ class PayrollService
     private const INVALID_CLOSE_MESSAGE = 'Payroll ini sudah ditutup dan tidak dapat diproses ulang.';
     private const EMPTY_PAYROLL_MESSAGE = 'Tidak ada transaksi dalam periode payroll.';
 
-    public function openPayroll(): PayrollPeriod
+    public function openPayroll(string $startDate, string $endDate): PayrollPeriod
     {
-        return DB::transaction(function (): PayrollPeriod {
+        return DB::transaction(function () use ($startDate, $endDate): PayrollPeriod {
             $this->assertNoOpenPayrollExists();
-            $startDate = Carbon::today();
+            $startDateParsed = Carbon::parse($startDate)->toDateString();
+            $endDateParsed = Carbon::parse($endDate)->toDateString();
 
             return PayrollPeriod::query()->create([
-                'start_date' => $startDate,
-                'end_date' => null,
+                'start_date' => $startDateParsed,
+                'end_date' => $endDateParsed,
                 'status' => self::PAYROLL_STATUS_OPEN,
                 'closed_at' => null,
             ]);
         });
+    }
+
+    public function hasOverlapPeriod(string $startDate, string $endDate): bool
+    {
+        $startDateParsed = Carbon::parse($startDate)->toDateString();
+        $endDateParsed = Carbon::parse($endDate)->toDateString();
+
+        return PayrollPeriod::query()
+            ->where(function ($query) use ($startDateParsed, $endDateParsed): void {
+                $query
+                    ->where('start_date', '<=', $endDateParsed)
+                    ->where('end_date', '>=', $startDateParsed);
+            })
+            ->exists();
     }
 
     public function closePayroll(PayrollPeriod $payrollPeriod): PayrollPeriod
@@ -44,9 +59,11 @@ class PayrollService
 
             $this->assertPayrollCanBeClosed($payrollPeriod);
 
-            $endDate = Carbon::today();
             $startDateTime = Carbon::parse($payrollPeriod->start_date)->startOfDay();
-            $endDateTime = Carbon::parse($endDate)->endOfDay();
+            $effectiveEndDate = $payrollPeriod->end_date !== null
+                ? Carbon::parse($payrollPeriod->end_date)
+                : Carbon::today();
+            $endDateTime = $effectiveEndDate->copy()->endOfDay();
 
             $transactionIds = Transaction::query()
                 ->whereNull('payroll_id')
@@ -110,7 +127,7 @@ class PayrollService
             }
 
             $payrollPeriod->update([
-                'end_date' => $endDate,
+                'end_date' => $payrollPeriod->end_date ?? $effectiveEndDate->toDateString(),
                 'closed_at' => now(),
                 'status' => self::PAYROLL_STATUS_CLOSED,
             ]);
@@ -125,7 +142,7 @@ class PayrollService
             throw new DomainException(self::INVALID_CLOSE_MESSAGE);
         }
 
-        if ($payrollPeriod->end_date !== null || $payrollPeriod->closed_at !== null) {
+        if ($payrollPeriod->closed_at !== null) {
             throw new DomainException(self::INVALID_CLOSE_MESSAGE);
         }
 

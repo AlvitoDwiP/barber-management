@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreTransactionRequest;
 use App\Http\Requests\UpdateTransactionRequest;
 use App\Models\Employee;
+use App\Models\PayrollPeriod;
 use App\Models\Product;
 use App\Models\Service;
 use App\Models\Transaction;
@@ -50,21 +51,43 @@ class TransactionController extends Controller
     public function create(): View
     {
         ['employees' => $employees, 'services' => $services, 'products' => $products] = $this->getTransactionFormOptions();
+        $activePayroll = PayrollPeriod::query()
+            ->where('status', 'open')
+            ->latest('id')
+            ->first();
 
         $selectedServices = [];
         $selectedProducts = [];
 
-        return view('transactions.create', compact('employees', 'services', 'products', 'selectedServices', 'selectedProducts'));
+        return view('transactions.create', compact(
+            'employees',
+            'services',
+            'products',
+            'selectedServices',
+            'selectedProducts',
+            'activePayroll',
+        ));
     }
 
     public function store(StoreTransactionRequest $request, TransactionService $transactionService): RedirectResponse
     {
         try {
             $transaction = $transactionService->storeTransaction($request->validated());
+            $closedPayroll = PayrollPeriod::query()
+                ->where('status', 'closed')
+                ->whereDate('start_date', '<=', $transaction->transaction_date)
+                ->whereDate('end_date', '>=', $transaction->transaction_date)
+                ->first();
 
-            return redirect()
+            $redirect = redirect()
                 ->route('transactions.show', $transaction)
                 ->with('success', 'Transaksi berhasil disimpan.');
+
+            if ($closedPayroll !== null) {
+                $redirect->with('warning', 'Transaksi ini berada dalam periode payroll yang sudah ditutup. Transaksi tetap disimpan tetapi tidak akan mempengaruhi payroll sebelumnya.');
+            }
+
+            return $redirect;
         } catch (DomainException $exception) {
             return redirect()
                 ->back()

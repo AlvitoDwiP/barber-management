@@ -4,6 +4,23 @@
     </x-slot>
 
     <div class="space-y-6">
+        @if (isset($overdueOpenPayroll) && $overdueOpenPayroll)
+            <div class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                <p>
+                    Periode payroll
+                    {{ $overdueOpenPayroll->start_date?->locale('id')->translatedFormat('d F Y') ?? '-' }}
+                    sampai
+                    {{ $overdueOpenPayroll->end_date?->locale('id')->translatedFormat('d F Y') ?? '-' }}
+                    sudah berakhir. Silakan tutup payroll untuk menghitung komisi pegawai.
+                </p>
+                @if (! is_null($overdueDays))
+                    <p class="mt-1 font-medium">
+                        Payroll sudah melewati periode selama {{ $overdueDays }} hari.
+                    </p>
+                @endif
+            </div>
+        @endif
+
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <div class="admin-card">
                 <p class="text-xs uppercase tracking-wide text-slate-500">Ringkasan</p>

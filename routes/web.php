@@ -7,6 +7,8 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\TransactionController;
+use App\Models\PayrollPeriod;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -14,7 +16,22 @@ Route::get('/', function () {
 });
 
 Route::get('/dashboard', function () {
-    return view('dashboard');
+    $overdueOpenPayroll = PayrollPeriod::query()
+        ->where('status', 'open')
+        ->whereNotNull('end_date')
+        ->whereDate('end_date', '<', now()->toDateString())
+        ->latest('id')
+        ->first();
+
+    $overdueDays = null;
+
+    if ($overdueOpenPayroll) {
+        $overdueDays = Carbon::parse($overdueOpenPayroll->end_date)
+            ->startOfDay()
+            ->diffInDays(now()->startOfDay());
+    }
+
+    return view('dashboard', compact('overdueOpenPayroll', 'overdueDays'));
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {

@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports;
 
+use App\Models\Transaction;
 use Illuminate\Support\Carbon;
 
 class DailyReportService
@@ -10,10 +11,21 @@ class DailyReportService
     {
         $reportDate = ($date ?? now())->toDateString();
 
+        $summary = Transaction::query()
+            ->selectRaw('
+                COALESCE(SUM(total_amount), 0) as today_revenue,
+                COUNT(id) as today_transactions,
+                COALESCE(SUM(CASE WHEN payment_method = ? THEN total_amount ELSE 0 END), 0) as today_cash,
+                COALESCE(SUM(CASE WHEN payment_method = ? THEN total_amount ELSE 0 END), 0) as today_qr
+            ', ['cash', 'qr'])
+            ->whereDate('transaction_date', $reportDate)
+            ->first();
+
         return [
-            'date' => $reportDate,
-            'total_transactions' => 0,
-            'total_revenue' => 0,
+            'today_revenue' => (float) ($summary->today_revenue ?? 0),
+            'today_transactions' => (int) ($summary->today_transactions ?? 0),
+            'today_cash' => (float) ($summary->today_cash ?? 0),
+            'today_qr' => (float) ($summary->today_qr ?? 0),
         ];
     }
 }

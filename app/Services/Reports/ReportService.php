@@ -19,7 +19,7 @@ class ReportService
 
     public function getMonthlySummary(): array
     {
-        return $this->monthlyReportService->getMonthlySummary();
+        return $this->monthlyReportService->getCurrentMonthSummary();
     }
 
     public function getTopEmployeeOfMonth(): ?array

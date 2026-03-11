@@ -3,13 +3,27 @@
         <h2 class="text-lg font-semibold leading-tight text-slate-900">Laporan Produk</h2>
     </x-slot>
 
-    <div class="space-y-6">
-        <x-report-filter :action="route('reports.products')" :showDateRange="true" :showYear="true" />
+    @php
+        $rows = collect($rows ?? []);
 
+        $tableRows = $rows->map(function ($row) {
+            $stockRemaining = (int) ($row['stock_remaining'] ?? 0);
+            $stockLabel = $stockRemaining < 5 ? ' (Stok rendah)' : '';
+
+            return [
+                $row['product_name'] ?? '-',
+                number_format((int) ($row['total_qty_sold'] ?? 0), 0, ',', '.'),
+                format_rupiah($row['total_revenue'] ?? 0),
+                number_format($stockRemaining, 0, ',', '.').$stockLabel,
+            ];
+        })->all();
+    @endphp
+
+    <div class="space-y-6">
         <x-report-table
-            :headers="['Produk', 'Qty Terjual', 'Total Penjualan']"
-            :rows="[]"
-            empty-message="Data laporan produk belum tersedia."
+            :headers="['Produk', 'Qty terjual', 'Pendapatan produk', 'Stok tersisa']"
+            :rows="$tableRows"
+            empty-message="Belum ada penjualan produk."
         />
     </div>
 </x-app-layout>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\Reports\DailyReportService;
 use App\Services\Reports\MonthlyReportService;
 use App\Services\Reports\PaymentReportService;
+use App\Services\Reports\ProductReportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
@@ -96,9 +97,11 @@ class ReportController extends Controller
         return view('reports.payment.index', compact('rows', 'year'));
     }
 
-    public function products(): View
+    public function products(ProductReportService $productReportService): View
     {
-        return view('reports.products.index');
+        $rows = $productReportService->getProductSalesReport();
+
+        return view('reports.products.index', compact('rows'));
     }
 
     public function employees(): View

@@ -19,6 +19,9 @@
                     value="{{ $startDate }}"
                     class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-[#A85F3B] focus:ring-[#A85F3B]"
                 />
+                @error('start_date')
+                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                @enderror
             </div>
             <div>
                 <label for="end_date" class="text-sm font-medium text-slate-700">Tanggal akhir</label>
@@ -29,6 +32,9 @@
                     value="{{ $endDate }}"
                     class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-[#A85F3B] focus:ring-[#A85F3B]"
                 />
+                @error('end_date')
+                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                @enderror
             </div>
         @endif
 
@@ -59,4 +65,3 @@
         </a>
     </div>
 </form>
-

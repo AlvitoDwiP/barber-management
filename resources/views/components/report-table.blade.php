@@ -2,6 +2,7 @@
     'headers' => [],
     'rows' => [],
     'emptyMessage' => 'Belum ada data laporan.',
+    'footer' => [],
 ])
 
 <div class="admin-card overflow-x-auto">
@@ -28,6 +29,14 @@
                 </tr>
             @endforelse
         </tbody>
+        @if (! empty($footer))
+            <tfoot class="bg-slate-50">
+                <tr>
+                    @foreach ($footer as $cell)
+                        <td class="px-4 py-3 font-semibold text-slate-800">{{ $cell }}</td>
+                    @endforeach
+                </tr>
+            </tfoot>
+        @endif
     </table>
 </div>
-

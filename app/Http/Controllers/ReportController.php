@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Reports\DailyReportService;
+use App\Services\Reports\EmployeePerformanceReportService;
 use App\Services\Reports\MonthlyReportService;
 use App\Services\Reports\PaymentReportService;
 use App\Services\Reports\ProductReportService;
@@ -104,8 +105,29 @@ class ReportController extends Controller
         return view('reports.products.index', compact('rows'));
     }
 
-    public function employees(): View
+    public function employees(Request $request, EmployeePerformanceReportService $employeePerformanceReportService): View
     {
-        return view('reports.employees.index');
+        $validated = $request->validate([
+            'month' => ['nullable', 'integer', 'between:1,12'],
+            'year' => ['nullable', 'regex:/^\d{4}$/'],
+        ], [
+            'month.integer' => 'Bulan tidak valid.',
+            'month.between' => 'Bulan tidak valid.',
+            'year.regex' => 'Tahun tidak valid.',
+        ]);
+
+        $currentDate = now();
+        $month = isset($validated['month']) ? (int) $validated['month'] : (int) $currentDate->month;
+        $year = isset($validated['year']) ? (int) $validated['year'] : (int) $currentDate->year;
+
+        if (abs($year - (int) $currentDate->year) > 10) {
+            throw ValidationException::withMessages([
+                'year' => 'Tahun tidak valid.',
+            ]);
+        }
+
+        $rows = $employeePerformanceReportService->getEmployeePerformanceReport($month, $year);
+
+        return view('reports.employees.index', compact('rows', 'month', 'year'));
     }
 }

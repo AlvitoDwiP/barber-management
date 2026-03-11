@@ -33,6 +33,6 @@ class PayrollPeriod extends Model
 
     public function transactions(): HasMany
     {
-        return $this->hasMany(Transaction::class);
+        return $this->hasMany(Transaction::class, 'payroll_id');
     }
 }

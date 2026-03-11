@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\PayrollPeriod;
+use App\Models\Transaction;
 use App\Models\TransactionDetail;
 use DomainException;
 use Illuminate\Support\Carbon;
@@ -15,12 +16,13 @@ class PayrollService
     private const EMPLOYEE_STATUS_TETAP = 'tetap';
     private const EXISTING_OPEN_MESSAGE = 'Masih ada payroll open yang belum ditutup.';
     private const INVALID_CLOSE_MESSAGE = 'Payroll ini sudah ditutup dan tidak dapat diproses ulang.';
+    private const EMPTY_PAYROLL_MESSAGE = 'Tidak ada transaksi dalam periode payroll.';
 
     public function openPayroll(): PayrollPeriod
     {
         return DB::transaction(function (): PayrollPeriod {
             $this->assertNoOpenPayrollExists();
-            $startDate = $this->resolveNextOpenStartDate();
+            $startDate = Carbon::today();
 
             return PayrollPeriod::query()->create([
                 'start_date' => $startDate,
@@ -45,11 +47,21 @@ class PayrollService
             $startDate = $payrollPeriod->start_date->toDateString();
             $endDateString = $endDate->toDateString();
 
+            $transactionIds = Transaction::query()
+                ->whereNull('payroll_id')
+                ->whereBetween('transaction_date', [$startDate, $endDateString])
+                ->lockForUpdate()
+                ->pluck('id');
+
+            if ($transactionIds->isEmpty()) {
+                throw new DomainException(self::EMPTY_PAYROLL_MESSAGE);
+            }
+
             $resultRows = TransactionDetail::query()
                 ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
                 ->join('employees', 'employees.id', '=', 'transactions.employee_id')
                 ->where('employees.status', self::EMPLOYEE_STATUS_TETAP)
-                ->whereBetween('transactions.transaction_date', [$startDate, $endDateString])
+                ->whereIn('transactions.id', $transactionIds)
                 ->selectRaw('
                     transactions.employee_id as employee_id,
                     COUNT(DISTINCT transactions.id) as total_transactions,
@@ -75,6 +87,14 @@ class PayrollService
                 ])->all();
 
                 DB::table('payroll_results')->insert($insertPayload);
+            }
+
+            if ($transactionIds->isNotEmpty()) {
+                Transaction::query()
+                    ->whereIn('id', $transactionIds)
+                    ->update([
+                        'payroll_id' => $payrollPeriod->id,
+                    ]);
             }
 
             $payrollPeriod->update([
@@ -111,19 +131,5 @@ class PayrollService
         if ($hasOpenPayroll) {
             throw new DomainException(self::EXISTING_OPEN_MESSAGE);
         }
-    }
-
-    private function resolveNextOpenStartDate(): Carbon
-    {
-        $latestClosedPayroll = PayrollPeriod::query()
-            ->where('status', self::PAYROLL_STATUS_CLOSED)
-            ->whereNotNull('end_date')
-            ->orderByDesc('end_date')
-            ->orderByDesc('id')
-            ->first();
-
-        return $latestClosedPayroll !== null
-            ? $latestClosedPayroll->end_date->copy()->addDay()
-            : Carbon::today();
     }
 }

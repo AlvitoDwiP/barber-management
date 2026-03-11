@@ -8,6 +8,7 @@ use App\Models\TransactionDetail;
 use DomainException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class PayrollService
 {
@@ -44,14 +45,25 @@ class PayrollService
             $this->assertPayrollCanBeClosed($payrollPeriod);
 
             $endDate = Carbon::today();
-            $startDate = $payrollPeriod->start_date->toDateString();
-            $endDateString = $endDate->toDateString();
+            $startDateTime = Carbon::parse($payrollPeriod->start_date)->startOfDay();
+            $endDateTime = Carbon::parse($endDate)->endOfDay();
 
             $transactionIds = Transaction::query()
                 ->whereNull('payroll_id')
-                ->whereBetween('transaction_date', [$startDate, $endDateString])
+                ->where('transaction_date', '>=', $startDateTime)
+                ->where('transaction_date', '<=', $endDateTime)
                 ->lockForUpdate()
                 ->pluck('id');
+
+            if (config('app.debug')) {
+                Log::debug('Payroll closing debug', [
+                    'payroll_id' => $payrollPeriod->id,
+                    'start_datetime' => $startDateTime->toDateTimeString(),
+                    'end_datetime' => $endDateTime->toDateTimeString(),
+                    'transaction_count' => $transactionIds->count(),
+                    'transaction_ids_sample' => $transactionIds->take(20)->values()->all(),
+                ]);
+            }
 
             if ($transactionIds->isEmpty()) {
                 throw new DomainException(self::EMPTY_PAYROLL_MESSAGE);

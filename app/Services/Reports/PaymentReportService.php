@@ -2,11 +2,17 @@
 
 namespace App\Services\Reports;
 
+use Illuminate\Support\Carbon;
+
 class PaymentReportService
 {
-    public function generate(): void
+    public function getMonthlyPaymentSummary(?Carbon $month = null): array
     {
-        // Placeholder.
+        return [
+            'month' => ($month ?? now())->format('Y-m'),
+            'cash' => 0,
+            'qr' => 0,
+            'total_transactions' => 0,
+        ];
     }
 }
-

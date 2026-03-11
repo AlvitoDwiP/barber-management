@@ -22,7 +22,7 @@ class TransactionService
 
             $transaction = Transaction::query()->create([
                 'transaction_code' => $this->generateTransactionCode(),
-                'transaction_date' => $validatedData['transaction_date'],
+                'transaction_date' => $validatedData['transaction_date'] ?? now()->toDateString(),
                 'employee_id' => $validatedData['employee_id'],
                 'payment_method' => $validatedData['payment_method'],
                 'subtotal_amount' => 0,
@@ -59,7 +59,7 @@ class TransactionService
             $transaction->transactionDetails()->delete();
 
             $transaction->update([
-                'transaction_date' => $validatedData['transaction_date'],
+                'transaction_date' => $validatedData['transaction_date'] ?? now()->toDateString(),
                 'employee_id' => $validatedData['employee_id'],
                 'payment_method' => $validatedData['payment_method'],
                 'subtotal_amount' => 0,

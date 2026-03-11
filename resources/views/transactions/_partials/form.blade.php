@@ -1,5 +1,5 @@
 @php
-    $transactionDateValue = old('transaction_date', $transaction?->transaction_date?->format('Y-m-d'));
+    $transactionDateValue = old('transaction_date', $transaction?->transaction_date?->format('Y-m-d') ?? now()->toDateString());
     $employeeValue = old('employee_id', $transaction?->employee_id);
     $paymentMethodValue = old('payment_method', $transaction?->payment_method);
 

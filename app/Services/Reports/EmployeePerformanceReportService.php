@@ -13,13 +13,14 @@ class EmployeePerformanceReportService
         $targetMonth = $month ?? now();
         $year = (int) $targetMonth->year;
         $monthNumber = (int) $targetMonth->month;
+        $startDate = Carbon::create($year, $monthNumber, 1)->startOfMonth()->toDateString();
+        $endDate = Carbon::create($year, $monthNumber, 1)->endOfMonth()->toDateString();
 
         $topEmployee = TransactionDetail::query()
             ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
             ->join('employees', 'employees.id', '=', 'transactions.employee_id')
             ->where('transaction_items.item_type', 'service')
-            ->whereYear('transactions.transaction_date', $year)
-            ->whereMonth('transactions.transaction_date', $monthNumber)
+            ->whereBetween('transactions.transaction_date', [$startDate, $endDate])
             ->groupBy('transactions.employee_id', 'employees.name')
             ->selectRaw('
                 employees.name as employee_name,

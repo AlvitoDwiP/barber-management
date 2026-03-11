@@ -13,14 +13,15 @@ class ProductReportService
         $targetMonth = $month ?? now();
         $year = (int) $targetMonth->year;
         $monthNumber = (int) $targetMonth->month;
+        $startDate = Carbon::create($year, $monthNumber, 1)->startOfMonth()->toDateString();
+        $endDate = Carbon::create($year, $monthNumber, 1)->endOfMonth()->toDateString();
 
         $topProduct = TransactionDetail::query()
             ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
             ->join('products', 'products.id', '=', 'transaction_items.product_id')
             ->where('transaction_items.item_type', 'product')
             ->whereNotNull('transaction_items.product_id')
-            ->whereYear('transactions.transaction_date', $year)
-            ->whereMonth('transactions.transaction_date', $monthNumber)
+            ->whereBetween('transactions.transaction_date', [$startDate, $endDate])
             ->groupBy('transaction_items.product_id', 'products.name')
             ->selectRaw('
                 products.name as product_name,

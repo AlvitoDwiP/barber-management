@@ -7,21 +7,24 @@
         $rows = $rows ?? collect();
         $startDate = $startDate ?? now()->subDays(7)->toDateString();
         $endDate = $endDate ?? now()->toDateString();
+        $periodLabel = \Illuminate\Support\Carbon::parse($startDate)->locale('id')->translatedFormat('d M Y')
+            .' - '.
+            \Illuminate\Support\Carbon::parse($endDate)->locale('id')->translatedFormat('d M Y');
 
         $tableRows = $rows->map(fn ($row) => [
             \Illuminate\Support\Carbon::parse($row->transaction_date)->locale('id')->translatedFormat('d M Y'),
-            'Rp '.number_format((float) $row->total_revenue, 0, ',', '.'),
+            format_rupiah($row->total_revenue),
             number_format((int) $row->total_transactions, 0, ',', '.'),
-            'Rp '.number_format((float) $row->total_cash, 0, ',', '.'),
-            'Rp '.number_format((float) $row->total_qr, 0, ',', '.'),
+            format_rupiah($row->total_cash),
+            format_rupiah($row->total_qr),
         ])->all();
 
         $footer = [
             'Total',
-            'Rp '.number_format((float) $rows->sum('total_revenue'), 0, ',', '.'),
+            format_rupiah($rows->sum('total_revenue')),
             number_format((int) $rows->sum('total_transactions'), 0, ',', '.'),
-            'Rp '.number_format((float) $rows->sum('total_cash'), 0, ',', '.'),
-            'Rp '.number_format((float) $rows->sum('total_qr'), 0, ',', '.'),
+            format_rupiah($rows->sum('total_cash')),
+            format_rupiah($rows->sum('total_qr')),
         ];
     @endphp
 
@@ -33,6 +36,11 @@
             :startDate="$startDate"
             :endDate="$endDate"
         />
+
+        <div class="admin-card">
+            <p class="text-xs uppercase tracking-wide text-slate-500">Periode laporan</p>
+            <p class="mt-1 text-sm font-semibold text-slate-900">{{ $periodLabel }}</p>
+        </div>
 
         <x-report-table
             :headers="['Tanggal', 'Pendapatan', 'Transaksi', 'Cash', 'QR']"

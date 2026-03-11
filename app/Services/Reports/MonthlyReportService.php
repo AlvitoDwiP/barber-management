@@ -15,15 +15,15 @@ class MonthlyReportService
         $targetMonth = $month ?? now();
         $year = (int) $targetMonth->year;
         $monthNumber = (int) $targetMonth->month;
+        $startDate = Carbon::create($year, $monthNumber, 1)->startOfMonth()->toDateString();
+        $endDate = Carbon::create($year, $monthNumber, 1)->endOfMonth()->toDateString();
 
         $monthRevenue = (float) Transaction::query()
-            ->whereYear('transaction_date', $year)
-            ->whereMonth('transaction_date', $monthNumber)
+            ->whereBetween('transaction_date', [$startDate, $endDate])
             ->sum('total_amount');
 
         $monthExpenses = (float) Expense::query()
-            ->whereYear('expense_date', $year)
-            ->whereMonth('expense_date', $monthNumber)
+            ->whereBetween('expense_date', [$startDate, $endDate])
             ->sum('amount');
 
         return [
@@ -40,16 +40,19 @@ class MonthlyReportService
 
     public function getMonthlyRevenueReport(int $year): Collection
     {
+        $startDate = Carbon::create($year, 1, 1)->startOfYear()->toDateString();
+        $endDate = Carbon::create($year, 1, 1)->endOfYear()->toDateString();
+
         return TransactionDetail::query()
             ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
-            ->whereYear('transactions.transaction_date', $year)
+            ->whereBetween('transactions.transaction_date', [$startDate, $endDate])
             ->selectRaw('
                 MONTH(transactions.transaction_date) as month_number,
                 COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.subtotal ELSE 0 END), 0) as service_revenue,
                 COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.subtotal ELSE 0 END), 0) as product_revenue,
                 COALESCE(SUM(CASE WHEN transaction_items.item_type IN (?, ?) THEN transaction_items.subtotal ELSE 0 END), 0) as total_revenue
             ', ['service', 'product', 'service', 'product'])
-            ->groupByRaw('MONTH(transactions.transaction_date)')
+            ->groupByRaw('YEAR(transactions.transaction_date), MONTH(transactions.transaction_date)')
             ->orderBy('month_number')
             ->get()
             ->map(function ($row) {

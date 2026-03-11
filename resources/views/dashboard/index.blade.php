@@ -16,7 +16,7 @@
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <div class="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-600">
                     <p class="text-xs uppercase tracking-wide text-slate-500">Pendapatan hari ini</p>
-                    <p class="mt-1 font-medium text-slate-900">Rp {{ number_format((float) ($todaySummary['today_revenue'] ?? 0), 0, ',', '.') }}</p>
+                    <p class="mt-1 font-medium text-slate-900">{{ format_rupiah($todaySummary['today_revenue'] ?? 0) }}</p>
                 </div>
                 <div class="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-600">
                     <p class="text-xs uppercase tracking-wide text-slate-500">Jumlah transaksi</p>
@@ -24,11 +24,11 @@
                 </div>
                 <div class="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-600">
                     <p class="text-xs uppercase tracking-wide text-slate-500">Cash</p>
-                    <p class="mt-1 font-medium text-slate-900">Rp {{ number_format((float) ($todaySummary['today_cash'] ?? 0), 0, ',', '.') }}</p>
+                    <p class="mt-1 font-medium text-slate-900">{{ format_rupiah($todaySummary['today_cash'] ?? 0) }}</p>
                 </div>
                 <div class="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-600">
                     <p class="text-xs uppercase tracking-wide text-slate-500">QR</p>
-                    <p class="mt-1 font-medium text-slate-900">Rp {{ number_format((float) ($todaySummary['today_qr'] ?? 0), 0, ',', '.') }}</p>
+                    <p class="mt-1 font-medium text-slate-900">{{ format_rupiah($todaySummary['today_qr'] ?? 0) }}</p>
                 </div>
             </div>
         </section>
@@ -38,15 +38,15 @@
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div class="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-600">
                     <p class="text-xs uppercase tracking-wide text-slate-500">Pendapatan bulan ini</p>
-                    <p class="mt-1 font-medium text-slate-900">Rp {{ number_format((float) ($monthlySummary['month_revenue'] ?? 0), 0, ',', '.') }}</p>
+                    <p class="mt-1 font-medium text-slate-900">{{ format_rupiah($monthlySummary['month_revenue'] ?? 0) }}</p>
                 </div>
                 <div class="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-600">
                     <p class="text-xs uppercase tracking-wide text-slate-500">Pengeluaran bulan ini</p>
-                    <p class="mt-1 font-medium text-slate-900">Rp {{ number_format((float) ($monthlySummary['month_expenses'] ?? 0), 0, ',', '.') }}</p>
+                    <p class="mt-1 font-medium text-slate-900">{{ format_rupiah($monthlySummary['month_expenses'] ?? 0) }}</p>
                 </div>
                 <div class="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-600">
                     <p class="text-xs uppercase tracking-wide text-slate-500">Estimasi laba bulan ini</p>
-                    <p class="mt-1 font-medium text-slate-900">Rp {{ number_format((float) ($monthlySummary['month_profit_estimate'] ?? 0), 0, ',', '.') }}</p>
+                    <p class="mt-1 font-medium text-slate-900">{{ format_rupiah($monthlySummary['month_profit_estimate'] ?? 0) }}</p>
                 </div>
             </div>
         </section>

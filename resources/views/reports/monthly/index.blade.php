@@ -8,6 +8,7 @@
         $year = (int) ($year ?? now()->year);
         $yearOptions = collect(range(now()->year, now()->year - 4));
         $rowsByMonth = $rows->keyBy('month_number');
+        $periodLabel = "Tahun {$year}";
 
         $tableRows = collect(range(1, 12))->map(function (int $month) use ($rowsByMonth) {
             $row = $rowsByMonth->get($month, [
@@ -19,17 +20,17 @@
 
             return [
                 \Illuminate\Support\Carbon::createFromDate(null, $month, 1)->locale('id')->translatedFormat('F'),
-                'Rp '.number_format((float) ($row['service_revenue'] ?? 0), 0, ',', '.'),
-                'Rp '.number_format((float) ($row['product_revenue'] ?? 0), 0, ',', '.'),
-                'Rp '.number_format((float) ($row['total_revenue'] ?? 0), 0, ',', '.'),
+                format_rupiah($row['service_revenue'] ?? 0),
+                format_rupiah($row['product_revenue'] ?? 0),
+                format_rupiah($row['total_revenue'] ?? 0),
             ];
         })->all();
 
         $footer = [
             'Total',
-            'Rp '.number_format((float) $rows->sum('service_revenue'), 0, ',', '.'),
-            'Rp '.number_format((float) $rows->sum('product_revenue'), 0, ',', '.'),
-            'Rp '.number_format((float) $rows->sum('total_revenue'), 0, ',', '.'),
+            format_rupiah($rows->sum('service_revenue')),
+            format_rupiah($rows->sum('product_revenue')),
+            format_rupiah($rows->sum('total_revenue')),
         ];
     @endphp
 
@@ -51,6 +52,11 @@
                 @enderror
             </div>
         </x-report-filter>
+
+        <div class="admin-card">
+            <p class="text-xs uppercase tracking-wide text-slate-500">Periode laporan</p>
+            <p class="mt-1 text-sm font-semibold text-slate-900">{{ $periodLabel }}</p>
+        </div>
 
         <x-report-table
             :headers="['Bulan', 'Pendapatan layanan', 'Pendapatan produk', 'Total pendapatan']"

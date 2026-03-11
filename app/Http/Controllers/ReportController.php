@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Reports\DailyReportService;
+use App\Services\Reports\MonthlyReportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
@@ -50,9 +51,26 @@ class ReportController extends Controller
         return view('reports.daily.index', compact('rows', 'startDate', 'endDate'));
     }
 
-    public function monthly(): View
+    public function monthly(Request $request, MonthlyReportService $monthlyReportService): View
     {
-        return view('reports.monthly.index');
+        $validated = $request->validate([
+            'year' => ['nullable', 'regex:/^\d{4}$/'],
+        ], [
+            'year.regex' => 'Tahun tidak valid.',
+        ]);
+
+        $currentYear = now()->year;
+        $year = isset($validated['year']) ? (int) $validated['year'] : $currentYear;
+
+        if (abs($year - $currentYear) > 10) {
+            throw ValidationException::withMessages([
+                'year' => 'Tahun tidak valid.',
+            ]);
+        }
+
+        $rows = $monthlyReportService->getMonthlyRevenueReport($year);
+
+        return view('reports.monthly.index', compact('rows', 'year'));
     }
 
     public function payment(): View

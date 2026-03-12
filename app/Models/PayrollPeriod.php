@@ -11,6 +11,9 @@ class PayrollPeriod extends Model
 {
     use HasFactory;
 
+    public const STATUS_OPEN = 'open';
+    public const STATUS_CLOSED = 'closed';
+
     protected $fillable = [
         'start_date',
         'end_date',
@@ -34,6 +37,11 @@ class PayrollPeriod extends Model
 
     public function transactions(): HasMany
     {
+        return $this->assignedTransactions();
+    }
+
+    public function assignedTransactions(): HasMany
+    {
         return $this->hasMany(Transaction::class, 'payroll_id');
     }
 
@@ -44,8 +52,8 @@ class PayrollPeriod extends Model
                 return;
             }
 
-            $isClosingLegacyOpen = $payrollPeriod->getOriginal('status') === 'open'
-                && $payrollPeriod->status === 'closed'
+            $isClosingLegacyOpen = $payrollPeriod->getOriginal('status') === self::STATUS_OPEN
+                && $payrollPeriod->status === self::STATUS_CLOSED
                 && $payrollPeriod->getOriginal('end_date') === null
                 && $payrollPeriod->isDirty('end_date');
 
@@ -53,8 +61,9 @@ class PayrollPeriod extends Model
                 return;
             }
 
-            $isClosed = $payrollPeriod->getOriginal('status') === 'closed' || $payrollPeriod->status === 'closed';
-            $hasLinkedData = $payrollPeriod->transactions()->exists() || $payrollPeriod->payrollResults()->exists();
+            $isClosed = $payrollPeriod->getOriginal('status') === self::STATUS_CLOSED
+                || $payrollPeriod->status === self::STATUS_CLOSED;
+            $hasLinkedData = $payrollPeriod->assignedTransactions()->exists() || $payrollPeriod->payrollResults()->exists();
 
             if ($isClosed || $hasLinkedData) {
                 throw new DomainException('Periode payroll tidak dapat diubah setelah payroll dibuat.');

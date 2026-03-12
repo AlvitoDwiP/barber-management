@@ -20,8 +20,6 @@ class Transaction extends Model
         'discount_amount',
         'total_amount',
         'notes',
-        'payroll_period_id',
-        'payroll_id',
     ];
 
     protected function casts(): array
@@ -41,7 +39,17 @@ class Transaction extends Model
 
     public function payrollPeriod(): BelongsTo
     {
+        return $this->assignedPayrollPeriod();
+    }
+
+    public function assignedPayrollPeriod(): BelongsTo
+    {
         return $this->belongsTo(PayrollPeriod::class, 'payroll_id');
+    }
+
+    public function legacyPayrollPeriod(): BelongsTo
+    {
+        return $this->belongsTo(PayrollPeriod::class, 'payroll_period_id');
     }
 
     public function transactionItems(): HasMany

@@ -20,7 +20,7 @@ class PayrollController extends Controller
         $payrollOverlapWarning = (bool) session('payroll_overlap_warning', false);
         $transactionCountsByPayrollId = [];
 
-        foreach ($payrollPeriods->getCollection()->where('status', 'open') as $period) {
+        foreach ($payrollPeriods->getCollection()->where('status', PayrollPeriod::STATUS_OPEN) as $period) {
             $transactionCountsByPayrollId[$period->id] = $payrollService->countPendingTransactionsForPeriod($period);
         }
 
@@ -29,19 +29,13 @@ class PayrollController extends Controller
 
     public function show(PayrollPeriod $payroll, PayrollService $payrollService): View
     {
-        $payrollPeriod = $payroll->load([
-            'payrollResults.employee',
-        ]);
+        $payrollPeriod = $payroll->fresh();
+        $payrollRows = $payrollService->getPayrollDisplayRows($payrollPeriod);
+        $transactionCount = $payrollPeriod->status === PayrollPeriod::STATUS_OPEN
+            ? $payrollService->countPendingTransactionsForPeriod($payrollPeriod)
+            : 0;
 
-        $payrollPeriod->setRelation(
-            'payrollResults',
-            $payrollPeriod->payrollResults
-                ->sortBy(fn ($result) => mb_strtolower($result->employee?->name ?? ''))
-                ->values()
-        );
-        $transactionCount = $payrollService->countPendingTransactionsForPeriod($payrollPeriod);
-
-        return view('payroll.show', compact('payrollPeriod', 'transactionCount'));
+        return view('payroll.show', compact('payrollPeriod', 'payrollRows', 'transactionCount'));
     }
 
     public function open(StorePayrollPeriodRequest $request, PayrollService $payrollService): RedirectResponse
@@ -51,7 +45,7 @@ class PayrollController extends Controller
             $startDate = $validated['start_date'];
             $endDate = $validated['end_date'];
 
-            if (PayrollPeriod::query()->where('status', 'open')->exists()) {
+            if (PayrollPeriod::query()->where('status', PayrollPeriod::STATUS_OPEN)->exists()) {
                 return redirect()
                     ->route('payroll.index')
                     ->withInput()

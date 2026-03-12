@@ -12,7 +12,7 @@
             <div class="mb-4 flex items-center justify-between gap-3">
                 <h1 class="text-xl font-semibold text-slate-900">Detail Payroll Period</h1>
                 <div class="flex items-center gap-2">
-                    @if ($payrollPeriod->status === 'open')
+                    @if ($payrollPeriod->status === \App\Models\PayrollPeriod::STATUS_OPEN)
                         <form
                             action="{{ route('payroll.close', $payrollPeriod) }}"
                             method="POST"
@@ -34,12 +34,13 @@
                 </div>
             </div>
 
-            @if ($payrollPeriod->status === 'open')
+            @if ($payrollPeriod->status === \App\Models\PayrollPeriod::STATUS_OPEN)
                 <div class="mb-4 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
                     <p>Jumlah transaksi dalam payroll ini: <span class="font-semibold">{{ (int) $transactionCount }} transaksi</span></p>
                     @if ((int) $transactionCount === 0)
                         <p class="font-medium text-amber-700">Tidak ada transaksi dalam periode payroll ini.</p>
                     @endif
+                    <p class="text-slate-600">Rincian pegawai di bawah ini masih berupa preview live dari snapshot transaksi yang belum dipayroll.</p>
                 </div>
             @endif
 
@@ -57,7 +58,7 @@
                         <tr>
                             <th>Status</th>
                             <td>
-                                <span class="payment-badge {{ $payrollPeriod->status === 'open' ? 'payment-badge-qr' : 'payment-badge-cash' }}">
+                                <span class="payment-badge {{ $payrollPeriod->status === \App\Models\PayrollPeriod::STATUS_OPEN ? 'payment-badge-qr' : 'payment-badge-cash' }}">
                                     {{ ucfirst($payrollPeriod->status) }}
                                 </span>
                             </td>
@@ -70,9 +71,9 @@
                 </table>
             </div>
 
-            @if ($payrollPeriod->status === 'closed')
+            @if ($payrollPeriod->status === \App\Models\PayrollPeriod::STATUS_CLOSED)
                 <p class="mt-3 text-sm text-slate-600">
-                    Payroll ini sudah ditutup dan hasilnya bersifat final.
+                    Payroll ini sudah ditutup dan detail di bawah dibaca dari snapshot final pada payroll results.
                 </p>
             @endif
         </section>
@@ -80,29 +81,39 @@
         <section class="admin-card">
             <h2 class="mb-4 text-base font-semibold text-slate-900">Hasil Payroll per Pegawai</h2>
 
-            @if ($payrollPeriod->payrollResults->isEmpty())
+            @if ($payrollRows->isEmpty())
                 <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-600">
-                    Payroll ini belum memiliki hasil perhitungan. Hasil payroll akan tersedia setelah payroll ditutup.
+                    @if ($payrollPeriod->status === \App\Models\PayrollPeriod::STATUS_CLOSED)
+                        Payroll ini tidak memiliki snapshot hasil per pegawai.
+                    @else
+                        Belum ada transaksi yang bisa ditampilkan untuk preview payroll ini.
+                    @endif
                 </div>
             @else
                 <div class="admin-table-wrap">
-                    <table class="admin-table w-full min-w-[860px]">
+                    <table class="admin-table w-full min-w-[1100px]">
                         <thead>
                             <tr>
                                 <th>Nama Pegawai</th>
                                 <th>Total Transaksi</th>
-                                <th>Total Layanan</th>
-                                <th>Total Produk</th>
+                                <th>Qty Layanan</th>
+                                <th>Nominal Layanan</th>
+                                <th>Komisi Layanan</th>
+                                <th>Qty Produk</th>
+                                <th>Fee Produk</th>
                                 <th>Total Komisi</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 bg-white">
-                            @foreach ($payrollPeriod->payrollResults as $result)
+                            @foreach ($payrollRows as $result)
                                 <tr class="hover:bg-slate-50/70">
-                                    <td>{{ $result->employee?->name ?? '-' }}</td>
-                                    <td>{{ (int) $result->total_transactions }}</td>
+                                    <td>{{ $result->employee_name ?? '-' }}</td>
+                                    <td>{{ (int) $result->total_transaction_count }}</td>
                                     <td>{{ (int) $result->total_services }}</td>
+                                    <td>Rp {{ number_format((float) $result->total_service_amount, 0, ',', '.') }}</td>
+                                    <td>Rp {{ number_format((float) $result->total_service_commission, 0, ',', '.') }}</td>
                                     <td>{{ (int) $result->total_products }}</td>
+                                    <td>Rp {{ number_format((float) $result->total_product_commission, 0, ',', '.') }}</td>
                                     <td class="font-semibold text-slate-900">
                                         Rp {{ number_format((float) $result->total_commission, 0, ',', '.') }}
                                     </td>

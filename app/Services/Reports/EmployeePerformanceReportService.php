@@ -2,7 +2,7 @@
 
 namespace App\Services\Reports;
 
-use App\Models\TransactionDetail;
+use App\Models\TransactionItem;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -16,7 +16,7 @@ class EmployeePerformanceReportService
         $startDate = Carbon::create($year, $monthNumber, 1)->startOfMonth()->toDateString();
         $endDate = Carbon::create($year, $monthNumber, 1)->endOfMonth()->toDateString();
 
-        $topEmployee = TransactionDetail::query()
+        $topEmployee = TransactionItem::query()
             ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
             ->join('employees', 'employees.id', '=', 'transactions.employee_id')
             ->where('transaction_items.item_type', 'service')
@@ -40,7 +40,7 @@ class EmployeePerformanceReportService
         $startDate = Carbon::create($year, $month, 1)->startOfMonth()->toDateString();
         $endDate = Carbon::create($year, $month, 1)->endOfMonth()->toDateString();
 
-        return TransactionDetail::query()
+        return TransactionItem::query()
             ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
             ->join('employees', 'employees.id', '=', 'transactions.employee_id')
             ->whereBetween('transactions.transaction_date', [$startDate, $endDate])

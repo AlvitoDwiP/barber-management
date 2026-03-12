@@ -10,6 +10,7 @@ class TransactionItem extends Model
 {
     use HasFactory;
 
+    // Official snapshot model for rows stored in transaction_items.
     protected $fillable = [
         'transaction_id',
         'item_type',

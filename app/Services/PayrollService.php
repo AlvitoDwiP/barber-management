@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollResult;
 use App\Models\Transaction;
-use App\Models\TransactionDetail;
+use App\Models\TransactionItem;
 use DomainException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -168,7 +168,7 @@ class PayrollService
             return collect();
         }
 
-        return TransactionDetail::query()
+        return TransactionItem::query()
             ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
             ->join('employees', 'employees.id', '=', 'transactions.employee_id')
             ->where('employees.status', self::EMPLOYEE_STATUS_TETAP)

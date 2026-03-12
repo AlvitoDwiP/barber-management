@@ -37,28 +37,14 @@ class Transaction extends Model
         return $this->belongsTo(Employee::class);
     }
 
+    // Primary payroll relation. The legacy payroll_period_id column is retained only for data transition.
     public function payrollPeriod(): BelongsTo
     {
-        return $this->assignedPayrollPeriod();
-    }
-
-    public function assignedPayrollPeriod(): BelongsTo
-    {
         return $this->belongsTo(PayrollPeriod::class, 'payroll_id');
-    }
-
-    public function legacyPayrollPeriod(): BelongsTo
-    {
-        return $this->belongsTo(PayrollPeriod::class, 'payroll_period_id');
     }
 
     public function transactionItems(): HasMany
     {
         return $this->hasMany(TransactionItem::class);
-    }
-
-    public function transactionDetails(): HasMany
-    {
-        return $this->hasMany(TransactionDetail::class);
     }
 }

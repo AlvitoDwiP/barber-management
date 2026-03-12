@@ -3,7 +3,7 @@
 namespace App\Services\Reports;
 
 use App\Models\Expense;
-use App\Models\TransactionDetail;
+use App\Models\TransactionItem;
 use App\Models\Transaction;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -45,7 +45,7 @@ class MonthlyReportService
         $endDate = Carbon::create($year, 1, 1)->endOfYear()->toDateString();
         ['year' => $yearExpression, 'month' => $monthExpression] = $this->getYearMonthExpressions('transactions.transaction_date');
 
-        return TransactionDetail::query()
+        return TransactionItem::query()
             ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
             ->whereBetween('transactions.transaction_date', [$startDate, $endDate])
             ->selectRaw('

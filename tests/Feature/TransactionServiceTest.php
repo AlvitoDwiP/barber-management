@@ -37,7 +37,7 @@ class TransactionServiceTest extends TestCase
         ]);
 
         $transaction->refresh();
-        $details = $transaction->transactionDetails()->orderBy('item_type')->orderBy('id')->get();
+        $details = $transaction->transactionItems()->orderBy('item_type')->orderBy('id')->get();
         $productDetail = $details->firstWhere('item_type', 'product');
         $serviceDetail = $details->firstWhere('item_type', 'service');
 
@@ -123,7 +123,7 @@ class TransactionServiceTest extends TestCase
         ]);
 
         $transaction->refresh();
-        $details = $transaction->transactionDetails()->orderBy('item_type')->orderBy('id')->get();
+        $details = $transaction->transactionItems()->orderBy('item_type')->orderBy('id')->get();
         $productDetail = $details->firstWhere('item_type', 'product');
         $serviceDetail = $details->firstWhere('item_type', 'service');
 

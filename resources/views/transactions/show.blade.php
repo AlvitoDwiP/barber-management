@@ -67,7 +67,7 @@
         <section class="admin-card">
             <h3 class="mb-4 text-base font-semibold text-slate-900">Detail Item</h3>
 
-            @if ($transaction->transactionDetails->isEmpty())
+            @if ($transaction->transactionItems->isEmpty())
                 <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-600">
                     Belum ada detail item pada transaksi ini.
                 </div>
@@ -85,7 +85,7 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 bg-white">
-                            @foreach ($transaction->transactionDetails as $detail)
+                            @foreach ($transaction->transactionItems as $detail)
                                 <tr class="hover:bg-slate-50/70">
                                     <td>{{ $detail->item_name ?: '-' }}</td>
                                     <td class="uppercase">{{ $detail->item_type }}</td>

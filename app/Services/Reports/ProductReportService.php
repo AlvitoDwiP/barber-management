@@ -2,7 +2,7 @@
 
 namespace App\Services\Reports;
 
-use App\Models\TransactionDetail;
+use App\Models\TransactionItem;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -16,7 +16,7 @@ class ProductReportService
         $startDate = Carbon::create($year, $monthNumber, 1)->startOfMonth()->toDateString();
         $endDate = Carbon::create($year, $monthNumber, 1)->endOfMonth()->toDateString();
 
-        $topProduct = TransactionDetail::query()
+        $topProduct = TransactionItem::query()
             ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
             ->join('products', 'products.id', '=', 'transaction_items.product_id')
             ->where('transaction_items.item_type', 'product')
@@ -38,7 +38,7 @@ class ProductReportService
 
     public function getProductSalesReport(): Collection
     {
-        return TransactionDetail::query()
+        return TransactionItem::query()
             ->join('products', 'products.id', '=', 'transaction_items.product_id')
             ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
             ->where('transaction_items.item_type', 'product')

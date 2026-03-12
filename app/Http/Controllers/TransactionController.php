@@ -29,8 +29,8 @@ class TransactionController extends Controller
         $transactions = Transaction::query()
             ->with(['employee:id,name'])
             ->withCount([
-                'transactionDetails as total_services' => fn ($query) => $query->where('item_type', 'service'),
-                'transactionDetails as total_products' => fn ($query) => $query->where('item_type', 'product'),
+                'transactionItems as total_services' => fn ($query) => $query->where('item_type', 'service'),
+                'transactionItems as total_products' => fn ($query) => $query->where('item_type', 'product'),
             ])
             ->when($filters['start_date'], fn ($query, $startDate) => $query->whereDate('transaction_date', '>=', $startDate))
             ->when($filters['end_date'], fn ($query, $endDate) => $query->whereDate('transaction_date', '<=', $endDate))
@@ -108,7 +108,7 @@ class TransactionController extends Controller
         $transaction = Transaction::query()
             ->with([
                 'employee:id,name',
-                'transactionDetails' => fn ($query) => $query->orderBy('id'),
+                'transactionItems' => fn ($query) => $query->orderBy('id'),
             ])
             ->findOrFail($id);
 
@@ -119,7 +119,7 @@ class TransactionController extends Controller
     {
         $transaction = Transaction::query()
             ->with([
-                'transactionDetails' => fn ($query) => $query
+                'transactionItems' => fn ($query) => $query
                     ->select('id', 'transaction_id', 'item_type', 'service_id', 'product_id', 'qty')
                     ->orderBy('id'),
             ])
@@ -205,7 +205,7 @@ class TransactionController extends Controller
 
     private function mapTransactionSelections(Transaction $transaction): array
     {
-        $selectedServices = $transaction->transactionDetails
+        $selectedServices = $transaction->transactionItems
             ->where('item_type', 'service')
             ->pluck('service_id')
             ->filter()
@@ -214,7 +214,7 @@ class TransactionController extends Controller
             ->values()
             ->all();
 
-        $selectedProducts = $transaction->transactionDetails
+        $selectedProducts = $transaction->transactionItems
             ->where('item_type', 'product')
             ->filter(fn ($detail) => $detail->product_id !== null && (int) $detail->qty > 0)
             ->groupBy('product_id')

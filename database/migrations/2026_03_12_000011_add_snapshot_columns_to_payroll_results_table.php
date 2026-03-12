@@ -140,17 +140,13 @@ return new class extends Migration
     {
         if (Schema::hasTable('payroll_periods')) {
             Schema::table('payroll_periods', function (Blueprint $table): void {
-                if (! Schema::hasIndex('payroll_periods', ['status', 'start_date'])) {
-                    $table->index(['status', 'start_date'], 'payroll_periods_status_start_date_idx');
-                }
+                $table->index(['status', 'start_date'], 'payroll_periods_status_start_date_idx');
             });
         }
 
         if (Schema::hasTable('payroll_results')) {
             Schema::table('payroll_results', function (Blueprint $table): void {
-                if (! Schema::hasIndex('payroll_results', ['payroll_period_id', 'employee_name'])) {
-                    $table->index(['payroll_period_id', 'employee_name'], 'payroll_results_period_employee_name_idx');
-                }
+                $table->index(['payroll_period_id', 'employee_name'], 'payroll_results_period_employee_name_idx');
             });
         }
     }
@@ -159,17 +155,13 @@ return new class extends Migration
     {
         if (Schema::hasTable('payroll_periods')) {
             Schema::table('payroll_periods', function (Blueprint $table): void {
-                if (Schema::hasIndex('payroll_periods', 'payroll_periods_status_start_date_idx')) {
-                    $table->dropIndex('payroll_periods_status_start_date_idx');
-                }
+                $table->dropIndex('payroll_periods_status_start_date_idx');
             });
         }
 
         if (Schema::hasTable('payroll_results')) {
             Schema::table('payroll_results', function (Blueprint $table): void {
-                if (Schema::hasIndex('payroll_results', 'payroll_results_period_employee_name_idx')) {
-                    $table->dropIndex('payroll_results_period_employee_name_idx');
-                }
+                $table->dropIndex('payroll_results_period_employee_name_idx');
             });
         }
     }

@@ -6,7 +6,7 @@ use App\Models\Product;
 use App\Models\PayrollPeriod;
 use App\Models\Service;
 use App\Models\Transaction;
-use App\Models\TransactionDetail;
+use App\Models\TransactionItem;
 use DomainException;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
@@ -33,7 +33,7 @@ class TransactionService
 
             $transaction = $this->createTransactionRecord($validatedData);
 
-            $this->syncTransactionDetails($transaction, $validatedData);
+            $this->syncTransactionItems($transaction, $validatedData);
 
             return $transaction;
         });
@@ -49,7 +49,7 @@ class TransactionService
                 ->firstOrFail();
 
             $this->assertTransactionCanBeMutated($transaction);
-            $this->syncTransactionDetails($transaction, $validatedData, $this->getExistingDetails($transaction));
+            $this->syncTransactionItems($transaction, $validatedData, $this->getExistingItems($transaction));
 
             return $transaction;
         });
@@ -65,34 +65,34 @@ class TransactionService
                 ->firstOrFail();
 
             $this->assertTransactionCanBeMutated($transaction);
-            $existingDetails = $this->getExistingDetails($transaction);
-            $lockedProducts = $this->lockProducts($this->extractProductIdsFromDetails($existingDetails));
+            $existingItems = $this->getExistingItems($transaction);
+            $lockedProducts = $this->lockProducts($this->extractProductIdsFromItems($existingItems));
 
-            $this->restoreOldProductStocks($existingDetails, $lockedProducts);
+            $this->restoreOldProductStocks($existingItems, $lockedProducts);
 
-            $transaction->transactionDetails()->delete();
+            $transaction->transactionItems()->delete();
             $transaction->delete();
         });
     }
 
-    private function syncTransactionDetails(
+    private function syncTransactionItems(
         Transaction $transaction,
         array $validatedData,
-        ?Collection $existingDetails = null
+        ?Collection $existingItems = null
     ): void {
         [$serviceIds, $productQtyById] = $this->extractTransactionItems($validatedData);
         $this->assertHasMinimumItems($serviceIds, $productQtyById);
 
-        $existingDetails ??= collect();
-        $lockedProducts = $this->lockProducts($this->mergeProductIdsForLock($existingDetails, $productQtyById));
+        $existingItems ??= collect();
+        $lockedProducts = $this->lockProducts($this->mergeProductIdsForLock($existingItems, $productQtyById));
 
-        $this->restoreOldProductStocks($existingDetails, $lockedProducts);
-        $transaction->transactionDetails()->delete();
+        $this->restoreOldProductStocks($existingItems, $lockedProducts);
+        $transaction->transactionItems()->delete();
         $this->updateTransactionHeader($transaction, $validatedData);
 
         $totalMinorUnits = 0;
-        $totalMinorUnits += $this->storeServiceDetails($transaction, $serviceIds, $existingDetails);
-        $totalMinorUnits += $this->storeProductDetails($transaction, $productQtyById, $existingDetails, $lockedProducts);
+        $totalMinorUnits += $this->storeServiceItems($transaction, $serviceIds, $existingItems);
+        $totalMinorUnits += $this->storeProductItems($transaction, $productQtyById, $existingItems, $lockedProducts);
 
         $this->finalizeTransactionTotals($transaction, $totalMinorUnits);
     }
@@ -134,15 +134,15 @@ class TransactionService
         ];
     }
 
-    private function storeServiceDetails(Transaction $transaction, array $serviceIds, Collection $existingDetails): int
+    private function storeServiceItems(Transaction $transaction, array $serviceIds, Collection $existingItems): int
     {
         if ($serviceIds === []) {
             return 0;
         }
 
-        $existingServiceDetails = $existingDetails
+        $existingServiceDetails = $existingItems
             ->where('item_type', 'service')
-            ->filter(fn (TransactionDetail $detail) => $detail->service_id !== null)
+            ->filter(fn (TransactionItem $detail) => $detail->service_id !== null)
             ->keyBy('service_id');
 
         $services = Service::query()
@@ -158,26 +158,26 @@ class TransactionService
                 ? $this->buildReusedServiceDetailAttributes($existingDetail)
                 : $this->buildFreshServiceDetailAttributes($services->get($serviceId), $serviceId);
 
-            $transaction->transactionDetails()->create($detailAttributes);
+            $transaction->transactionItems()->create($detailAttributes);
             $totalMinorUnits += $this->moneyToMinorUnits($detailAttributes['subtotal']);
         }
 
         return $totalMinorUnits;
     }
 
-    private function storeProductDetails(
+    private function storeProductItems(
         Transaction $transaction,
         array $productQtyById,
-        Collection $existingDetails,
+        Collection $existingItems,
         Collection $lockedProducts
     ): int {
         if ($productQtyById === []) {
             return 0;
         }
 
-        $existingProductDetails = $existingDetails
+        $existingProductDetails = $existingItems
             ->where('item_type', 'product')
-            ->filter(fn (TransactionDetail $detail) => $detail->product_id !== null)
+            ->filter(fn (TransactionItem $detail) => $detail->product_id !== null)
             ->keyBy('product_id');
 
         $totalMinorUnits = 0;
@@ -199,7 +199,7 @@ class TransactionService
             $product->decrement('stock', $qty);
             $product->stock = max(0, $currentStock - $qty);
 
-            $transaction->transactionDetails()->create($detailAttributes);
+            $transaction->transactionItems()->create($detailAttributes);
             $totalMinorUnits += $this->moneyToMinorUnits($detailAttributes['subtotal']);
         }
 
@@ -249,7 +249,7 @@ class TransactionService
         ];
     }
 
-    private function buildReusedServiceDetailAttributes(TransactionDetail $detail): array
+    private function buildReusedServiceDetailAttributes(TransactionItem $detail): array
     {
         return [
             'item_type' => 'service',
@@ -263,7 +263,7 @@ class TransactionService
         ];
     }
 
-    private function buildReusedProductDetailAttributes(TransactionDetail $detail): array
+    private function buildReusedProductDetailAttributes(TransactionItem $detail): array
     {
         return [
             'item_type' => 'product',
@@ -277,11 +277,11 @@ class TransactionService
         ];
     }
 
-    private function restoreOldProductStocks(Collection $existingDetails, Collection $lockedProducts): void
+    private function restoreOldProductStocks(Collection $existingItems, Collection $lockedProducts): void
     {
-        $restoreQtyByProductId = $existingDetails
+        $restoreQtyByProductId = $existingItems
             ->where('item_type', 'product')
-            ->filter(fn (TransactionDetail $detail) => $detail->product_id !== null && (int) $detail->qty > 0)
+            ->filter(fn (TransactionItem $detail) => $detail->product_id !== null && (int) $detail->qty > 0)
             ->groupBy('product_id')
             ->map(fn (Collection $rows) => (int) $rows->sum('qty'));
 
@@ -340,17 +340,17 @@ class TransactionService
             ->all();
     }
 
-    private function getExistingDetails(Transaction $transaction): Collection
+    private function getExistingItems(Transaction $transaction): Collection
     {
-        return $transaction->transactionDetails()
+        return $transaction->transactionItems()
             ->select('id', 'item_type', 'service_id', 'product_id', 'item_name', 'unit_price', 'qty', 'subtotal', 'commission_amount')
             ->orderBy('id')
             ->get();
     }
 
-    private function mergeProductIdsForLock(Collection $existingDetails, array $productQtyById): array
+    private function mergeProductIdsForLock(Collection $existingItems, array $productQtyById): array
     {
-        return collect($this->extractProductIdsFromDetails($existingDetails))
+        return collect($this->extractProductIdsFromItems($existingItems))
             ->merge(array_keys($productQtyById))
             ->map(fn ($id) => (int) $id)
             ->filter(fn ($id) => $id > 0)
@@ -360,9 +360,9 @@ class TransactionService
             ->all();
     }
 
-    private function extractProductIdsFromDetails(Collection $existingDetails): array
+    private function extractProductIdsFromItems(Collection $existingItems): array
     {
-        return $existingDetails
+        return $existingItems
             ->where('item_type', 'product')
             ->pluck('product_id')
             ->filter()

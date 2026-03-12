@@ -35,12 +35,8 @@ class PayrollPeriod extends Model
         return $this->hasMany(PayrollResult::class);
     }
 
+    // Primary transaction relation. Legacy transactions.payroll_period_id remains for transitional compatibility only.
     public function transactions(): HasMany
-    {
-        return $this->assignedTransactions();
-    }
-
-    public function assignedTransactions(): HasMany
     {
         return $this->hasMany(Transaction::class, 'payroll_id');
     }
@@ -63,7 +59,7 @@ class PayrollPeriod extends Model
 
             $isClosed = $payrollPeriod->getOriginal('status') === self::STATUS_CLOSED
                 || $payrollPeriod->status === self::STATUS_CLOSED;
-            $hasLinkedData = $payrollPeriod->assignedTransactions()->exists() || $payrollPeriod->payrollResults()->exists();
+            $hasLinkedData = $payrollPeriod->transactions()->exists() || $payrollPeriod->payrollResults()->exists();
 
             if ($isClosed || $hasLinkedData) {
                 throw new DomainException('Periode payroll tidak dapat diubah setelah payroll dibuat.');

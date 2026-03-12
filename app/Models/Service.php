@@ -26,9 +26,4 @@ class Service extends Model
     {
         return $this->hasMany(TransactionItem::class);
     }
-
-    public function transactionDetails(): HasMany
-    {
-        return $this->hasMany(TransactionDetail::class);
-    }
 }

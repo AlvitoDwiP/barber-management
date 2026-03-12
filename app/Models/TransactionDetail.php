@@ -28,6 +28,7 @@ class TransactionDetail extends Model
     {
         return [
             'unit_price' => 'decimal:2',
+            'qty' => 'integer',
             'subtotal' => 'decimal:2',
             'commission_amount' => 'decimal:2',
         ];

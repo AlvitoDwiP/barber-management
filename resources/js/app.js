@@ -9,11 +9,16 @@ window.Alpine = Alpine;
 Alpine.start();
 
 const initDatePickers = () => {
-    const dateInputs = document.querySelectorAll('[data-flatpickr="date"]');
+    const dateInputs = document.querySelectorAll('[data-flatpickr="date"], input[type="date"]');
 
     dateInputs.forEach((input) => {
         if (input.dataset.fpInitialized === 'true') {
             return;
+        }
+
+        if (input.type === 'date') {
+            input.type = 'text';
+            input.autocomplete = 'off';
         }
 
         flatpickr(input, {

@@ -34,15 +34,6 @@ class Transaction extends Model
         ];
     }
 
-    protected static function booted(): void
-    {
-        static::creating(function (self $transaction): void {
-            if (blank($transaction->transaction_date)) {
-                $transaction->transaction_date = now()->toDateString();
-            }
-        });
-    }
-
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class);

@@ -15,8 +15,10 @@
                 <input
                     id="start_date"
                     name="start_date"
-                    type="date"
+                    type="text"
                     value="{{ $startDate }}"
+                    data-flatpickr="date"
+                    autocomplete="off"
                     class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-[#A85F3B] focus:ring-[#A85F3B]"
                 />
                 @error('start_date')
@@ -28,8 +30,10 @@
                 <input
                     id="end_date"
                     name="end_date"
-                    type="date"
+                    type="text"
                     value="{{ $endDate }}"
+                    data-flatpickr="date"
+                    autocomplete="off"
                     class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-[#A85F3B] focus:ring-[#A85F3B]"
                 />
                 @error('end_date')

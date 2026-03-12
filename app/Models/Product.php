@@ -16,6 +16,14 @@ class Product extends Model
         'stock',
     ];
 
+    protected function casts(): array
+    {
+        return [
+            'price' => 'decimal:2',
+            'stock' => 'integer',
+        ];
+    }
+
     public function transactionItems(): HasMany
     {
         return $this->hasMany(TransactionItem::class);

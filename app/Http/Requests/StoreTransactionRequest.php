@@ -28,15 +28,6 @@ class StoreTransactionRequest extends FormRequest
         ];
     }
 
-    protected function prepareForValidation(): void
-    {
-        if (! $this->filled('transaction_date')) {
-            $this->merge([
-                'transaction_date' => now()->toDateString(),
-            ]);
-        }
-    }
-
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {

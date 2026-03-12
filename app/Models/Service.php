@@ -15,6 +15,13 @@ class Service extends Model
         'price',
     ];
 
+    protected function casts(): array
+    {
+        return [
+            'price' => 'decimal:2',
+        ];
+    }
+
     public function transactionItems(): HasMany
     {
         return $this->hasMany(TransactionItem::class);

@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="text-lg font-semibold leading-tight text-slate-900">Laporan Produktivitas Pegawai</h2>
+        <x-report-page-header title="Laporan Produktivitas Pegawai" />
     </x-slot>
 
     @php
@@ -27,7 +27,7 @@
     @endphp
 
     <div class="space-y-6">
-        <x-report-filter :action="route('reports.employees')" :showDateRange="false" :showYear="false">
+        <x-report-filter :action="route('reports.employees')" :showDateRange="false" :showYear="false" :filterKeys="['month', 'year']">
             <div>
                 <label for="month" class="text-sm font-medium text-slate-700">Bulan</label>
                 <select

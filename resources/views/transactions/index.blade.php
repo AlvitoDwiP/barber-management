@@ -3,86 +3,115 @@
         <h2 class="text-lg font-semibold leading-tight text-slate-900">{{ __('Transaksi') }}</h2>
     </x-slot>
 
+    @php
+        $hasActiveFilters = filled($filters['start_date'] ?? null)
+            || filled($filters['end_date'] ?? null)
+            || filled($filters['employee_id'] ?? null)
+            || filled($filters['payment_method'] ?? null);
+    @endphp
+
     <div class="space-y-6">
-        <section class="admin-card">
+        <section class="admin-card" x-data="{ filterOpen: @js($hasActiveFilters) }">
             <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h3 class="text-base font-semibold text-slate-900">Filter Transaksi</h3>
-                    <p class="text-sm text-slate-500">Saring data berdasarkan tanggal, pegawai, dan metode pembayaran.</p>
+                    <h3 class="text-base font-semibold text-slate-900">Transaksi</h3>
+                    <p class="text-sm text-slate-500">Buka filter saat diperlukan untuk menyaring data berdasarkan tanggal, pegawai, dan metode pembayaran.</p>
                 </div>
 
-                <a
-                    href="{{ route('transactions.create') }}"
-                    class="btn-brand-primary"
+                <button
+                    type="button"
+                    class="btn-neutral-warm justify-center"
+                    @click="filterOpen = !filterOpen"
+                    :aria-expanded="filterOpen.toString()"
+                    aria-controls="transaction-filter-form"
                 >
-                    Tambah Transaksi
-                </a>
+                    <span x-text="filterOpen ? 'Tutup Filter' : 'Filter Transaksi'"></span>
+                </button>
             </div>
 
-            <form method="GET" action="{{ route('transactions.index') }}" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-                <div>
-                    <x-input-label for="start_date" :value="__('Tanggal Mulai')" />
-                    <x-text-input
-                        id="start_date"
-                        name="start_date"
-                        type="text"
-                        class="mt-1 block w-full"
-                        :value="$filters['start_date']"
-                        data-flatpickr="date"
-                        autocomplete="off"
-                    />
-                </div>
+            <div
+                id="transaction-filter-form"
+                x-cloak
+                x-show="filterOpen"
+                x-transition.opacity.duration.150ms
+                class="border-t border-slate-200 pt-5"
+            >
+                <form method="GET" action="{{ route('transactions.index') }}" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+                    <div>
+                        <x-input-label for="start_date" :value="__('Tanggal Mulai')" />
+                        <x-text-input
+                            id="start_date"
+                            name="start_date"
+                            type="text"
+                            class="mt-1 block w-full"
+                            :value="$filters['start_date']"
+                            data-flatpickr="date"
+                            autocomplete="off"
+                        />
+                    </div>
 
-                <div>
-                    <x-input-label for="end_date" :value="__('Tanggal Akhir')" />
-                    <x-text-input
-                        id="end_date"
-                        name="end_date"
-                        type="text"
-                        class="mt-1 block w-full"
-                        :value="$filters['end_date']"
-                        data-flatpickr="date"
-                        autocomplete="off"
-                    />
-                </div>
+                    <div>
+                        <x-input-label for="end_date" :value="__('Tanggal Akhir')" />
+                        <x-text-input
+                            id="end_date"
+                            name="end_date"
+                            type="text"
+                            class="mt-1 block w-full"
+                            :value="$filters['end_date']"
+                            data-flatpickr="date"
+                            autocomplete="off"
+                        />
+                    </div>
 
-                <div>
-                    <x-input-label for="employee_id" :value="__('Pegawai')" />
-                    <select id="employee_id" name="employee_id" class="form-brand-control">
-                        <option value="">Semua pegawai</option>
-                        @foreach ($employees as $employee)
-                            <option value="{{ $employee->id }}" @selected((string) $filters['employee_id'] === (string) $employee->id)>
-                                {{ $employee->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
+                    <div>
+                        <x-input-label for="employee_id" :value="__('Pegawai')" />
+                        <select id="employee_id" name="employee_id" class="form-brand-control">
+                            <option value="">Semua pegawai</option>
+                            @foreach ($employees as $employee)
+                                <option value="{{ $employee->id }}" @selected((string) $filters['employee_id'] === (string) $employee->id)>
+                                    {{ $employee->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
 
-                <div>
-                    <x-input-label for="payment_method" :value="__('Metode Pembayaran')" />
-                    <select id="payment_method" name="payment_method" class="form-brand-control">
-                        <option value="">Semua metode</option>
-                        <option value="cash" @selected($filters['payment_method'] === 'cash')>cash</option>
-                        <option value="qr" @selected($filters['payment_method'] === 'qr')>qr</option>
-                    </select>
-                </div>
+                    <div>
+                        <x-input-label for="payment_method" :value="__('Metode Pembayaran')" />
+                        <select id="payment_method" name="payment_method" class="form-brand-control">
+                            <option value="">Semua metode</option>
+                            <option value="cash" @selected($filters['payment_method'] === 'cash')>cash</option>
+                            <option value="qr" @selected($filters['payment_method'] === 'qr')>qr</option>
+                        </select>
+                    </div>
 
-                <div class="flex items-end gap-2">
-                    <x-primary-button class="w-full">Filter</x-primary-button>
-                    <a
-                        href="{{ route('transactions.index') }}"
-                        class="btn-neutral-warm w-full justify-center"
-                    >
-                        Reset
-                    </a>
-                </div>
-            </form>
+                    <div class="flex items-end gap-2">
+                        <x-primary-button class="w-full">Filter</x-primary-button>
+                        <a
+                            href="{{ route('transactions.index') }}"
+                            class="btn-neutral-warm w-full justify-center"
+                        >
+                            Reset
+                        </a>
+                    </div>
+                </form>
+            </div>
         </section>
 
         <section class="admin-card">
-            <div class="mb-4 flex items-center justify-between gap-3">
-                <h3 class="text-base font-semibold text-slate-900">Daftar Transaksi</h3>
-                <span class="rounded-full bg-[#FAF3EF] px-3 py-1 text-xs font-medium text-[#7D4026]">{{ $transactions->total() }} data</span>
+            <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div class="space-y-3">
+                    <h3 class="text-base font-semibold text-slate-900">Daftar Transaksi</h3>
+                    <a
+                        href="{{ route('transactions.create') }}"
+                        class="btn-brand-primary self-start"
+                    >
+                        Tambah Transaksi
+                    </a>
+                </div>
+
+                <span class="inline-flex items-center justify-center self-start whitespace-nowrap rounded-lg bg-[#FAF3EF] px-2.5 py-1 text-xs font-medium leading-none text-[#7D4026]">
+                    {{ $transactions->total() }} data
+                </span>
             </div>
 
             @if ($transactions->isEmpty())

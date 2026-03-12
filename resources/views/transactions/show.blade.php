@@ -5,33 +5,36 @@
 
     <div class="space-y-6">
         <section class="admin-card">
-            <div class="mb-5 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div class="mb-5 space-y-4">
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Kode Transaksi</p>
                     <h3 class="mt-1 text-xl font-bold text-slate-900">{{ $transaction->transaction_code }}</h3>
                     <p class="mt-1 text-sm text-slate-500">Informasi ringkas transaksi dan item snapshot.</p>
                 </div>
 
-                <div class="flex flex-wrap items-center gap-2">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <a
+                            href="{{ route('transactions.edit', $transaction) }}"
+                            class="btn-brand-soft shrink-0"
+                        >
+                            Edit
+                        </a>
+
+                        <x-delete-form
+                            :action="route('transactions.destroy', $transaction)"
+                            button-text="Hapus"
+                            confirm-message="Yakin ingin menghapus transaksi ini? Stok produk akan dikembalikan."
+                            class="shrink-0"
+                        />
+                    </div>
+
                     <a
                         href="{{ route('transactions.index') }}"
-                        class="btn-neutral-warm"
+                        class="btn-brand-primary shrink-0 self-start sm:self-auto"
                     >
-                        Kembali
+                        Selesai
                     </a>
-
-                    <a
-                        href="{{ route('transactions.edit', $transaction) }}"
-                        class="btn-brand-soft"
-                    >
-                        Edit
-                    </a>
-
-                    <x-delete-form
-                        :action="route('transactions.destroy', $transaction)"
-                        button-text="Hapus"
-                        confirm-message="Yakin ingin menghapus transaksi ini? Stok produk akan dikembalikan."
-                    />
                 </div>
             </div>
 

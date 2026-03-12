@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="text-lg font-semibold leading-tight text-slate-900">Laporan Harian</h2>
+        <x-report-page-header title="Laporan Harian" />
     </x-slot>
 
     @php
@@ -35,6 +35,7 @@
             :showYear="false"
             :startDate="$startDate"
             :endDate="$endDate"
+            :filterKeys="['start_date', 'end_date']"
         />
 
         <div class="admin-card">

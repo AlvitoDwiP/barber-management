@@ -143,6 +143,23 @@
         box-shadow: 0 0 0 3px var(--brand-ring);
     }
 
+    .btn-brand-sidebar {
+        background-color: var(--brand-900);
+        border-color: var(--brand-900);
+        color: #fffdfc;
+        @apply inline-flex items-center justify-center rounded-lg border px-4 py-2 text-xs font-semibold uppercase tracking-widest transition;
+    }
+
+    .btn-brand-sidebar:hover {
+        background-color: var(--brand-950);
+        border-color: var(--brand-950);
+    }
+
+    .btn-brand-sidebar:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--brand-ring);
+    }
+
     .btn-brand-soft {
         border-color: #e1c5b8;
         background-color: var(--cream-50);

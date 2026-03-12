@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="text-lg font-semibold leading-tight text-slate-900">Laporan Produk</h2>
+        <x-report-page-header title="Laporan Produk" />
     </x-slot>
 
     @php

@@ -101,12 +101,14 @@
             <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div class="space-y-3">
                     <h3 class="text-base font-semibold text-slate-900">Daftar Transaksi</h3>
-                    <a
-                        href="{{ route('transactions.create') }}"
-                        class="btn-brand-primary self-start"
-                    >
-                        Tambah Transaksi
-                    </a>
+                    <div class="flex flex-wrap gap-2">
+                        <a
+                            href="{{ route('transactions.daily-batch.create') }}"
+                            class="btn-brand-primary self-start"
+                        >
+                            Tambah Transaksi
+                        </a>
+                    </div>
                 </div>
 
                 <span class="inline-flex items-center justify-center self-start whitespace-nowrap rounded-lg bg-[#FAF3EF] px-2.5 py-1 text-xs font-medium leading-none text-[#7D4026]">
@@ -137,11 +139,11 @@
                                 </div>
                                 <div>
                                     <dt class="text-xs text-slate-500">Layanan</dt>
-                                    <dd class="font-medium text-slate-800">{{ $transaction->total_services }}</dd>
+                                    <dd class="font-medium text-slate-800">{{ (int) ($transaction->total_services ?? 0) }}</dd>
                                 </div>
                                 <div>
                                     <dt class="text-xs text-slate-500">Produk</dt>
-                                    <dd class="font-medium text-slate-800">{{ $transaction->total_products }}</dd>
+                                    <dd class="font-medium text-slate-800">{{ (int) ($transaction->total_products ?? 0) }}</dd>
                                 </div>
                                 <div>
                                     <dt class="text-xs text-slate-500">Total</dt>
@@ -192,8 +194,8 @@
                                 <tr class="hover:bg-slate-50/70">
                                     <td>{{ $transaction->transaction_date?->locale('id')->translatedFormat('d F Y') }}</td>
                                     <td>{{ $transaction->employee?->name ?? '-' }}</td>
-                                    <td>{{ $transaction->total_services }}</td>
-                                    <td>{{ $transaction->total_products }}</td>
+                                    <td>{{ (int) ($transaction->total_services ?? 0) }}</td>
+                                    <td>{{ (int) ($transaction->total_products ?? 0) }}</td>
                                     <td>
                                         <span class="payment-badge {{ $transaction->payment_method === 'cash' ? 'payment-badge-cash' : 'payment-badge-qr' }}">
                                             {{ $transaction->payment_method }}

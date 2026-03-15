@@ -9,9 +9,9 @@ use App\Models\Transaction;
 use App\Models\TransactionItem;
 use DomainException;
 use Illuminate\Database\QueryException;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -27,15 +27,29 @@ class TransactionService
 
     public function storeTransaction(array $validatedData): Transaction
     {
-        return DB::transaction(function () use ($validatedData): Transaction {
-            [$serviceIds, $productQtyById] = $this->extractTransactionItems($validatedData);
-            $this->assertHasMinimumItems($serviceIds, $productQtyById);
+        return DB::transaction(fn (): Transaction => $this->persistNewTransaction($validatedData));
+    }
 
-            $transaction = $this->createTransactionRecord($validatedData);
+    public function storeDailyBatch(array $validatedData): Collection
+    {
+        return DB::transaction(function () use ($validatedData): Collection {
+            $transactions = collect();
+            $batchProductQtyById = $this->extractBatchProductQuantities($validatedData['entries'] ?? []);
+            $lockedBatchProducts = $this->lockProducts(array_keys($batchProductQtyById));
 
-            $this->syncTransactionItems($transaction, $validatedData);
+            $this->assertBatchStockAvailable($lockedBatchProducts, $batchProductQtyById);
 
-            return $transaction;
+            foreach ($validatedData['entries'] ?? [] as $index => $entry) {
+                try {
+                    $transactions->push(
+                        $this->persistNewTransaction($this->mergeBatchEntryPayload($validatedData, $entry))
+                    );
+                } catch (DomainException $exception) {
+                    throw new DomainException('Transaksi '.($index + 1).': '.$exception->getMessage(), previous: $exception);
+                }
+            }
+
+            return $transactions;
         });
     }
 
@@ -97,6 +111,17 @@ class TransactionService
         $this->finalizeTransactionTotals($transaction, $totalMinorUnits);
     }
 
+    private function persistNewTransaction(array $validatedData): Transaction
+    {
+        [$serviceIds, $productQtyById] = $this->extractTransactionItems($validatedData);
+        $this->assertHasMinimumItems($serviceIds, $productQtyById);
+
+        $transaction = $this->createTransactionRecord($validatedData);
+        $this->syncTransactionItems($transaction, $validatedData);
+
+        return $transaction;
+    }
+
     private function createTransactionRecord(array $validatedData): Transaction
     {
         $attributes = $this->buildTransactionAttributes($validatedData);
@@ -131,6 +156,7 @@ class TransactionService
             'subtotal_amount' => $this->formatMoneyFromMinorUnits(0),
             'discount_amount' => $this->formatMoneyFromMinorUnits(0),
             'total_amount' => $this->formatMoneyFromMinorUnits(0),
+            'notes' => $this->normalizeOptionalText($validatedData['notes'] ?? null),
         ];
     }
 
@@ -140,21 +166,24 @@ class TransactionService
             return 0;
         }
 
-        $existingServiceDetails = $existingItems
+        $existingServiceDetailsById = $existingItems
             ->where('item_type', 'service')
             ->filter(fn (TransactionItem $detail) => $detail->service_id !== null)
-            ->keyBy('service_id');
+            ->groupBy('service_id')
+            ->map(fn (Collection $rows) => $rows->values());
 
         $services = Service::query()
-            ->whereIn('id', $serviceIds)
+            ->whereIn('id', array_values(array_unique($serviceIds)))
             ->get()
             ->keyBy('id');
 
         $totalMinorUnits = 0;
 
         foreach ($serviceIds as $serviceId) {
-            $existingDetail = $existingServiceDetails->get($serviceId);
-            $detailAttributes = $existingDetail !== null
+            $serviceDetailQueue = $existingServiceDetailsById->get($serviceId, collect());
+            $existingDetail = $serviceDetailQueue->shift();
+            $existingServiceDetailsById->put($serviceId, $serviceDetailQueue);
+            $detailAttributes = $existingDetail instanceof TransactionItem && (int) $existingDetail->qty === 1
                 ? $this->buildReusedServiceDetailAttributes($existingDetail)
                 : $this->buildFreshServiceDetailAttributes($services->get($serviceId), $serviceId);
 
@@ -215,7 +244,7 @@ class TransactionService
         $unitPriceMinorUnits = $this->moneyToMinorUnits($service->price);
         $subtotalMinorUnits = $unitPriceMinorUnits;
         $commissionMinorUnits = $this->calculatePercentageMinorUnits(
-            $unitPriceMinorUnits,
+            $subtotalMinorUnits,
             self::SERVICE_COMMISSION_BASIS_POINTS
         );
 
@@ -251,15 +280,22 @@ class TransactionService
 
     private function buildReusedServiceDetailAttributes(TransactionItem $detail): array
     {
+        $unitPrice = $this->formatMoneyValue($detail->unit_price);
+        $unitPriceMinorUnits = $this->moneyToMinorUnits($unitPrice);
+        $commissionMinorUnits = $this->calculatePercentageMinorUnits(
+            $unitPriceMinorUnits,
+            self::SERVICE_COMMISSION_BASIS_POINTS
+        );
+
         return [
             'item_type' => 'service',
             'service_id' => $detail->service_id,
             'product_id' => null,
             'item_name' => $detail->item_name,
-            'unit_price' => $this->formatMoneyValue($detail->unit_price),
+            'unit_price' => $unitPrice,
             'qty' => 1,
-            'subtotal' => $this->formatMoneyValue($detail->subtotal),
-            'commission_amount' => $this->formatMoneyValue($detail->commission_amount),
+            'subtotal' => $this->formatMoneyFromMinorUnits($unitPriceMinorUnits),
+            'commission_amount' => $this->formatMoneyFromMinorUnits($commissionMinorUnits),
         ];
     }
 
@@ -324,20 +360,97 @@ class TransactionService
 
     private function extractServiceIds(array $validatedData): array
     {
-        return collect($validatedData['services'] ?? [])
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn ($id) => $id > 0)
-            ->unique()
+        $services = $validatedData['services'] ?? [];
+
+        if (! is_array($services)) {
+            return [];
+        }
+
+        return collect($services)
+            ->map(function ($row) {
+                if (is_array($row)) {
+                    return (int) ($row['service_id'] ?? 0);
+                }
+
+                return (int) $row;
+            })
+            ->filter(fn ($serviceId) => $serviceId > 0)
             ->values()
             ->all();
     }
 
     private function extractProductQuantities(array $validatedData): array
     {
-        return collect($validatedData['products'] ?? [])
-            ->mapWithKeys(fn ($qty, $productId) => [(int) $productId => (int) $qty])
-            ->filter(fn ($qty, $productId) => $productId > 0 && $qty > 0)
-            ->all();
+        $products = $validatedData['products'] ?? [];
+
+        if (! is_array($products)) {
+            return [];
+        }
+
+        return collect($products)
+            ->map(function ($row, $productId) {
+                if (is_array($row)) {
+                    return [
+                        'product_id' => (int) ($row['product_id'] ?? 0),
+                        'qty' => (int) ($row['qty'] ?? 0),
+                    ];
+                }
+
+                return [
+                    'product_id' => (int) $productId,
+                    'qty' => (int) $row,
+                ];
+            })
+            ->filter(fn (array $row) => $row['product_id'] > 0 && $row['qty'] > 0)
+            ->reduce(function (array $carry, array $row): array {
+                $carry[$row['product_id']] = ($carry[$row['product_id']] ?? 0) + $row['qty'];
+
+                return $carry;
+            }, []);
+    }
+
+    private function mergeBatchEntryPayload(array $validatedData, array $entry): array
+    {
+        return [
+            'transaction_date' => $validatedData['transaction_date'],
+            'employee_id' => $validatedData['employee_id'],
+            'payment_method' => $entry['payment_method'],
+            'notes' => $entry['notes'] ?? null,
+            'services' => $entry['services'] ?? [],
+            'products' => $entry['products'] ?? [],
+        ];
+    }
+
+    private function extractBatchProductQuantities(array $entries): array
+    {
+        return collect($entries)
+            ->filter(fn ($entry) => is_array($entry))
+            ->flatMap(function (array $entry) {
+                $products = $entry['products'] ?? [];
+
+                if (! is_array($products)) {
+                    return [];
+                }
+
+                return collect($products)
+                    ->map(fn ($row) => [
+                        'product_id' => (int) ($row['product_id'] ?? 0),
+                        'qty' => (int) ($row['qty'] ?? 0),
+                    ]);
+            })
+            ->filter(fn (array $row) => $row['product_id'] > 0 && $row['qty'] > 0)
+            ->reduce(function (array $carry, array $row): array {
+                $carry[$row['product_id']] = ($carry[$row['product_id']] ?? 0) + $row['qty'];
+
+                return $carry;
+            }, []);
+    }
+
+    private function normalizeOptionalText(mixed $value): ?string
+    {
+        $normalized = trim((string) ($value ?? ''));
+
+        return $normalized === '' ? null : $normalized;
     }
 
     private function getExistingItems(Transaction $transaction): Collection
@@ -393,6 +506,19 @@ class TransactionService
             throw new DomainException(
                 "Stok produk {$product->name} tidak cukup. Tersedia {$product->stock}, diminta {$qty}."
             );
+        }
+    }
+
+    private function assertBatchStockAvailable(Collection $lockedProducts, array $productQtyById): void
+    {
+        foreach ($productQtyById as $productId => $qty) {
+            $product = $lockedProducts->get((int) $productId);
+
+            if (! $product) {
+                throw new DomainException("Produk dengan ID {$productId} tidak ditemukan.");
+            }
+
+            $this->assertStockAvailable($product, $qty);
         }
     }
 

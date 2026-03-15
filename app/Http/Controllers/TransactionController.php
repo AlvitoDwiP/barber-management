@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreTransactionRequest;
+use App\Http\Requests\StoreDailyBatchTransactionRequest;
 use App\Http\Requests\UpdateTransactionRequest;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
@@ -28,10 +28,8 @@ class TransactionController extends Controller
 
         $transactions = Transaction::query()
             ->with(['employee:id,name'])
-            ->withCount([
-                'transactionItems as total_services' => fn ($query) => $query->where('item_type', 'service'),
-                'transactionItems as total_products' => fn ($query) => $query->where('item_type', 'product'),
-            ])
+            ->withSum(['transactionItems as total_services' => fn ($query) => $query->where('item_type', 'service')], 'qty')
+            ->withSum(['transactionItems as total_products' => fn ($query) => $query->where('item_type', 'product')], 'qty')
             ->when($filters['start_date'], fn ($query, $startDate) => $query->whereDate('transaction_date', '>=', $startDate))
             ->when($filters['end_date'], fn ($query, $endDate) => $query->whereDate('transaction_date', '<=', $endDate))
             ->when($filters['employee_id'], fn ($query, $employeeId) => $query->where('employee_id', $employeeId))
@@ -48,43 +46,32 @@ class TransactionController extends Controller
         return view('transactions.index', compact('transactions', 'employees', 'filters'));
     }
 
-    public function create(): View
+    public function createDailyBatch(): View
     {
         ['employees' => $employees, 'services' => $services, 'products' => $products] = $this->getTransactionFormOptions();
         $activePayroll = PayrollPeriod::query()
-            ->where('status', 'open')
+            ->where('status', PayrollPeriod::STATUS_OPEN)
             ->latest('id')
             ->first();
 
-        $selectedServices = [];
-        $selectedProducts = [];
-
-        return view('transactions.create', compact(
-            'employees',
-            'services',
-            'products',
-            'selectedServices',
-            'selectedProducts',
-            'activePayroll',
-        ));
+        return view('transactions.daily-batch', compact('employees', 'services', 'products', 'activePayroll'));
     }
 
-    public function store(StoreTransactionRequest $request, TransactionService $transactionService): RedirectResponse
-    {
+    public function storeDailyBatch(
+        StoreDailyBatchTransactionRequest $request,
+        TransactionService $transactionService
+    ): RedirectResponse {
         try {
-            $transaction = $transactionService->storeTransaction($request->validated());
-            $closedPayroll = PayrollPeriod::query()
-                ->where('status', 'closed')
-                ->whereDate('start_date', '<=', $transaction->transaction_date)
-                ->whereDate('end_date', '>=', $transaction->transaction_date)
-                ->first();
+            $validated = $request->validated();
+            $transactions = $transactionService->storeDailyBatch($validated);
+            $closedPayroll = $this->findClosedPayrollForDate($validated['transaction_date']);
 
             $redirect = redirect()
-                ->route('transactions.show', $transaction)
-                ->with('success', 'Transaksi berhasil disimpan.');
+                ->route('transactions.index')
+                ->with('success', $transactions->count().' transaksi berhasil disimpan dari input harian.');
 
             if ($closedPayroll !== null) {
-                $redirect->with('warning', 'Transaksi ini berada dalam periode payroll yang sudah ditutup. Transaksi tetap disimpan tetapi tidak akan mempengaruhi payroll sebelumnya.');
+                $redirect->with('warning', 'Tanggal transaksi ini berada dalam periode payroll yang sudah ditutup. Semua transaksi tetap disimpan tetapi tidak akan mempengaruhi payroll sebelumnya.');
             }
 
             return $redirect;
@@ -99,7 +86,7 @@ class TransactionController extends Controller
             return redirect()
                 ->back()
                 ->withInput()
-                ->with('error', 'Terjadi kesalahan saat menyimpan transaksi. Silakan coba lagi.');
+                ->with('error', 'Terjadi kesalahan saat menyimpan transaksi harian. Silakan coba lagi.');
         }
     }
 
@@ -207,20 +194,35 @@ class TransactionController extends Controller
     {
         $selectedServices = $transaction->transactionItems
             ->where('item_type', 'service')
-            ->pluck('service_id')
-            ->filter()
-            ->map(fn ($id) => (int) $id)
-            ->unique()
+            ->filter(fn ($detail) => $detail->service_id !== null && (int) $detail->qty > 0)
+            ->flatMap(fn ($detail) => array_fill(0, max(1, (int) $detail->qty), [
+                'service_id' => (int) $detail->service_id,
+            ]))
             ->values()
             ->all();
 
         $selectedProducts = $transaction->transactionItems
             ->where('item_type', 'product')
             ->filter(fn ($detail) => $detail->product_id !== null && (int) $detail->qty > 0)
-            ->groupBy('product_id')
-            ->map(fn ($rows) => (int) $rows->sum('qty'))
+            ->map(fn ($detail) => [
+                'product_id' => (int) $detail->product_id,
+                'qty' => (int) $detail->qty,
+            ])
             ->all();
 
         return compact('selectedServices', 'selectedProducts');
+    }
+
+    private function findClosedPayrollForDate(?string $transactionDate): ?PayrollPeriod
+    {
+        if (blank($transactionDate)) {
+            return null;
+        }
+
+        return PayrollPeriod::query()
+            ->where('status', PayrollPeriod::STATUS_CLOSED)
+            ->whereDate('start_date', '<=', $transactionDate)
+            ->whereDate('end_date', '>=', $transactionDate)
+            ->first();
     }
 }

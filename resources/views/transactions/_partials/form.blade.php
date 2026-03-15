@@ -1,46 +1,39 @@
 @php
     $transactionDateValue = old('transaction_date', $transaction?->transaction_date?->format('Y-m-d') ?? now()->toDateString());
     $employeeValue = old('employee_id', $transaction?->employee_id);
-    $paymentMethodValue = old('payment_method', $transaction?->payment_method);
-
-    $selectedServiceDefaults = collect($selectedServices ?? [])
-        ->map(fn ($id) => (string) $id)
-        ->all();
-
-    $oldServices = old('services');
-    $selectedServiceIds = is_array($oldServices)
-        ? collect($oldServices)->map(fn ($id) => (string) $id)->all()
-        : $selectedServiceDefaults;
-
-    $selectedProductDefaults = collect($selectedProducts ?? [])
-        ->map(fn ($qty) => $qty === null ? '' : (string) $qty)
-        ->all();
-
-    $oldProducts = old('products');
-    $productQtyById = is_array($oldProducts)
-        ? collect($oldProducts)->map(fn ($qty) => $qty === null ? '' : (string) $qty)->all()
-        : $selectedProductDefaults;
+    $paymentMethodValue = old('payment_method', $transaction?->payment_method ?? 'cash');
+    $notesValue = old('notes', $transaction?->notes);
+    $initialServices = old('services', $selectedServices ?? [['service_id' => '']]);
+    $initialProducts = old('products', $selectedProducts ?? [['product_id' => '', 'qty' => 1]]);
+    $serviceOptions = $services->map(fn ($service) => [
+        'id' => $service->id,
+        'name' => $service->name,
+        'price' => (float) $service->price,
+    ])->values();
+    $productOptions = $products->map(fn ($product) => [
+        'id' => $product->id,
+        'name' => $product->name,
+        'price' => (float) $product->price,
+        'stock' => (int) $product->stock,
+    ])->values();
 @endphp
 
 <div
-    class="grid grid-cols-1 gap-6 xl:grid-cols-3"
-    x-data="{
-        selectedServices: @js(array_values($selectedServiceIds)),
-        productQty: @js($productQtyById),
-        selectedServiceCount() {
-            return this.selectedServices.length;
-        },
-        selectedProductCount() {
-            return Object.values(this.productQty).reduce((count, qty) => count + (Number(qty) > 0 ? 1 : 0), 0);
-        }
-    }"
+    class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]"
+    x-data="transactionFormEditor({
+        serviceOptions: @js($serviceOptions),
+        productOptions: @js($productOptions),
+        initialServices: @js($initialServices),
+        initialProducts: @js($initialProducts),
+        errors: @js($errors->getMessages()),
+    })"
 >
     <div class="space-y-6 xl:col-span-2">
         <section class="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
             <h3 class="text-base font-semibold text-slate-900">Data Transaksi</h3>
-            <p class="mt-1 text-sm text-slate-500">Pilih tanggal, pegawai, dan metode pembayaran transaksi.</p>
+            <p class="mt-1 text-sm text-slate-500">Isi data dasar transaksi dan item yang terjual pada transaksi ini.</p>
 
-            <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <div>
                     <x-input-label for="transaction_date" :value="__('Tanggal Transaksi')" />
                     <x-text-input
@@ -79,77 +72,111 @@
                     <x-input-error :messages="$errors->get('payment_method')" class="mt-2" />
                 </div>
             </div>
+
+            <div class="mt-4">
+                <x-input-label for="notes" :value="__('Catatan Transaksi')" />
+                <textarea
+                    id="notes"
+                    name="notes"
+                    rows="3"
+                    class="form-brand-control"
+                >{{ $notesValue }}</textarea>
+                <x-input-error :messages="$errors->get('notes')" class="mt-2" />
+            </div>
         </section>
 
         <section class="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
             <div class="mb-4 flex items-start justify-between gap-3">
                 <div>
-                    <h3 class="text-base font-semibold text-slate-900">Pilih Layanan</h3>
-                    <p class="text-sm text-slate-500">Pilih satu atau lebih layanan yang diberikan ke pelanggan.</p>
+                    <h3 class="text-base font-semibold text-slate-900">Layanan</h3>
+                    <p class="text-sm text-slate-500">Setiap baris layanan otomatis dihitung sebagai 1 layanan.</p>
                 </div>
-                <span class="rounded-full bg-[#FAF3EF] px-3 py-1 text-xs font-medium text-[#7D4026]" x-text="`${selectedServiceCount()} terpilih`"></span>
+                <button type="button" class="btn-brand-soft" @click="addRow('services')">Tambah Layanan</button>
             </div>
 
-            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-                @forelse ($services as $service)
-                    <label class="flex cursor-pointer items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 transition hover:border-[#D9B4A2] hover:bg-[#FAF3EF]">
-                        <div>
-                            <p class="text-sm font-medium text-slate-900">{{ $service->name }}</p>
-                            <p class="text-xs text-slate-500">Rp {{ number_format((float) $service->price, 0, ',', '.') }}</p>
-                        </div>
+            <div class="space-y-3">
+                <template x-for="(row, index) in services" :key="row.key">
+                    <div class="rounded-xl border border-slate-200 p-4">
+                        <div class="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,2fr)_160px_auto] lg:items-end">
+                            <div>
+                                <x-input-label :value="__('Layanan')" />
+                                <select class="form-brand-control" :name="`services[${index}][service_id]`" x-model="row.service_id">
+                                    <option value="">Pilih layanan</option>
+                                    <template x-for="service in serviceOptions" :key="service.id">
+                                        <option :value="String(service.id)" x-text="`${service.name} - ${formatCurrency(service.price)}`"></option>
+                                    </template>
+                                </select>
+                                <template x-for="message in fieldErrors(`services.${index}.service_id`)" :key="message">
+                                    <p class="mt-2 text-sm text-rose-600" x-text="message"></p>
+                                </template>
+                            </div>
 
-                        <input
-                            type="checkbox"
-                            name="services[]"
-                            value="{{ $service->id }}"
-                            class="mt-1 rounded border-slate-300 text-[#934C2D] shadow-sm focus:ring-[#A85F3B]"
-                            x-model="selectedServices"
-                            @checked(in_array((string) $service->id, $selectedServiceIds, true))
-                        />
-                    </label>
-                @empty
-                    <p class="text-sm text-slate-600">Belum ada data layanan.</p>
-                @endforelse
+                            <div class="rounded-lg bg-slate-50 px-4 py-3">
+                                <p class="text-xs uppercase tracking-wide text-slate-500">Subtotal</p>
+                                <p class="mt-1 text-sm font-semibold text-slate-900" x-text="formatCurrency(lineSubtotal('service', row))"></p>
+                            </div>
+
+                            <button type="button" class="btn-neutral-warm justify-center" @click="removeRow('services', index)">Hapus</button>
+                        </div>
+                    </div>
+                </template>
             </div>
             <x-input-error :messages="$errors->get('services')" class="mt-2" />
         </section>
 
         <section class="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
             <div class="mb-4">
-                <h3 class="text-base font-semibold text-slate-900">Produk (Opsional)</h3>
-                <p class="text-sm text-slate-500">Produk dengan qty 0 akan diabaikan. Anda wajib mengisi minimal layanan atau produk.</p>
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <h3 class="text-base font-semibold text-slate-900">Produk</h3>
+                        <p class="text-sm text-slate-500">Tambahkan produk yang terjual pada transaksi ini dan atur qty sesuai kebutuhan.</p>
+                    </div>
+                    <button type="button" class="btn-brand-soft" @click="addRow('products')">Tambah Produk</button>
+                </div>
             </div>
 
             <div class="space-y-3">
-                @forelse ($products as $product)
-                    <div class="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 p-3 md:grid-cols-5 md:items-end">
-                        <div class="md:col-span-2">
-                            <p class="text-sm font-medium text-slate-900">{{ $product->name }}</p>
-                            <p class="text-xs text-slate-500">Rp {{ number_format((float) $product->price, 0, ',', '.') }}</p>
-                        </div>
+                <template x-for="(row, index) in products" :key="row.key">
+                    <div class="rounded-xl border border-slate-200 p-4">
+                        <div class="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,2fr)_120px_160px_auto] lg:items-end">
+                            <div>
+                                <x-input-label :value="__('Produk')" />
+                                <select class="form-brand-control" :name="`products[${index}][product_id]`" x-model="row.product_id">
+                                    <option value="">Pilih produk</option>
+                                    <template x-for="product in productOptions" :key="product.id">
+                                        <option :value="String(product.id)" x-text="`${product.name} - ${formatCurrency(product.price)} (stok ${product.stock})`"></option>
+                                    </template>
+                                </select>
+                                <template x-for="message in fieldErrors(`products.${index}.product_id`)" :key="message">
+                                    <p class="mt-2 text-sm text-rose-600" x-text="message"></p>
+                                </template>
+                            </div>
 
-                        <div>
-                            <p class="text-xs text-slate-500">Stok tersedia</p>
-                            <p class="text-sm font-medium text-slate-900">{{ $product->stock }}</p>
-                        </div>
+                            <div>
+                                <x-input-label :value="__('Qty')" />
+                                <input
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    class="form-brand-control"
+                                    :name="`products[${index}][qty]`"
+                                    x-model="row.qty"
+                                />
+                                <template x-for="message in fieldErrors(`products.${index}.qty`)" :key="message">
+                                    <p class="mt-2 text-sm text-rose-600" x-text="message"></p>
+                                </template>
+                            </div>
 
-                        <div class="md:col-span-2">
-                            <x-input-label for="products_{{ $product->id }}" :value="__('Qty')" />
-                            <x-text-input
-                                id="products_{{ $product->id }}"
-                                name="products[{{ $product->id }}]"
-                                type="number"
-                                min="0"
-                                step="1"
-                                class="mt-1 block w-full"
-                                :value="$productQtyById[$product->id] ?? '0'"
-                                x-model="productQty['{{ $product->id }}']"
-                            />
+                            <div class="rounded-lg bg-slate-50 px-4 py-3">
+                                <p class="text-xs uppercase tracking-wide text-slate-500">Subtotal</p>
+                                <p class="mt-1 text-sm font-semibold text-slate-900" x-text="formatCurrency(lineSubtotal('product', row))"></p>
+                                <p class="mt-1 text-xs text-slate-500" x-text="row.product_id ? `Stok tersedia: ${option('product', row.product_id)?.stock ?? 0}` : 'Pilih produk terlebih dulu'"></p>
+                            </div>
+
+                            <button type="button" class="btn-neutral-warm justify-center" @click="removeRow('products', index)">Hapus</button>
                         </div>
                     </div>
-                @empty
-                    <p class="text-sm text-slate-600">Belum ada data produk.</p>
-                @endforelse
+                </template>
             </div>
             <x-input-error :messages="$errors->get('products')" class="mt-2" />
         </section>
@@ -159,9 +186,9 @@
         <section class="panel-cream rounded-xl border p-4">
             <h4 class="text-sm font-semibold text-[#7D4026]">Panduan Cepat</h4>
             <ul class="mt-2 space-y-2 text-sm text-[#8B533B]">
-                <li>Transaksi bisa layanan saja, produk saja, atau gabungan.</li>
-                <li>Isi 0 pada qty untuk mengabaikan produk.</li>
-                <li>Pastikan pegawai dan metode pembayaran sudah benar.</li>
+                <li>Transaksi boleh layanan saja, produk saja, atau kombinasi keduanya.</li>
+                <li>Layanan selalu dihitung 1 per baris, sedangkan produk tetap memakai qty.</li>
+                <li>Catatan transaksi bersifat opsional.</li>
             </ul>
         </section>
 
@@ -169,16 +196,16 @@
             <h4 class="text-sm font-semibold text-[#7D4026]">Ringkasan Input</h4>
             <dl class="mt-3 space-y-2 text-sm text-[#8B533B]">
                 <div class="flex items-center justify-between gap-3">
-                    <dt>Layanan dipilih</dt>
-                    <dd class="font-semibold text-[#6B3721]" x-text="selectedServiceCount()"></dd>
+                    <dt>Subtotal layanan</dt>
+                    <dd class="font-semibold text-[#6B3721]" x-text="formatCurrency(serviceSubtotal())"></dd>
                 </div>
                 <div class="flex items-center justify-between gap-3">
-                    <dt>Produk qty &gt; 0</dt>
-                    <dd class="font-semibold text-[#6B3721]" x-text="selectedProductCount()"></dd>
+                    <dt>Subtotal produk</dt>
+                    <dd class="font-semibold text-[#6B3721]" x-text="formatCurrency(productSubtotal())"></dd>
                 </div>
                 <div class="flex items-center justify-between gap-3">
-                    <dt>Produk tersedia</dt>
-                    <dd class="font-semibold text-[#6B3721]">{{ $products->count() }}</dd>
+                    <dt>Total transaksi</dt>
+                    <dd class="font-semibold text-[#6B3721]" x-text="formatCurrency(grandTotal())"></dd>
                 </div>
             </dl>
         </section>

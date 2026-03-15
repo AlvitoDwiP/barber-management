@@ -24,7 +24,7 @@ class EmployeePerformanceReportService
             ->groupBy('transactions.employee_id', 'employees.name')
             ->selectRaw('
                 employees.name as employee_name,
-                COUNT(transaction_items.id) as service_count
+                COALESCE(SUM(transaction_items.qty), 0) as service_count
             ')
             ->orderByDesc('service_count')
             ->first();
@@ -47,7 +47,7 @@ class EmployeePerformanceReportService
             ->groupBy('employees.id', 'employees.name')
             ->selectRaw('
                 employees.name as employee_name,
-                COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN 1 ELSE 0 END), 0) as total_services,
+                COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.qty ELSE 0 END), 0) as total_services,
                 COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.qty ELSE 0 END), 0) as total_products,
                 COALESCE(SUM(transaction_items.commission_amount), 0) as total_commission
             ', ['service', 'product'])

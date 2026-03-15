@@ -65,6 +65,11 @@
                     <p class="mt-1 text-sm font-semibold text-slate-900">Rp {{ number_format((float) $transaction->total_amount, 0, ',', '.') }}</p>
                 </div>
             </div>
+
+            <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-xs uppercase tracking-wide text-slate-500">Catatan</p>
+                <p class="mt-1 text-sm text-slate-700">{{ $transaction->notes ?? '-' }}</p>
+            </div>
         </section>
 
         <section class="admin-card">

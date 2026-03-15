@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests;
 
-use App\Models\Product;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Validator;
 
 class StoreTransactionRequest extends FormRequest
@@ -15,63 +15,138 @@ class StoreTransactionRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'notes' => $this->normalizeOptionalText($this->input('notes')),
+            'services' => $this->normalizeServiceRows($this->input('services', [])),
+            'products' => $this->normalizeProductRows($this->input('products', [])),
+        ]);
+    }
+
     public function rules(): array
     {
         return [
             'transaction_date' => ['required', 'date'],
             'employee_id' => ['required', 'exists:employees,id'],
             'payment_method' => ['required', 'in:cash,qr'],
+            'notes' => ['nullable', 'string'],
             'services' => ['nullable', 'array'],
-            'services.*' => ['integer', 'distinct', 'exists:services,id'],
+            'services.*.service_id' => ['required', 'integer', 'exists:services,id'],
             'products' => ['nullable', 'array'],
-            'products.*' => ['nullable', 'integer', 'min:0'],
+            'products.*.product_id' => ['required', 'integer', 'exists:products,id'],
+            'products.*.qty' => ['required', 'integer', 'min:1'],
         ];
     }
 
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
-            $services = $this->input('services', []);
-            $products = $this->input('products', []);
+            $services = collect($this->input('services', []));
+            $products = collect($this->input('products', []));
 
-            $hasSelectedService = is_array($services)
-                && collect($services)->contains(fn ($id) => (int) $id > 0);
-
-            $hasSelectedProduct = is_array($products)
-                && collect($products)->contains(fn ($qty) => (int) $qty > 0);
-
-            if (! $hasSelectedService && ! $hasSelectedProduct) {
+            if ($services->isEmpty() && $products->isEmpty()) {
                 $validator->errors()->add(
                     'services',
                     self::MINIMUM_ITEM_MESSAGE
                 );
             }
 
-            if (! is_array($products) || $products === []) {
-                return;
-            }
+            $this->validateDuplicateIds(
+                $validator,
+                $products,
+                'product_id',
+                'products',
+                'Produk duplikat ditemukan. Gunakan qty untuk menambah jumlah produk yang sama.'
+            );
+        });
+    }
 
-            $productIds = collect(array_keys($products))
-                ->map(function ($id) {
-                    if (! is_numeric($id)) {
+    private function normalizeServiceRows(mixed $services): array
+    {
+        return collect(is_array($services) ? $services : [])
+            ->map(function ($row) {
+                if (is_array($row)) {
+                    $serviceId = $row['service_id'] ?? null;
+
+                    if (! filled($serviceId)) {
                         return null;
                     }
 
-                    return (int) $id;
-                });
+                    return [
+                        'service_id' => $serviceId,
+                    ];
+                }
 
-            if ($productIds->contains(null) || $productIds->contains(fn ($id) => $id <= 0)) {
-                $validator->errors()->add('products', 'Format produk tidak valid.');
+                if (! filled($row)) {
+                    return null;
+                }
 
-                return;
-            }
+                return ['service_id' => $row];
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
 
-            $uniqueProductIds = $productIds->unique()->values();
-            $existingCount = Product::query()->whereIn('id', $uniqueProductIds)->count();
+    private function normalizeProductRows(mixed $products): array
+    {
+        return collect(is_array($products) ? $products : [])
+            ->map(function ($row, $productId) {
+                if (is_array($row)) {
+                    $id = $row['product_id'] ?? null;
+                    $qty = $row['qty'] ?? null;
 
-            if ($existingCount !== $uniqueProductIds->count()) {
-                $validator->errors()->add('products', 'Terdapat produk yang tidak ditemukan.');
-            }
-        });
+                    if (! filled($id) && (! filled($qty) || (int) $qty === 1)) {
+                        return null;
+                    }
+
+                    return [
+                        'product_id' => $id,
+                        'qty' => $qty,
+                    ];
+                }
+
+                if (! is_numeric($productId)) {
+                    return null;
+                }
+
+                if (! filled($row)) {
+                    return null;
+                }
+
+                return [
+                    'product_id' => $productId,
+                    'qty' => $row,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private function normalizeOptionalText(mixed $value): ?string
+    {
+        $normalized = trim((string) ($value ?? ''));
+
+        return $normalized === '' ? null : $normalized;
+    }
+
+    private function validateDuplicateIds(
+        Validator $validator,
+        Collection $rows,
+        string $key,
+        string $errorKey,
+        string $message
+    ): void {
+        $ids = $rows
+            ->pluck($key)
+            ->filter(fn ($id) => filled($id))
+            ->map(fn ($id) => (int) $id)
+            ->values();
+
+        if ($ids->count() !== $ids->unique()->count()) {
+            $validator->errors()->add($errorKey, $message);
+        }
     }
 }

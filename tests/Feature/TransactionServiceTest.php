@@ -61,6 +61,45 @@ class TransactionServiceTest extends TestCase
         $this->assertSame('10000.00', $productDetail?->commission_amount);
     }
 
+    public function test_store_transaction_supports_structured_line_items_and_optional_fields(): void
+    {
+        $employee = $this->createEmployee();
+        $service = Service::query()->create([
+            'name' => 'Coloring',
+            'price' => '120000.00',
+        ]);
+        $product = Product::query()->create([
+            'name' => 'Serum',
+            'price' => '40000.00',
+            'stock' => 6,
+        ]);
+
+        $transaction = app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-14',
+            'employee_id' => $employee->id,
+            'payment_method' => 'qr',
+            'notes' => 'Pelanggan langganan',
+            'services' => [
+                ['service_id' => $service->id],
+                ['service_id' => $service->id],
+            ],
+            'products' => [
+                ['product_id' => $product->id, 'qty' => 1],
+            ],
+        ]);
+
+        $transaction->refresh();
+        $serviceDetails = $transaction->transactionItems()->where('item_type', 'service')->orderBy('id')->get();
+
+        $this->assertSame('Pelanggan langganan', $transaction->notes);
+        $this->assertSame('280000.00', $transaction->total_amount);
+        $this->assertSame(5, $product->fresh()->stock);
+        $this->assertCount(2, $serviceDetails);
+        $this->assertTrue($serviceDetails->every(fn ($detail) => (int) $detail->qty === 1));
+        $this->assertTrue($serviceDetails->every(fn ($detail) => $detail->subtotal === '120000.00'));
+        $this->assertTrue($serviceDetails->every(fn ($detail) => $detail->commission_amount === '60000.00'));
+    }
+
     public function test_store_transaction_rolls_back_when_stock_is_insufficient(): void
     {
         $employee = $this->createEmployee();
@@ -193,6 +232,148 @@ class TransactionServiceTest extends TestCase
 
         $this->assertNotSame($firstTransaction->transaction_code, $secondTransaction->transaction_code);
         $this->assertSame(2, Transaction::query()->count());
+    }
+
+    public function test_store_daily_batch_creates_multiple_normal_transactions(): void
+    {
+        $employee = $this->createEmployee();
+        $serviceA = Service::query()->create([
+            'name' => 'Hair Spa',
+            'price' => '90000.00',
+        ]);
+        $serviceB = Service::query()->create([
+            'name' => 'Cuci Blow',
+            'price' => '50000.00',
+        ]);
+        $product = Product::query()->create([
+            'name' => 'Hair Tonic',
+            'price' => '30000.00',
+            'stock' => 10,
+        ]);
+
+        $transactions = app(TransactionService::class)->storeDailyBatch([
+            'transaction_date' => '2026-03-15',
+            'employee_id' => $employee->id,
+            'entries' => [
+                [
+                    'payment_method' => 'cash',
+                    'notes' => 'Paket pagi',
+                    'services' => [
+                        ['service_id' => $serviceA->id],
+                        ['service_id' => $serviceA->id],
+                    ],
+                    'products' => [
+                        ['product_id' => $product->id, 'qty' => 1],
+                    ],
+                ],
+                [
+                    'payment_method' => 'qr',
+                    'notes' => null,
+                    'services' => [
+                        ['service_id' => $serviceB->id],
+                    ],
+                    'products' => [],
+                ],
+            ],
+        ]);
+
+        $this->assertCount(2, $transactions);
+        $this->assertDatabaseCount('transactions', 2);
+        $this->assertSame(9, $product->fresh()->stock);
+        $this->assertSame('210000.00', $transactions[0]->fresh()->total_amount);
+        $this->assertSame('50000.00', $transactions[1]->fresh()->total_amount);
+    }
+
+    public function test_store_daily_batch_rolls_back_all_transactions_when_one_entry_fails(): void
+    {
+        $employee = $this->createEmployee();
+        $service = Service::query()->create([
+            'name' => 'Haircut',
+            'price' => '50000.00',
+        ]);
+        $product = Product::query()->create([
+            'name' => 'Pomade',
+            'price' => '60000.00',
+            'stock' => 1,
+        ]);
+
+        try {
+            app(TransactionService::class)->storeDailyBatch([
+                'transaction_date' => '2026-03-15',
+                'employee_id' => $employee->id,
+                'entries' => [
+                    [
+                        'payment_method' => 'cash',
+                        'notes' => null,
+                        'services' => [
+                            ['service_id' => $service->id],
+                        ],
+                        'products' => [
+                            ['product_id' => $product->id, 'qty' => 1],
+                        ],
+                    ],
+                    [
+                        'payment_method' => 'cash',
+                        'notes' => null,
+                        'services' => [],
+                        'products' => [
+                            ['product_id' => $product->id, 'qty' => 1],
+                        ],
+                    ],
+                ],
+            ]);
+
+            $this->fail('Expected batch transaction to fail when stock runs out.');
+        } catch (DomainException $exception) {
+            $this->assertStringContainsString('Stok produk', $exception->getMessage());
+        }
+
+        $this->assertDatabaseCount('transactions', 0);
+        $this->assertDatabaseCount('transaction_items', 0);
+        $this->assertSame(1, $product->fresh()->stock);
+    }
+
+    public function test_store_daily_batch_rejects_cumulative_product_qty_that_exceeds_stock(): void
+    {
+        $employee = $this->createEmployee();
+        $product = Product::query()->create([
+            'name' => 'Pomade',
+            'price' => '60000.00',
+            'stock' => 3,
+        ]);
+
+        try {
+            app(TransactionService::class)->storeDailyBatch([
+                'transaction_date' => '2026-03-15',
+                'employee_id' => $employee->id,
+                'entries' => [
+                    [
+                        'payment_method' => 'cash',
+                        'notes' => null,
+                        'services' => [],
+                        'products' => [
+                            ['product_id' => $product->id, 'qty' => 2],
+                        ],
+                    ],
+                    [
+                        'payment_method' => 'qr',
+                        'notes' => null,
+                        'services' => [],
+                        'products' => [
+                            ['product_id' => $product->id, 'qty' => 2],
+                        ],
+                    ],
+                ],
+            ]);
+
+            $this->fail('Expected cumulative stock validation to fail.');
+        } catch (DomainException $exception) {
+            $this->assertStringContainsString('Stok produk', $exception->getMessage());
+        }
+
+        $this->assertDatabaseCount('transactions', 0);
+        $this->assertDatabaseCount('transaction_items', 0);
+        $this->assertSame(3, $product->fresh()->stock);
     }
 
     private function createEmployee(): Employee

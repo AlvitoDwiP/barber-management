@@ -27,7 +27,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/employees', [ReportController::class, 'employees'])->name('employees');
     });
 
-    Route::resource('transactions', TransactionController::class);
+    Route::get('/transactions/create', fn () => redirect()->route('transactions.daily-batch.create'))->name('transactions.create');
+    Route::get('/transactions/daily-batch', [TransactionController::class, 'createDailyBatch'])->name('transactions.daily-batch.create');
+    Route::post('/transactions/daily-batch', [TransactionController::class, 'storeDailyBatch'])->name('transactions.daily-batch.store');
+    Route::resource('transactions', TransactionController::class)->except(['create', 'store']);
     Route::resource('payroll', PayrollController::class)->only(['index', 'show']);
     Route::post('/payroll/open', [PayrollController::class, 'open'])->name('payroll.open');
     Route::post('/payroll/{payroll}/close', [PayrollController::class, 'close'])->name('payroll.close');

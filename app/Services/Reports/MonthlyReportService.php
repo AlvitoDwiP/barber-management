@@ -41,6 +41,35 @@ class MonthlyReportService
 
     public function getMonthlyRevenueReport(int $year): Collection
     {
+        $transactionRows = $this->getMonthlyTransactionMetrics($year)->keyBy('month_number');
+        $expenseRows = $this->getMonthlyExpenseMetrics($year)->keyBy('month_number');
+
+        return collect(range(1, 12))
+            ->map(function (int $monthNumber) use ($transactionRows, $expenseRows): array {
+                $transactionRow = $transactionRows->get($monthNumber, []);
+                $expenseRow = $expenseRows->get($monthNumber, []);
+
+                $serviceRevenue = (float) ($transactionRow['service_revenue'] ?? 0);
+                $productRevenue = (float) ($transactionRow['product_revenue'] ?? 0);
+                $employeeFees = (float) ($transactionRow['employee_fees'] ?? 0);
+                $expenses = (float) ($expenseRow['expenses'] ?? 0);
+                $barberIncome = $serviceRevenue + $productRevenue - $employeeFees;
+
+                return [
+                    'month_number' => $monthNumber,
+                    'service_revenue' => $serviceRevenue,
+                    'product_revenue' => $productRevenue,
+                    'expenses' => $expenses,
+                    'employee_fees' => $employeeFees,
+                    'barber_income' => $barberIncome,
+                    'profit' => $barberIncome - $expenses,
+                ];
+            })
+            ->values();
+    }
+
+    private function getMonthlyTransactionMetrics(int $year): Collection
+    {
         $startDate = Carbon::create($year, 1, 1)->startOfYear()->toDateString();
         $endDate = Carbon::create($year, 1, 1)->endOfYear()->toDateString();
         ['year' => $yearExpression, 'month' => $monthExpression] = $this->getYearMonthExpressions('transactions.transaction_date');
@@ -52,17 +81,40 @@ class MonthlyReportService
                 '.$monthExpression.' as month_number,
                 COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.subtotal ELSE 0 END), 0) as service_revenue,
                 COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.subtotal ELSE 0 END), 0) as product_revenue,
-                COALESCE(SUM(CASE WHEN transaction_items.item_type IN (?, ?) THEN transaction_items.subtotal ELSE 0 END), 0) as total_revenue
-            ', ['service', 'product', 'service', 'product'])
+                COALESCE(SUM(transaction_items.commission_amount), 0) as employee_fees
+            ', ['service', 'product'])
             ->groupByRaw($yearExpression.', '.$monthExpression)
             ->orderBy('month_number')
             ->get()
-            ->map(function ($row) {
+            ->map(function ($row): array {
                 return [
                     'month_number' => (int) $row->month_number,
                     'service_revenue' => (float) $row->service_revenue,
                     'product_revenue' => (float) $row->product_revenue,
-                    'total_revenue' => (float) $row->total_revenue,
+                    'employee_fees' => (float) $row->employee_fees,
+                ];
+            });
+    }
+
+    private function getMonthlyExpenseMetrics(int $year): Collection
+    {
+        $startDate = Carbon::create($year, 1, 1)->startOfYear()->toDateString();
+        $endDate = Carbon::create($year, 1, 1)->endOfYear()->toDateString();
+        ['year' => $yearExpression, 'month' => $monthExpression] = $this->getYearMonthExpressions('expenses.expense_date');
+
+        return Expense::query()
+            ->whereBetween('expenses.expense_date', [$startDate, $endDate])
+            ->selectRaw('
+                '.$monthExpression.' as month_number,
+                COALESCE(SUM(expenses.amount), 0) as expenses
+            ')
+            ->groupByRaw($yearExpression.', '.$monthExpression)
+            ->orderBy('month_number')
+            ->get()
+            ->map(function ($row): array {
+                return [
+                    'month_number' => (int) $row->month_number,
+                    'expenses' => (float) $row->expenses,
                 ];
             });
     }

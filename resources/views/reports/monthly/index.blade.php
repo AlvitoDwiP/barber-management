@@ -7,22 +7,15 @@
         $rows = collect($rows ?? []);
         $year = (int) ($year ?? now()->year);
         $yearOptions = collect(range(now()->year, now()->year - 4));
-        $rowsByMonth = $rows->keyBy('month_number');
         $periodLabel = "Tahun {$year}";
-
-        $tableRows = collect(range(1, 12))->map(function (int $month) use ($rowsByMonth) {
-            $row = $rowsByMonth->get($month, [
-                'month_number' => $month,
-                'service_revenue' => 0,
-                'product_revenue' => 0,
-                'total_revenue' => 0,
-            ]);
-
+        $tableRows = $rows->map(function (array $row) use ($year): array {
             return [
-                \Illuminate\Support\Carbon::createFromDate(null, $month, 1)->locale('id')->translatedFormat('F'),
+                \Illuminate\Support\Carbon::createFromDate($year, $row['month_number'], 1)->locale('id')->translatedFormat('F Y'),
                 format_rupiah($row['service_revenue'] ?? 0),
                 format_rupiah($row['product_revenue'] ?? 0),
-                format_rupiah($row['total_revenue'] ?? 0),
+                format_rupiah($row['expenses'] ?? 0),
+                format_rupiah($row['barber_income'] ?? 0),
+                format_rupiah($row['profit'] ?? 0),
             ];
         })->all();
 
@@ -30,7 +23,9 @@
             'Total',
             format_rupiah($rows->sum('service_revenue')),
             format_rupiah($rows->sum('product_revenue')),
-            format_rupiah($rows->sum('total_revenue')),
+            format_rupiah($rows->sum('expenses')),
+            format_rupiah($rows->sum('barber_income')),
+            format_rupiah($rows->sum('profit')),
         ];
     @endphp
 
@@ -59,10 +54,10 @@
         </div>
 
         <x-report-table
-            :headers="['Bulan', 'Pendapatan layanan', 'Pendapatan produk', 'Total pendapatan']"
+            :headers="['Bulan', 'Pendapatan Layanan', 'Pendapatan Produk', 'Pengeluaran', 'Total Pemasukan Barber', 'Keuntungan']"
             :rows="$tableRows"
             :footer="$footer"
-            empty-message="Belum ada data transaksi pada tahun ini."
+            empty-message="Belum ada data laporan pada tahun ini."
         />
     </div>
 </x-app-layout>

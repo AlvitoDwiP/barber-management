@@ -10,7 +10,7 @@ class DailyReportService
 {
     public function getTodaySummary(?Carbon $date = null): array
     {
-        $reportDate = ($date ?? now())->toDateString();
+        $reportDate = ($date ?? Carbon::today(config('app.timezone')))->toDateString();
 
         $summary = Transaction::query()
             ->selectRaw('
@@ -19,7 +19,7 @@ class DailyReportService
                 COALESCE(SUM(CASE WHEN payment_method = ? THEN total_amount ELSE 0 END), 0) as today_cash,
                 COALESCE(SUM(CASE WHEN payment_method = ? THEN total_amount ELSE 0 END), 0) as today_qr
             ', ['cash', 'qr'])
-            ->where('transaction_date', $reportDate)
+            ->whereDate('transaction_date', $reportDate)
             ->first();
 
         return [

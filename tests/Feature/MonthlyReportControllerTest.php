@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\Reports\MonthlyReportService;
 use App\Services\TransactionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class MonthlyReportControllerTest extends TestCase
@@ -101,6 +102,21 @@ class MonthlyReportControllerTest extends TestCase
         $this->assertSame(0.0, $rows->get(3)['employee_fees']);
         $this->assertSame(0.0, $rows->get(3)['barber_income']);
         $this->assertSame(-25000.0, $rows->get(3)['profit']);
+
+        $februarySummary = app(MonthlyReportService::class)->getCurrentMonthSummary(Carbon::parse('2026-02-01'));
+
+        $this->assertSame([
+            'service_revenue' => 50000.0,
+            'product_revenue' => 30000.0,
+            'expenses' => 10000.0,
+            'employee_fees' => 30000.0,
+            'barber_income' => 50000.0,
+            'profit' => 40000.0,
+        ], $februarySummary);
+        $this->assertSame(
+            array_intersect_key($rows->get(2), array_flip(['service_revenue', 'product_revenue', 'expenses', 'employee_fees', 'barber_income', 'profit'])),
+            $februarySummary
+        );
 
         $response = $this->actingAs(User::factory()->create())
             ->get(route('reports.monthly', ['year' => 2026]));

@@ -4,8 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\Employee;
 use App\Models\Expense;
+use App\Models\Product;
+use App\Models\Service;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\Reports\MonthlyReportService;
+use App\Services\TransactionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
@@ -81,38 +85,47 @@ class DashboardControllerTest extends TestCase
 
         $user = User::factory()->create();
         $employee = $this->createEmployee();
+        $haircut = Service::query()->create([
+            'name' => 'Haircut Premium',
+            'price' => '100000.00',
+        ]);
+        $wash = Service::query()->create([
+            'name' => 'Hair Wash',
+            'price' => '50000.00',
+        ]);
+        $pomade = Product::query()->create([
+            'name' => 'Pomade',
+            'price' => '20000.00',
+            'stock' => 20,
+        ]);
+        $gel = Product::query()->create([
+            'name' => 'Gel',
+            'price' => '30000.00',
+            'stock' => 20,
+        ]);
 
-        Transaction::query()->create([
-            'transaction_code' => 'TRX-20260315-010',
+        app(TransactionService::class)->storeTransaction([
             'transaction_date' => '2026-03-15',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'subtotal_amount' => '100000.00',
-            'discount_amount' => '0.00',
-            'total_amount' => '100000.00',
-            'notes' => null,
+            'services' => [$haircut->id],
+            'products' => [$pomade->id => 2],
         ]);
 
-        Transaction::query()->create([
-            'transaction_code' => 'TRX-20260301-001',
+        app(TransactionService::class)->storeTransaction([
             'transaction_date' => '2026-03-01',
             'employee_id' => $employee->id,
             'payment_method' => 'qr',
-            'subtotal_amount' => '50000.00',
-            'discount_amount' => '0.00',
-            'total_amount' => '50000.00',
-            'notes' => null,
+            'services' => [$wash->id],
+            'products' => [$gel->id => 1],
         ]);
 
-        Transaction::query()->create([
-            'transaction_code' => 'TRX-20260228-001',
+        app(TransactionService::class)->storeTransaction([
             'transaction_date' => '2026-02-28',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'subtotal_amount' => '80000.00',
-            'discount_amount' => '0.00',
-            'total_amount' => '80000.00',
-            'notes' => null,
+            'services' => [$haircut->id],
+            'products' => [],
         ]);
 
         Expense::query()->create([
@@ -129,14 +142,32 @@ class DashboardControllerTest extends TestCase
             'note' => 'Biaya bulan lalu',
         ]);
 
+        $marchRow = app(MonthlyReportService::class)
+            ->getMonthlyRevenueReport(2026)
+            ->firstWhere('month_number', 3);
+
         $response = $this->actingAs($user)->get(route('dashboard'));
 
         $response->assertOk();
         $response->assertViewHas('monthlySummary', fn (array $summary): bool => $summary === [
-            'month_revenue' => 150000.0,
-            'month_expenses' => 30000.0,
-            'month_profit_estimate' => 120000.0,
+            'service_revenue' => 150000.0,
+            'product_revenue' => 70000.0,
+            'expenses' => 30000.0,
+            'employee_fees' => 90000.0,
+            'barber_income' => 130000.0,
+            'profit' => 100000.0,
         ]);
+        $response->assertViewHas('monthlySummary', fn (array $summary): bool => $summary === array_intersect_key(
+            $marchRow,
+            array_flip(['service_revenue', 'product_revenue', 'expenses', 'employee_fees', 'barber_income', 'profit'])
+        ));
+        $response->assertSeeText('Pendapatan layanan');
+        $response->assertSeeText('Pendapatan produk');
+        $response->assertSeeText('Pengeluaran');
+        $response->assertSeeText('Total pemasukan barber');
+        $response->assertSeeText('Keuntungan');
+        $response->assertDontSeeText('Pendapatan bulan ini');
+        $response->assertDontSeeText('Estimasi laba bulan ini');
     }
 
     private function createEmployee(): Employee

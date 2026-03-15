@@ -4,7 +4,6 @@ namespace App\Services\Reports;
 
 use App\Models\Expense;
 use App\Models\TransactionItem;
-use App\Models\Transaction;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -13,25 +12,20 @@ class MonthlyReportService
 {
     public function getCurrentMonthSummary(?Carbon $month = null): array
     {
-        $targetMonth = $month ?? now();
+        $targetMonth = $month ?? Carbon::now(config('app.timezone'));
         $year = (int) $targetMonth->year;
         $monthNumber = (int) $targetMonth->month;
         $startDate = Carbon::create($year, $monthNumber, 1)->startOfMonth()->toDateString();
         $endDate = Carbon::create($year, $monthNumber, 1)->endOfMonth()->toDateString();
+        $transactionMetrics = $this->getTransactionMetricsForPeriod($startDate, $endDate);
+        $expenses = $this->getExpenseTotalForPeriod($startDate, $endDate);
 
-        $monthRevenue = (float) Transaction::query()
-            ->whereBetween('transaction_date', [$startDate, $endDate])
-            ->sum('total_amount');
-
-        $monthExpenses = (float) Expense::query()
-            ->whereBetween('expense_date', [$startDate, $endDate])
-            ->sum('amount');
-
-        return [
-            'month_revenue' => $monthRevenue,
-            'month_expenses' => $monthExpenses,
-            'month_profit_estimate' => $monthRevenue - $monthExpenses,
-        ];
+        return $this->buildMonthlySummary(
+            serviceRevenue: $transactionMetrics['service_revenue'],
+            productRevenue: $transactionMetrics['product_revenue'],
+            expenses: $expenses,
+            employeeFees: $transactionMetrics['employee_fees'],
+        );
     }
 
     public function getMonthlySummary(?Carbon $month = null): array
@@ -49,23 +43,43 @@ class MonthlyReportService
                 $transactionRow = $transactionRows->get($monthNumber, []);
                 $expenseRow = $expenseRows->get($monthNumber, []);
 
-                $serviceRevenue = (float) ($transactionRow['service_revenue'] ?? 0);
-                $productRevenue = (float) ($transactionRow['product_revenue'] ?? 0);
-                $employeeFees = (float) ($transactionRow['employee_fees'] ?? 0);
-                $expenses = (float) ($expenseRow['expenses'] ?? 0);
-                $barberIncome = $serviceRevenue + $productRevenue - $employeeFees;
-
                 return [
                     'month_number' => $monthNumber,
-                    'service_revenue' => $serviceRevenue,
-                    'product_revenue' => $productRevenue,
-                    'expenses' => $expenses,
-                    'employee_fees' => $employeeFees,
-                    'barber_income' => $barberIncome,
-                    'profit' => $barberIncome - $expenses,
+                    ...$this->buildMonthlySummary(
+                        serviceRevenue: (float) ($transactionRow['service_revenue'] ?? 0),
+                        productRevenue: (float) ($transactionRow['product_revenue'] ?? 0),
+                        expenses: (float) ($expenseRow['expenses'] ?? 0),
+                        employeeFees: (float) ($transactionRow['employee_fees'] ?? 0),
+                    ),
                 ];
             })
             ->values();
+    }
+
+    private function getTransactionMetricsForPeriod(string $startDate, string $endDate): array
+    {
+        $metrics = TransactionItem::query()
+            ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
+            ->whereBetween('transactions.transaction_date', [$startDate, $endDate])
+            ->selectRaw('
+                COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.subtotal ELSE 0 END), 0) as service_revenue,
+                COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.subtotal ELSE 0 END), 0) as product_revenue,
+                COALESCE(SUM(transaction_items.commission_amount), 0) as employee_fees
+            ', ['service', 'product'])
+            ->first();
+
+        return [
+            'service_revenue' => (float) ($metrics->service_revenue ?? 0),
+            'product_revenue' => (float) ($metrics->product_revenue ?? 0),
+            'employee_fees' => (float) ($metrics->employee_fees ?? 0),
+        ];
+    }
+
+    private function getExpenseTotalForPeriod(string $startDate, string $endDate): float
+    {
+        return (float) Expense::query()
+            ->whereBetween('expense_date', [$startDate, $endDate])
+            ->sum('amount');
     }
 
     private function getMonthlyTransactionMetrics(int $year): Collection
@@ -117,6 +131,24 @@ class MonthlyReportService
                     'expenses' => (float) $row->expenses,
                 ];
             });
+    }
+
+    private function buildMonthlySummary(
+        float $serviceRevenue,
+        float $productRevenue,
+        float $expenses,
+        float $employeeFees
+    ): array {
+        $barberIncome = $serviceRevenue + $productRevenue - $employeeFees;
+
+        return [
+            'service_revenue' => $serviceRevenue,
+            'product_revenue' => $productRevenue,
+            'expenses' => $expenses,
+            'employee_fees' => $employeeFees,
+            'barber_income' => $barberIncome,
+            'profit' => $barberIncome - $expenses,
+        ];
     }
 
     private function getYearMonthExpressions(string $column): array

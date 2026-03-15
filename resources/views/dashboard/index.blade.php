@@ -35,18 +35,26 @@
 
         <section class="admin-card space-y-3">
             <h3 class="text-base font-semibold text-slate-900">Ringkasan bulan ini</h3>
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
                 <div class="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-600">
-                    <p class="text-xs uppercase tracking-wide text-slate-500">Pendapatan bulan ini</p>
-                    <p class="mt-1 font-medium text-slate-900">{{ format_rupiah($monthlySummary['month_revenue'] ?? 0) }}</p>
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Pendapatan layanan</p>
+                    <p class="mt-1 font-medium text-slate-900">{{ format_rupiah($monthlySummary['service_revenue'] ?? 0) }}</p>
                 </div>
                 <div class="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-600">
-                    <p class="text-xs uppercase tracking-wide text-slate-500">Pengeluaran bulan ini</p>
-                    <p class="mt-1 font-medium text-slate-900">{{ format_rupiah($monthlySummary['month_expenses'] ?? 0) }}</p>
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Pendapatan produk</p>
+                    <p class="mt-1 font-medium text-slate-900">{{ format_rupiah($monthlySummary['product_revenue'] ?? 0) }}</p>
                 </div>
                 <div class="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-600">
-                    <p class="text-xs uppercase tracking-wide text-slate-500">Estimasi laba bulan ini</p>
-                    <p class="mt-1 font-medium text-slate-900">{{ format_rupiah($monthlySummary['month_profit_estimate'] ?? 0) }}</p>
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Pengeluaran</p>
+                    <p class="mt-1 font-medium text-slate-900">{{ format_rupiah($monthlySummary['expenses'] ?? 0) }}</p>
+                </div>
+                <div class="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-600">
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Total pemasukan barber</p>
+                    <p class="mt-1 font-medium text-slate-900">{{ format_rupiah($monthlySummary['barber_income'] ?? 0) }}</p>
+                </div>
+                <div class="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-600">
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Keuntungan</p>
+                    <p class="mt-1 font-medium text-slate-900">{{ format_rupiah($monthlySummary['profit'] ?? 0) }}</p>
                 </div>
             </div>
         </section>

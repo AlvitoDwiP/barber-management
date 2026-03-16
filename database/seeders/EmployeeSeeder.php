@@ -13,14 +13,14 @@ class EmployeeSeeder extends Seeder
     public function run(): void
     {
         $employees = [
-            ['name' => 'Andi', 'status' => 'tetap'],
-            ['name' => 'Budi', 'status' => 'freelance'],
+            ['name' => 'Andi', 'employment_type' => 'permanent'],
+            ['name' => 'Budi', 'employment_type' => 'freelance'],
         ];
 
         foreach ($employees as $employee) {
             Employee::query()->updateOrCreate(
                 ['name' => $employee['name']],
-                ['status' => $employee['status']]
+                ['employment_type' => $employee['employment_type']]
             );
         }
     }

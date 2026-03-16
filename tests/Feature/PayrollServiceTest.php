@@ -186,11 +186,44 @@ class PayrollServiceTest extends TestCase
         app(PayrollService::class)->openPayroll('2026-04-01', '2026-04-30');
     }
 
+    public function test_close_payroll_only_assigns_permanent_employee_transactions(): void
+    {
+        $permanentEmployee = Employee::query()->create([
+            'name' => 'Andi',
+            'employment_type' => 'permanent',
+        ]);
+        $freelanceEmployee = Employee::query()->create([
+            'name' => 'Budi Freelance',
+            'employment_type' => 'freelance',
+        ]);
+        $service = Service::query()->create([
+            'name' => 'Haircut',
+            'price' => '50000.00',
+        ]);
+
+        $permanentTransaction = $this->createServiceTransaction($permanentEmployee, $service, '2026-03-10');
+        $freelanceTransaction = $this->createServiceTransaction($freelanceEmployee, $service, '2026-03-10');
+
+        $payrollPeriod = app(PayrollService::class)->openPayroll('2026-03-01', '2026-03-31');
+        app(PayrollService::class)->closePayroll($payrollPeriod);
+
+        $this->assertDatabaseHas('payroll_results', [
+            'payroll_period_id' => $payrollPeriod->id,
+            'employee_id' => $permanentEmployee->id,
+        ]);
+        $this->assertDatabaseMissing('payroll_results', [
+            'payroll_period_id' => $payrollPeriod->id,
+            'employee_id' => $freelanceEmployee->id,
+        ]);
+        $this->assertSame($payrollPeriod->id, $permanentTransaction->fresh()->payroll_id);
+        $this->assertNull($freelanceTransaction->fresh()->payroll_id);
+    }
+
     private function createEmployee(): Employee
     {
         return Employee::query()->create([
             'name' => 'Budi',
-            'status' => 'tetap',
+            'employment_type' => 'permanent',
         ]);
     }
 

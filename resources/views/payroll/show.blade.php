@@ -4,7 +4,10 @@
     @endphp
 
     <x-slot name="header">
-        <h2 class="text-lg font-semibold leading-tight text-slate-900">{{ __('Payroll Detail') }}</h2>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 class="text-lg font-semibold leading-tight text-slate-900">{{ __('Payroll Detail') }}</h2>
+            @include('payroll._tabs')
+        </div>
     </x-slot>
 
     <div class="space-y-6">

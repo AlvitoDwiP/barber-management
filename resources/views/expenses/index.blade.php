@@ -39,10 +39,16 @@
                                             <td class="px-4 py-3">Rp {{ number_format((float) $expense->amount, 0, ',', '.') }}</td>
                                             <td class="px-4 py-3">{{ filled($expense->note) ? $expense->note : '-' }}</td>
                                             <td class="px-4 py-3">
-                                                @include('partials.crud.action-buttons', [
-                                                    'editUrl' => route('expenses.edit', $expense),
-                                                    'deleteUrl' => route('expenses.destroy', $expense),
-                                                ])
+                                                @if ($expense->freelancePayment)
+                                                    <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                                                        Terkait pembayaran freelance
+                                                    </span>
+                                                @else
+                                                    @include('partials.crud.action-buttons', [
+                                                        'editUrl' => route('expenses.edit', $expense),
+                                                        'deleteUrl' => route('expenses.destroy', $expense),
+                                                    ])
+                                                @endif
                                             </td>
                                         </tr>
                                     @endforeach

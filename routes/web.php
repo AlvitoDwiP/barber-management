@@ -3,6 +3,7 @@
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\FreelancePayrollController;
 use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
@@ -31,6 +32,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/transactions/daily-batch', [TransactionController::class, 'createDailyBatch'])->name('transactions.daily-batch.create');
     Route::post('/transactions/daily-batch', [TransactionController::class, 'storeDailyBatch'])->name('transactions.daily-batch.store');
     Route::resource('transactions', TransactionController::class)->except(['create', 'store']);
+    Route::get('/payroll/freelance', [FreelancePayrollController::class, 'index'])->name('payroll.freelance.index');
+    Route::post('/payroll/freelance/payments/prepare', [FreelancePayrollController::class, 'preparePayment'])->name('payroll.freelance.prepare-payment');
     Route::resource('payroll', PayrollController::class)->only(['index', 'show']);
     Route::post('/payroll/open', [PayrollController::class, 'open'])->name('payroll.open');
     Route::post('/payroll/{payroll}/close', [PayrollController::class, 'close'])->name('payroll.close');

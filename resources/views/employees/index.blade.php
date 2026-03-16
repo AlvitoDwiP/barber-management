@@ -25,7 +25,7 @@
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="px-4 py-3 text-left font-semibold text-gray-700">Nama</th>
-                                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Jenis Pegawai</th>
                                         <th class="px-4 py-3 text-left font-semibold text-gray-700">Aksi</th>
                                     </tr>
                                 </thead>
@@ -33,7 +33,7 @@
                                     @foreach ($employees as $employee)
                                         <tr>
                                             <td class="px-4 py-3">{{ $employee->name }}</td>
-                                            <td class="px-4 py-3 capitalize">{{ $employee->status }}</td>
+                                            <td class="px-4 py-3">{{ $employee->employment_type_label }}</td>
                                             <td class="px-4 py-3">
                                                 @include('partials.crud.action-buttons', [
                                                     'editUrl' => route('employees.edit', $employee),

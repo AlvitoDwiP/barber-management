@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollResult;
 use App\Models\Transaction;
-use App\Models\TransactionItem;
 use DomainException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -14,11 +14,15 @@ use Illuminate\Support\Facades\Log;
 
 class PayrollService
 {
-    private const EMPLOYEE_STATUS_TETAP = 'tetap';
     private const EXISTING_OPEN_MESSAGE = 'Masih ada payroll open yang belum ditutup.';
     private const INVALID_CLOSE_MESSAGE = 'Payroll ini sudah ditutup dan tidak dapat diproses ulang.';
     private const EMPTY_PAYROLL_MESSAGE = 'Tidak ada transaksi dalam periode payroll.';
     private const EXISTING_RESULTS_MESSAGE = 'Payroll ini sudah memiliki snapshot hasil dan tidak dapat diproses ulang.';
+
+    public function __construct(
+        private readonly CommissionSummaryService $commissionSummaryService,
+    ) {
+    }
 
     public function openPayroll(string $startDate, string $endDate): PayrollPeriod
     {
@@ -95,8 +99,11 @@ class PayrollService
         [$startDate, $endDate] = $this->resolvePayrollDateRange($payrollPeriod);
 
         return Transaction::query()
+            ->join('employees', 'employees.id', '=', 'transactions.employee_id')
             ->whereNull('payroll_id')
-            ->whereBetween('transaction_date', [$startDate, $endDate])
+            ->where('employees.employment_type', Employee::EMPLOYMENT_TYPE_PERMANENT)
+            ->whereDate('transaction_date', '>=', $startDate)
+            ->whereDate('transaction_date', '<=', $endDate)
             ->count();
     }
 
@@ -152,54 +159,23 @@ class PayrollService
     private function getPendingTransactionIdsForPeriod(string $startDate, string $endDate, bool $lockForUpdate = false): Collection
     {
         $query = Transaction::query()
+            ->select('transactions.id')
+            ->join('employees', 'employees.id', '=', 'transactions.employee_id')
             ->whereNull('payroll_id')
-            ->whereBetween('transaction_date', [$startDate, $endDate]);
+            ->where('employees.employment_type', Employee::EMPLOYMENT_TYPE_PERMANENT)
+            ->whereDate('transaction_date', '>=', $startDate)
+            ->whereDate('transaction_date', '<=', $endDate);
 
         if ($lockForUpdate) {
             $query->lockForUpdate();
         }
 
-        return $query->pluck('id');
+        return $query->pluck('transactions.id');
     }
 
     private function buildSnapshotRowsFromTransactionIds(Collection $transactionIds): Collection
     {
-        if ($transactionIds->isEmpty()) {
-            return collect();
-        }
-
-        return TransactionItem::query()
-            ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
-            ->join('employees', 'employees.id', '=', 'transactions.employee_id')
-            ->where('employees.status', self::EMPLOYEE_STATUS_TETAP)
-            ->whereIn('transactions.id', $transactionIds)
-            ->selectRaw("
-                transactions.employee_id as employee_id,
-                employees.name as employee_name,
-                COUNT(DISTINCT transactions.id) as total_transaction_count,
-                SUM(CASE WHEN transaction_items.item_type = 'service' THEN transaction_items.qty ELSE 0 END) as total_services,
-                SUM(CASE WHEN transaction_items.item_type = 'product' THEN transaction_items.qty ELSE 0 END) as total_products,
-                COALESCE(SUM(CASE WHEN transaction_items.item_type = 'service' THEN transaction_items.subtotal ELSE 0 END), 0) as total_service_amount,
-                COALESCE(SUM(CASE WHEN transaction_items.item_type = 'service' THEN transaction_items.commission_amount ELSE 0 END), 0) as total_service_commission,
-                COALESCE(SUM(CASE WHEN transaction_items.item_type = 'product' THEN transaction_items.commission_amount ELSE 0 END), 0) as total_product_commission,
-                COALESCE(SUM(transaction_items.commission_amount), 0) as total_commission
-            ")
-            ->groupBy('transactions.employee_id', 'employees.name')
-            ->orderBy('employees.name')
-            ->get()
-            ->map(function ($row): object {
-                return (object) [
-                    'employee_id' => (int) $row->employee_id,
-                    'employee_name' => (string) $row->employee_name,
-                    'total_transaction_count' => (int) $row->total_transaction_count,
-                    'total_services' => (int) $row->total_services,
-                    'total_products' => (int) $row->total_products,
-                    'total_service_amount' => (string) $row->total_service_amount,
-                    'total_service_commission' => (string) $row->total_service_commission,
-                    'total_product_commission' => (string) $row->total_product_commission,
-                    'total_commission' => (string) $row->total_commission,
-                ];
-            });
+        return $this->commissionSummaryService->getPayrollSnapshotRows($transactionIds);
     }
 
     private function persistPayrollResults(PayrollPeriod $payrollPeriod, Collection $snapshotRows): void

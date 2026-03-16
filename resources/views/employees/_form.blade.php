@@ -1,6 +1,6 @@
 @php
     $nameValue = old('name', $employee?->name);
-    $statusValue = old('status', $employee?->status);
+    $employmentTypeValue = old('employment_type', $employee?->employment_type);
 @endphp
 
 <div>
@@ -10,18 +10,18 @@
 </div>
 
 <div>
-    <x-input-label for="status" :value="__('Status')" />
+    <x-input-label for="employment_type" :value="__('Jenis Pegawai')" />
     <select
-        id="status"
-        name="status"
+        id="employment_type"
+        name="employment_type"
         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
         required
     >
-        <option value="">Pilih status</option>
-        <option value="tetap" @selected($statusValue === 'tetap')>tetap</option>
-        <option value="freelance" @selected($statusValue === 'freelance')>freelance</option>
+        <option value="">Pilih jenis pegawai</option>
+        <option value="permanent" @selected($employmentTypeValue === 'permanent')>Permanent</option>
+        <option value="freelance" @selected($employmentTypeValue === 'freelance')>Freelance</option>
     </select>
-    <x-input-error :messages="$errors->get('status')" class="mt-2" />
+    <x-input-error :messages="$errors->get('employment_type')" class="mt-2" />
 </div>
 
 @include('partials.crud.form-actions', [

@@ -6,3 +6,7 @@ use Illuminate\Support\Facades\Artisan;
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+Artisan::command('login:help', function () {
+    $this->info('Untuk memastikan akun admin default tersedia, jalankan: php artisan app:ensure-admin-user');
+})->purpose('Show the command to restore the default admin login');

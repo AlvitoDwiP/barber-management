@@ -1,9 +1,23 @@
 @php
-    $dateValue = old('expense_date', $expense?->expense_date?->format('Y-m-d'));
-    $categoryValue = old('category', $expense?->category);
-    $amountValue = old('amount', $expense?->amount);
-    $noteValue = old('note', $expense?->note);
+    $freelanceExpenseDraft = $freelanceExpenseDraft ?? null;
+    $freelancePaymentId = old('freelance_payment_id', $freelanceExpenseDraft['freelance_payment_id'] ?? null);
+    $dateValue = old('expense_date', $expense?->expense_date?->format('Y-m-d') ?? ($freelanceExpenseDraft['expense_date'] ?? null));
+    $categoryValue = old('category', $expense?->category ?? ($freelanceExpenseDraft['category'] ?? null));
+    $amountValue = old('amount', $expense?->amount ?? ($freelanceExpenseDraft['amount'] ?? null));
+    $noteValue = old('note', $expense?->note ?? ($freelanceExpenseDraft['note'] ?? null));
 @endphp
+
+@if ($freelanceExpenseDraft !== null)
+    <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <p class="font-semibold">Pembayaran freelance siap diproses</p>
+        <p class="mt-1">
+            {{ $freelanceExpenseDraft['employee_name'] }} untuk transaksi tanggal {{ $freelanceExpenseDraft['work_date_label'] }}
+            sebesar {{ $freelanceExpenseDraft['total_commission_label'] }}.
+        </p>
+    </div>
+
+    <input type="hidden" name="freelance_payment_id" value="{{ $freelancePaymentId }}">
+@endif
 
 <div>
     <x-input-label for="expense_date" :value="__('Tanggal Pengeluaran')" />

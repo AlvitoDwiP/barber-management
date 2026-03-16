@@ -7,16 +7,18 @@ use Illuminate\Database\Seeder;
 
 class ServiceSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
         $services = [
-            ['name' => 'Haircut', 'price' => 50000],
-            ['name' => 'Highlight', 'price' => 250000],
-            ['name' => 'Perm', 'price' => 300000],
-            ['name' => 'Keratin', 'price' => 450000],
+            ['name' => 'Hair Color (Basic)', 'price' => 40000],
+            ['name' => 'Hair Color (Full)', 'price' => 225000],
+            ['name' => 'Hair Color (Highlights)', 'price' => 150000],
+            ['name' => 'Hair Keratin', 'price' => 175000],
+            ['name' => 'Down Perm', 'price' => 75000],
+            ['name' => 'Cold Perm', 'price' => 150000],
+            ['name' => 'Wash & Style', 'price' => 20000],
+            ['name' => 'Shaving', 'price' => 15000],
+            ['name' => 'Haircut', 'price' => 40000],
         ];
 
         foreach ($services as $service) {

@@ -15,6 +15,7 @@
                         @include('expenses._form', [
                             'expense' => null,
                             'categories' => $categories,
+                            'freelanceExpenseDraft' => $freelanceExpenseDraft ?? null,
                             'submitLabel' => 'Simpan',
                         ])
                     </form>

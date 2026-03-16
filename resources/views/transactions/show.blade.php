@@ -25,6 +25,7 @@
                             :action="route('transactions.destroy', $transaction)"
                             button-text="Hapus"
                             confirm-message="Yakin ingin menghapus transaksi ini? Stok produk akan dikembalikan."
+                            variant="solid-danger"
                             class="shrink-0"
                         />
                     </div>

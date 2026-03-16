@@ -102,13 +102,15 @@
 
             <template x-for="(entry, entryIndex) in entries" :key="entry.key">
                 <section class="admin-card">
-                    <div class="flex flex-col gap-4 border-b border-slate-200 pb-5 lg:flex-row lg:items-start lg:justify-between">
-                        <div>
+                    <div class="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
+                        <div class="min-w-0 flex-1">
                             <h3 class="text-base font-semibold text-slate-900" x-text="`Transaksi ${entryIndex + 1}`"></h3>
                             <p class="text-sm text-slate-500">Setiap blok akan menjadi 1 transaksi normal yang berdiri sendiri.</p>
                         </div>
 
-                        <button type="button" class="btn-neutral-warm" @click="removeTransaction(entryIndex)">Hapus Transaksi</button>
+                        <div class="flex justify-end sm:shrink-0">
+                            <button type="button" class="btn-neutral-warm btn-danger w-auto flex-none" @click="removeTransaction(entryIndex)">Hapus Transaksi</button>
+                        </div>
                     </div>
 
                     <div class="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">

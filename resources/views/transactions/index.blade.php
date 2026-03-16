@@ -170,6 +170,7 @@
                                     :action="route('transactions.destroy', $transaction->id)"
                                     button-text="Hapus"
                                     confirm-message="Yakin ingin menghapus transaksi ini? Stok produk akan dikembalikan."
+                                    variant="solid-danger"
                                 />
                             </div>
                         </article>
@@ -222,6 +223,7 @@
                                                 :action="route('transactions.destroy', $transaction->id)"
                                                 button-text="Hapus"
                                                 confirm-message="Yakin ingin menghapus transaksi ini? Stok produk akan dikembalikan."
+                                                variant="solid-danger"
                                             />
                                         </div>
                                     </td>

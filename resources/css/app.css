@@ -182,4 +182,21 @@
     .btn-neutral-warm:hover {
         background-color: var(--warm-100);
     }
+
+    .btn-neutral-warm.btn-danger {
+        border-color: #dc2626;
+        background-color: #dc2626;
+        color: #ffffff;
+    }
+
+    .btn-neutral-warm.btn-danger:hover {
+        border-color: #b91c1c;
+        background-color: #b91c1c;
+        color: #ffffff;
+    }
+
+    .btn-neutral-warm.btn-danger:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.28);
+    }
 }

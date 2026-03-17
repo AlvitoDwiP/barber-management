@@ -6,6 +6,7 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
 use Illuminate\Validation\Validator;
 
 class StoreTransactionRequest extends FormRequest
@@ -160,7 +161,7 @@ class StoreTransactionRequest extends FormRequest
         }
     }
 
-    protected function activeEmployeeRule(?int $allowedEmployeeId = null): Rule
+    protected function activeEmployeeRule(?int $allowedEmployeeId = null): Exists
     {
         return Rule::exists('employees', 'id')->where(function (Builder $query) use ($allowedEmployeeId): void {
             $query->where('is_active', true);

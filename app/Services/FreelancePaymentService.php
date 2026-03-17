@@ -37,33 +37,31 @@ class FreelancePaymentService
     {
         $filters = $this->normalizeFilters($filters);
 
-        $rowsByKey = collect();
-
-        $payments = FreelancePayment::query()
-            ->with(['employee:id,name', 'expense:id,expense_date'])
-            ->whereBetween('work_date', [$filters['start_date'], $filters['end_date']])
-            ->when($filters['employee_id'], fn ($query, $employeeId) => $query->where('employee_id', $employeeId))
-            ->get();
-
-        foreach ($payments as $payment) {
-            $rowsByKey->put($this->makeRowKey($payment->employee_id, $payment->work_date?->toDateString()), $this->mapPaymentRow($payment));
-        }
-
-        $liveSummaries = $this->commissionSummaryService->getFreelanceDailySummaries(
+        $summaryRowsByKey = $this->commissionSummaryService->getFreelanceDailySummaries(
             $filters['start_date'],
             $filters['end_date'],
             $filters['employee_id'],
-        );
+        )->mapWithKeys(function (object $summary): array {
+            return [
+                $this->makeRowKey($summary->employee_id, $summary->work_date) => $this->mapSummaryRow($summary),
+            ];
+        });
 
-        foreach ($liveSummaries as $summary) {
-            $rowKey = $this->makeRowKey($summary->employee_id, $summary->work_date);
+        $paymentRowsByKey = FreelancePayment::query()
+            ->with(['employee:id,name', 'expense:id,expense_date,created_at'])
+            ->whereDate('work_date', '>=', $filters['start_date'])
+            ->whereDate('work_date', '<=', $filters['end_date'])
+            ->when($filters['employee_id'], fn ($query, $employeeId) => $query->where('employee_id', $employeeId))
+            ->get()
+            ->map(fn (FreelancePayment $payment) => $this->synchronizePaymentState($payment))
+            ->mapWithKeys(function (FreelancePayment $payment): array {
+                return [
+                    $this->makeRowKey($payment->employee_id, $payment->work_date?->toDateString()) => $this->mapPaymentRow($payment),
+                ];
+            });
 
-            if (! $rowsByKey->has($rowKey)) {
-                $rowsByKey->put($rowKey, $this->mapSummaryRow($summary));
-            }
-        }
-
-        return $rowsByKey
+        return $summaryRowsByKey
+            ->replace($paymentRowsByKey)
             ->sort(function (object $left, object $right): int {
                 $dateComparison = strcmp($right->work_date, $left->work_date);
 
@@ -96,10 +94,15 @@ class FreelancePaymentService
             }
 
             $payment = FreelancePayment::query()
+                ->with('expense:id,expense_date,created_at')
                 ->where('employee_id', $employee->id)
                 ->whereDate('work_date', $normalizedWorkDate)
                 ->lockForUpdate()
                 ->first();
+
+            if ($payment) {
+                $payment = $this->synchronizePaymentState($payment);
+            }
 
             if ($payment?->isPaid()) {
                 throw new DomainException('Komisi freelance untuk pegawai dan tanggal ini sudah dibayar.');
@@ -134,8 +137,10 @@ class FreelancePaymentService
     public function getExpenseDraft(int $paymentId): array
     {
         $payment = FreelancePayment::query()
-            ->with('employee:id,name')
+            ->with(['employee:id,name', 'expense:id,expense_date,created_at'])
             ->findOrFail($paymentId);
+
+        $payment = $this->synchronizePaymentState($payment);
 
         if ($payment->isPaid()) {
             throw new DomainException('Komisi freelance ini sudah dibayar dan tidak dapat diproses ulang.');
@@ -154,14 +159,16 @@ class FreelancePaymentService
         ];
     }
 
-    public function settlePaymentWithExpense(int $paymentId, array $expenseAttributes): Expense
+    public function settlePaymentWithExpense(int $paymentId, array $expenseAttributes): FreelancePayment
     {
-        return DB::transaction(function () use ($paymentId, $expenseAttributes): Expense {
+        return DB::transaction(function () use ($paymentId, $expenseAttributes): FreelancePayment {
             $payment = FreelancePayment::query()
-                ->with('employee:id,name')
+                ->with(['employee:id,name', 'expense:id,expense_date,created_at'])
                 ->whereKey($paymentId)
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            $payment = $this->synchronizePaymentState($payment);
 
             if ($payment->isPaid()) {
                 throw new DomainException('Komisi freelance ini sudah dibayar dan tidak dapat dibayar dua kali.');
@@ -182,13 +189,9 @@ class FreelancePaymentService
                 'note' => $expenseAttributes['note'] ?? $this->buildExpenseNote($payment),
             ]);
 
-            $payment->update([
-                'expense_id' => $expense->id,
-                'paid_at' => now(),
-                'payment_status' => FreelancePayment::STATUS_PAID,
-            ]);
+            $this->markPaymentAsPaid($payment, $expense);
 
-            return $expense;
+            return $payment->fresh(['employee:id,name', 'expense:id,expense_date,created_at']);
         });
     }
 
@@ -204,7 +207,7 @@ class FreelancePaymentService
             'total_product_qty' => (int) $payment->total_product_qty,
             'product_commission' => (string) $payment->product_commission,
             'total_commission' => (string) $payment->total_commission,
-            'payment_status' => $payment->payment_status,
+            'payment_status' => $payment->resolvedPaymentStatus(),
             'paid_at' => $payment->paid_at,
             'expense_id' => $payment->expense_id,
         ];
@@ -231,6 +234,48 @@ class FreelancePaymentService
     private function makeRowKey(int $employeeId, ?string $workDate): string
     {
         return $employeeId.'|'.$workDate;
+    }
+
+    private function synchronizePaymentState(FreelancePayment $payment): FreelancePayment
+    {
+        $resolvedStatus = $payment->resolvedPaymentStatus();
+        $resolvedPaidAt = $resolvedStatus === FreelancePayment::STATUS_PAID
+            ? ($payment->paid_at ?? $payment->expense?->created_at ?? now())
+            : null;
+
+        $updates = [];
+
+        if ($payment->payment_status !== $resolvedStatus) {
+            $updates['payment_status'] = $resolvedStatus;
+        }
+
+        if (
+            $resolvedStatus === FreelancePayment::STATUS_PAID
+            && $payment->paid_at === null
+            && $resolvedPaidAt !== null
+        ) {
+            $updates['paid_at'] = $resolvedPaidAt;
+        }
+
+        if ($updates === []) {
+            return $payment;
+        }
+
+        $payment->forceFill($updates);
+        $payment->save();
+
+        return $payment->refresh()->loadMissing(['employee:id,name', 'expense:id,expense_date,created_at']);
+    }
+
+    private function markPaymentAsPaid(FreelancePayment $payment, Expense $expense): void
+    {
+        $payment->forceFill([
+            'expense_id' => $expense->id,
+            'paid_at' => now(),
+            'payment_status' => FreelancePayment::STATUS_PAID,
+        ]);
+        $payment->setRelation('expense', $expense);
+        $payment->save();
     }
 
     private function buildExpenseNote(FreelancePayment $payment): string

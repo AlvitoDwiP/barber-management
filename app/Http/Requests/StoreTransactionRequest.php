@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class StoreTransactionRequest extends FormRequest
@@ -28,7 +30,7 @@ class StoreTransactionRequest extends FormRequest
     {
         return [
             'transaction_date' => ['required', 'date'],
-            'employee_id' => ['required', 'exists:employees,id'],
+            'employee_id' => ['required', $this->activeEmployeeRule()],
             'payment_method' => ['required', 'in:cash,qr'],
             'notes' => ['nullable', 'string'],
             'services' => ['nullable', 'array'],
@@ -60,6 +62,14 @@ class StoreTransactionRequest extends FormRequest
                 'Produk duplikat ditemukan. Gunakan qty untuk menambah jumlah produk yang sama.'
             );
         });
+    }
+
+    public function messages(): array
+    {
+        return [
+            'employee_id.required' => 'Pegawai wajib dipilih.',
+            'employee_id.exists' => 'Pegawai nonaktif atau tidak valid untuk transaksi baru.',
+        ];
     }
 
     private function normalizeServiceRows(mixed $services): array
@@ -148,5 +158,16 @@ class StoreTransactionRequest extends FormRequest
         if ($ids->count() !== $ids->unique()->count()) {
             $validator->errors()->add($errorKey, $message);
         }
+    }
+
+    protected function activeEmployeeRule(?int $allowedEmployeeId = null): Rule
+    {
+        return Rule::exists('employees', 'id')->where(function (Builder $query) use ($allowedEmployeeId): void {
+            $query->where('is_active', true);
+
+            if ($allowedEmployeeId !== null) {
+                $query->orWhere('id', $allowedEmployeeId);
+            }
+        });
     }
 }

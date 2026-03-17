@@ -51,11 +51,24 @@ class FreelancePayment extends Model
 
     public function isPaid(): bool
     {
-        return $this->payment_status === self::STATUS_PAID;
+        return $this->resolvedPaymentStatus() === self::STATUS_PAID;
     }
 
     public function isUnpaid(): bool
     {
-        return $this->payment_status === self::STATUS_UNPAID;
+        return $this->resolvedPaymentStatus() === self::STATUS_UNPAID;
+    }
+
+    public function resolvedPaymentStatus(): string
+    {
+        if ($this->payment_status === self::STATUS_PAID) {
+            return self::STATUS_PAID;
+        }
+
+        if ($this->expense_id !== null || $this->paid_at !== null) {
+            return self::STATUS_PAID;
+        }
+
+        return self::STATUS_UNPAID;
     }
 }

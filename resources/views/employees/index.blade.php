@@ -26,6 +26,7 @@
                                     <tr>
                                         <th class="px-4 py-3 text-left font-semibold text-gray-700">Nama</th>
                                         <th class="px-4 py-3 text-left font-semibold text-gray-700">Jenis Pegawai</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
                                         <th class="px-4 py-3 text-left font-semibold text-gray-700">Aksi</th>
                                     </tr>
                                 </thead>
@@ -35,10 +36,37 @@
                                             <td class="px-4 py-3">{{ $employee->name }}</td>
                                             <td class="px-4 py-3">{{ $employee->employment_type_label }}</td>
                                             <td class="px-4 py-3">
-                                                @include('partials.crud.action-buttons', [
-                                                    'editUrl' => route('employees.edit', $employee),
-                                                    'deleteUrl' => route('employees.destroy', $employee),
-                                                ])
+                                                <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold {{ $employee->isActive() ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700' }}">
+                                                    {{ $employee->operationalStatusLabel() }}
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <div class="flex items-center gap-2">
+                                                    <a
+                                                        href="{{ route('employees.edit', $employee) }}"
+                                                        class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 transition hover:bg-gray-100"
+                                                    >
+                                                        Edit
+                                                    </a>
+
+                                                    @if ($employee->canBeDeletedPhysically())
+                                                        <x-delete-form
+                                                            :action="route('employees.destroy', $employee)"
+                                                            button-text="Hapus"
+                                                            confirm-message="Yakin ingin menghapus pegawai ini?"
+                                                        />
+                                                    @elseif ($employee->isActive())
+                                                        <x-delete-form
+                                                            :action="route('employees.destroy', $employee)"
+                                                            button-text="Nonaktifkan"
+                                                            confirm-message="Pegawai ini memiliki histori. Lanjutkan untuk menonaktifkan pegawai?"
+                                                        />
+                                                    @else
+                                                        <span class="inline-flex items-center rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
+                                                            Sudah Nonaktif
+                                                        </span>
+                                                    @endif
+                                                </div>
                                             </td>
                                         </tr>
                                     @endforeach

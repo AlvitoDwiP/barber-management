@@ -12,7 +12,11 @@ class EmployeeController extends Controller
 {
     public function index(): View
     {
-        $employees = Employee::query()->latest()->get();
+        $employees = Employee::query()
+            ->withCount(['transactions', 'payrollResults', 'freelancePayments'])
+            ->orderByDesc('is_active')
+            ->orderBy('name')
+            ->get();
 
         return view('employees.index', compact('employees'));
     }
@@ -52,10 +56,24 @@ class EmployeeController extends Controller
 
     public function destroy(Employee $employee): RedirectResponse
     {
-        $employee->delete();
+        if ($employee->canBeDeletedPhysically()) {
+            $employee->delete();
+
+            return redirect()
+                ->route('employees.index')
+                ->with('success', 'Data pegawai berhasil dihapus.');
+        }
+
+        if ($employee->isActive()) {
+            $employee->update(['is_active' => false]);
+
+            return redirect()
+                ->route('employees.index')
+                ->with('success', 'Pegawai memiliki data historis sehingga dinonaktifkan, bukan dihapus.');
+        }
 
         return redirect()
             ->route('employees.index')
-            ->with('success', 'Data pegawai berhasil dihapus.');
+            ->with('success', 'Pegawai ini sudah nonaktif dan tetap disimpan karena memiliki data historis.');
     }
 }

@@ -50,10 +50,14 @@ class ExpenseController extends Controller
             $freelancePaymentId = $validated['freelance_payment_id'] ?? null;
 
             if ($freelancePaymentId !== null) {
-                $freelancePaymentService->settlePaymentWithExpense((int) $freelancePaymentId, $validated);
+                $payment = $freelancePaymentService->settlePaymentWithExpense((int) $freelancePaymentId, $validated);
 
                 return redirect()
-                    ->route('payroll.freelance.index')
+                    ->route('payroll.freelance.index', [
+                        'start_date' => $payment->work_date?->toDateString(),
+                        'end_date' => $payment->work_date?->toDateString(),
+                        'employee_id' => $payment->employee_id,
+                    ])
                     ->with('success', 'Pembayaran freelance berhasil disimpan ke pengeluaran.');
             }
 

@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class StoreDailyBatchTransactionRequest extends FormRequest
@@ -42,7 +44,10 @@ class StoreDailyBatchTransactionRequest extends FormRequest
     {
         return [
             'transaction_date' => ['required', 'date'],
-            'employee_id' => ['required', 'exists:employees,id'],
+            'employee_id' => [
+                'required',
+                Rule::exists('employees', 'id')->where(fn (Builder $query) => $query->where('is_active', true)),
+            ],
             'entries' => ['required', 'array', 'min:1'],
             'entries.*' => ['required', 'array'],
             'entries.*.notes' => ['nullable', 'string'],
@@ -96,7 +101,7 @@ class StoreDailyBatchTransactionRequest extends FormRequest
             'transaction_date.required' => 'Tanggal wajib diisi.',
             'transaction_date.date' => 'Tanggal transaksi tidak valid.',
             'employee_id.required' => 'Pegawai wajib dipilih.',
-            'employee_id.exists' => 'Pegawai yang dipilih tidak valid.',
+            'employee_id.exists' => 'Pegawai nonaktif atau tidak valid untuk transaksi baru.',
             'entries.required' => 'Tambahkan minimal 1 transaksi.',
             'entries.min' => 'Tambahkan minimal 1 transaksi.',
             'entries.*.array' => 'Format transaksi harian tidak valid.',

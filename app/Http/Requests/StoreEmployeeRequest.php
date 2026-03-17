@@ -22,6 +22,12 @@ class StoreEmployeeRequest extends FormRequest
                     : $this->input('status'),
             ]);
         }
+
+        if (! $this->has('is_active')) {
+            $this->merge([
+                'is_active' => true,
+            ]);
+        }
     }
 
     public function rules(): array
@@ -29,6 +35,7 @@ class StoreEmployeeRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'employment_type' => ['required', Rule::in(Employee::employmentTypes())],
+            'is_active' => ['required', 'boolean'],
         ];
     }
 }

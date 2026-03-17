@@ -112,7 +112,7 @@ class TransactionController extends Controller
             ])
             ->findOrFail($id);
 
-        ['employees' => $employees, 'services' => $services, 'products' => $products] = $this->getTransactionFormOptions();
+        ['employees' => $employees, 'services' => $services, 'products' => $products] = $this->getTransactionFormOptions($transaction);
         ['selectedServices' => $selectedServices, 'selectedProducts' => $selectedProducts] = $this->mapTransactionSelections($transaction);
 
         return view('transactions.edit', compact(
@@ -173,11 +173,21 @@ class TransactionController extends Controller
         }
     }
 
-    private function getTransactionFormOptions(): array
+    private function getTransactionFormOptions(?Transaction $transaction = null): array
     {
+        $selectedEmployeeId = $transaction?->employee_id;
         $employees = Employee::query()
+            ->when(
+                $selectedEmployeeId !== null,
+                fn ($query) => $query->where(function ($employeeQuery) use ($selectedEmployeeId): void {
+                    $employeeQuery
+                        ->active()
+                        ->orWhere('id', $selectedEmployeeId);
+                }),
+                fn ($query) => $query->active(),
+            )
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'is_active']);
 
         $services = Service::query()
             ->orderBy('name')

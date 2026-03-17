@@ -20,8 +20,21 @@ class FreelancePayrollController extends Controller
         ]);
 
         $rows = $freelancePaymentService->getIndexRows($filters);
+        $selectedEmployeeId = $filters['employee_id'];
         $employees = Employee::query()
-            ->freelance()
+            ->where(function ($query) use ($selectedEmployeeId): void {
+                $query
+                    ->freelance()
+                    ->active();
+
+                if ($selectedEmployeeId !== null) {
+                    $query->orWhere(function ($employeeQuery) use ($selectedEmployeeId): void {
+                        $employeeQuery
+                            ->freelance()
+                            ->whereKey($selectedEmployeeId);
+                    });
+                }
+            })
             ->orderBy('name')
             ->get(['id', 'name']);
 

@@ -111,7 +111,11 @@ class FreelancePayrollControllerTest extends TestCase
             'note' => 'Pembayaran komisi freelance Budi Freelance untuk transaksi tanggal 16 Maret 2026 sebesar Rp 70.000',
         ]);
 
-        $storeResponse->assertRedirect(route('payroll.freelance.index'));
+        $storeResponse->assertRedirect(route('payroll.freelance.index', [
+            'start_date' => '2026-03-16',
+            'end_date' => '2026-03-16',
+            'employee_id' => $employee->id,
+        ]));
         $this->assertDatabaseHas('expenses', [
             'category' => Expense::CATEGORY_PAY_FREELANCE,
             'amount' => '70000.00',
@@ -125,6 +129,17 @@ class FreelancePayrollControllerTest extends TestCase
 
         $this->assertNotNull($payment->expense_id);
         $this->assertNotNull($payment->paid_at);
+
+        $indexResponse = $this->actingAs($user)->get(route('payroll.freelance.index', [
+            'start_date' => '2026-03-16',
+            'end_date' => '2026-03-16',
+            'employee_id' => $employee->id,
+        ]));
+
+        $indexResponse->assertOk();
+        $indexResponse->assertSee('Sudah Dibayar');
+        $indexResponse->assertDontSee('Belum Dibayar');
+        $indexResponse->assertDontSee('Bayar Gaji');
     }
 
     public function test_paid_freelance_settlement_cannot_be_paid_twice(): void
@@ -170,5 +185,75 @@ class FreelancePayrollControllerTest extends TestCase
         $response->assertRedirect(route('payroll.freelance.index'));
         $response->assertSessionHas('error');
         $this->assertDatabaseCount('expenses', 1);
+    }
+
+    public function test_index_and_guard_normalize_paid_status_from_existing_settlement_markers(): void
+    {
+        $user = User::factory()->create();
+        $employee = Employee::query()->create([
+            'name' => 'Sari Freelance',
+            'employment_type' => 'freelance',
+        ]);
+        $service = Service::query()->create([
+            'name' => 'Hair Spa',
+            'price' => '100000.00',
+        ]);
+
+        app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-16',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'services' => [$service->id],
+            'products' => [],
+        ]);
+
+        $expense = Expense::query()->create([
+            'expense_date' => '2026-03-17',
+            'category' => Expense::CATEGORY_PAY_FREELANCE,
+            'amount' => '50000.00',
+            'note' => 'Pembayaran komisi freelance Sari Freelance',
+        ]);
+
+        $payment = FreelancePayment::query()->create([
+            'employee_id' => $employee->id,
+            'work_date' => '2026-03-16',
+            'total_service_amount' => '100000.00',
+            'service_commission' => '50000.00',
+            'total_product_qty' => 0,
+            'product_commission' => '0.00',
+            'total_commission' => '50000.00',
+            'expense_id' => $expense->id,
+            'paid_at' => null,
+            'payment_status' => FreelancePayment::STATUS_UNPAID,
+        ]);
+
+        $indexResponse = $this->actingAs($user)->get(route('payroll.freelance.index', [
+            'start_date' => '2026-03-16',
+            'end_date' => '2026-03-16',
+            'employee_id' => $employee->id,
+        ]));
+
+        $indexResponse->assertOk();
+        $indexResponse->assertSee('Sudah Dibayar');
+        $indexResponse->assertDontSee('Belum Dibayar');
+        $indexResponse->assertDontSee('Bayar Gaji');
+
+        $response = $this->actingAs($user)->post(route('payroll.freelance.prepare-payment'), [
+            'employee_id' => $employee->id,
+            'work_date' => '2026-03-16',
+        ]);
+
+        $response->assertRedirect(route('payroll.freelance.index'));
+        $response->assertSessionHas('error', 'Komisi freelance untuk pegawai dan tanggal ini sudah dibayar.');
+
+        $this->assertDatabaseHas('freelance_payments', [
+            'id' => $payment->id,
+            'expense_id' => $expense->id,
+            'payment_status' => FreelancePayment::STATUS_PAID,
+        ]);
+
+        $payment->refresh();
+
+        $this->assertNotNull($payment->paid_at);
     }
 }

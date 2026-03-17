@@ -55,7 +55,7 @@
                         <option value="">Pilih pegawai</option>
                         @foreach ($employees as $employee)
                             <option value="{{ $employee->id }}" @selected((string) $employeeValue === (string) $employee->id)>
-                                {{ $employee->name }}
+                                {{ $employee->name }}{{ $employee->is_active ? '' : ' (Nonaktif)' }}
                             </option>
                         @endforeach
                     </select>

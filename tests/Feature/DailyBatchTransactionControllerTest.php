@@ -216,11 +216,49 @@ class DailyBatchTransactionControllerTest extends TestCase
         $this->assertDatabaseCount('transactions', 0);
     }
 
+    public function test_daily_batch_request_rejects_inactive_employee_for_new_transactions(): void
+    {
+        $user = User::factory()->create();
+        $employee = Employee::query()->create([
+            'name' => 'Pegawai Nonaktif',
+            'employment_type' => Employee::EMPLOYMENT_TYPE_PERMANENT,
+            'is_active' => false,
+        ]);
+        $service = Service::query()->create([
+            'name' => 'Hair Spa',
+            'price' => '100000.00',
+        ]);
+
+        $response = $this->actingAs($user)
+            ->from(route('transactions.daily-batch.create'))
+            ->post(route('transactions.daily-batch.store'), [
+                'transaction_date' => '2026-03-15',
+                'employee_id' => $employee->id,
+                'entries' => [
+                    [
+                        'payment_method' => 'cash',
+                        'notes' => null,
+                        'services' => [
+                            ['service_id' => $service->id],
+                        ],
+                        'products' => [],
+                    ],
+                ],
+            ]);
+
+        $response->assertRedirect(route('transactions.daily-batch.create'));
+        $response->assertSessionHasErrors([
+            'employee_id' => 'Pegawai nonaktif atau tidak valid untuk transaksi baru.',
+        ]);
+        $this->assertDatabaseCount('transactions', 0);
+    }
+
     private function createEmployee(): Employee
     {
         return Employee::query()->create([
             'name' => 'Budi',
             'status' => 'tetap',
+            'is_active' => true,
         ]);
     }
 }

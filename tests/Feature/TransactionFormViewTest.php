@@ -67,11 +67,60 @@ class TransactionFormViewTest extends TestCase
         $response->assertDontSee('Nama Customer');
     }
 
+    public function test_daily_batch_form_only_lists_active_employees(): void
+    {
+        $user = User::factory()->create();
+        Employee::query()->create([
+            'name' => 'Pegawai Aktif',
+            'employment_type' => Employee::EMPLOYMENT_TYPE_PERMANENT,
+            'is_active' => true,
+        ]);
+        Employee::query()->create([
+            'name' => 'Pegawai Nonaktif',
+            'employment_type' => Employee::EMPLOYMENT_TYPE_PERMANENT,
+            'is_active' => false,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('transactions.daily-batch.create'));
+
+        $response->assertOk();
+        $response->assertSee('Pegawai Aktif');
+        $response->assertDontSee('Pegawai Nonaktif');
+    }
+
+    public function test_edit_form_keeps_current_inactive_employee_visible_for_historical_transaction(): void
+    {
+        $user = User::factory()->create();
+        $employee = Employee::query()->create([
+            'name' => 'Budi',
+            'employment_type' => Employee::EMPLOYMENT_TYPE_PERMANENT,
+            'is_active' => true,
+        ]);
+        $transaction = Transaction::query()->create([
+            'transaction_code' => 'TRX-TEST-002',
+            'transaction_date' => '2026-03-15',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'subtotal_amount' => '0.00',
+            'discount_amount' => '0.00',
+            'total_amount' => '0.00',
+            'notes' => null,
+        ]);
+
+        $employee->update(['is_active' => false]);
+
+        $response = $this->actingAs($user)->get(route('transactions.edit', $transaction));
+
+        $response->assertOk();
+        $response->assertSee('Budi (Nonaktif)');
+    }
+
     private function createEmployee(): Employee
     {
         return Employee::query()->create([
             'name' => 'Budi',
             'status' => 'tetap',
+            'is_active' => true,
         ]);
     }
 }

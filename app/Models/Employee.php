@@ -18,7 +18,25 @@ class Employee extends Model
         'name',
         'employment_type',
         'status',
+        'is_active',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_active' => 'boolean',
+        ];
+    }
+
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function scopeInactive(Builder $query): Builder
+    {
+        return $query->where('is_active', false);
+    }
 
     public function scopePermanent(Builder $query): Builder
     {
@@ -63,6 +81,33 @@ class Employee extends Model
         return $this->employment_type === self::EMPLOYMENT_TYPE_FREELANCE;
     }
 
+    public function isActive(): bool
+    {
+        return (bool) $this->is_active;
+    }
+
+    public function isInactive(): bool
+    {
+        return ! $this->isActive();
+    }
+
+    public function operationalStatusLabel(): string
+    {
+        return $this->isActive() ? 'Aktif' : 'Nonaktif';
+    }
+
+    public function hasHistoricalRecords(): bool
+    {
+        return $this->relationCountIsPositive('transactions_count', fn (): bool => $this->transactions()->exists())
+            || $this->relationCountIsPositive('payroll_results_count', fn (): bool => $this->payrollResults()->exists())
+            || $this->relationCountIsPositive('freelance_payments_count', fn (): bool => $this->freelancePayments()->exists());
+    }
+
+    public function canBeDeletedPhysically(): bool
+    {
+        return ! $this->hasHistoricalRecords();
+    }
+
     public function getEmploymentTypeLabelAttribute(): string
     {
         return match ($this->employment_type) {
@@ -103,5 +148,16 @@ class Employee extends Model
             self::EMPLOYMENT_TYPE_FREELANCE, 'freelance' => self::EMPLOYMENT_TYPE_FREELANCE,
             default => blank($value) ? null : $value,
         };
+    }
+
+    private function relationCountIsPositive(string $countAttribute, callable $fallback): bool
+    {
+        $count = $this->getAttribute($countAttribute);
+
+        if ($count !== null) {
+            return (int) $count > 0;
+        }
+
+        return $fallback();
     }
 }

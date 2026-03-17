@@ -34,14 +34,14 @@
             <p class="text-sm text-slate-600">Pilih laporan utama yang ingin dibuka untuk melihat performa bisnis hair studio.</p>
         </div>
 
-        <div class="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div class="mt-5 space-y-3">
             @foreach ($reportMenus as $menu)
                 <a
                     href="{{ $menu['url'] }}"
-                    class="rounded-xl border border-[var(--warm-200)] bg-white p-5 text-left shadow-sm transition hover:border-[#D1AB99] hover:bg-[var(--cream-50)]"
+                    class="flex w-full flex-col gap-2 rounded-xl border border-[var(--warm-200)] bg-white px-5 py-4 text-left shadow-sm transition hover:border-[#D1AB99] hover:bg-[var(--cream-50)] sm:px-6 sm:py-5"
                 >
-                    <p class="text-sm font-semibold text-slate-900">{{ $menu['title'] }}</p>
-                    <p class="mt-2 text-sm leading-6 text-slate-500">{{ $menu['description'] }}</p>
+                    <p class="text-base font-semibold leading-6 text-slate-900">{{ $menu['title'] }}</p>
+                    <p class="text-sm leading-6 text-slate-500">{{ $menu['description'] }}</p>
                 </a>
             @endforeach
         </div>

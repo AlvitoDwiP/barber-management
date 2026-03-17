@@ -17,7 +17,7 @@ class MonthlyReportControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_monthly_report_uses_barber_income_and_profit_formulas_per_month(): void
+    public function test_monthly_report_uses_owner_friendly_monthly_formulas_per_month(): void
     {
         $employee = Employee::query()->create([
             'name' => 'Budi',
@@ -84,37 +84,59 @@ class MonthlyReportControllerTest extends TestCase
 
         $this->assertSame(100000.0, $rows->get(1)['service_revenue']);
         $this->assertSame(40000.0, $rows->get(1)['product_revenue']);
+        $this->assertSame(140000.0, $rows->get(1)['total_revenue']);
         $this->assertSame(15000.0, $rows->get(1)['expenses']);
         $this->assertSame(60000.0, $rows->get(1)['employee_fees']);
+        $this->assertSame(60000.0, $rows->get(1)['employee_commissions']);
         $this->assertSame(80000.0, $rows->get(1)['barber_income']);
         $this->assertSame(65000.0, $rows->get(1)['profit']);
+        $this->assertSame(65000.0, $rows->get(1)['net_profit']);
 
         $this->assertSame(50000.0, $rows->get(2)['service_revenue']);
         $this->assertSame(30000.0, $rows->get(2)['product_revenue']);
+        $this->assertSame(80000.0, $rows->get(2)['total_revenue']);
         $this->assertSame(10000.0, $rows->get(2)['expenses']);
         $this->assertSame(30000.0, $rows->get(2)['employee_fees']);
+        $this->assertSame(30000.0, $rows->get(2)['employee_commissions']);
         $this->assertSame(50000.0, $rows->get(2)['barber_income']);
         $this->assertSame(40000.0, $rows->get(2)['profit']);
+        $this->assertSame(40000.0, $rows->get(2)['net_profit']);
 
         $this->assertSame(0.0, $rows->get(3)['service_revenue']);
         $this->assertSame(0.0, $rows->get(3)['product_revenue']);
+        $this->assertSame(0.0, $rows->get(3)['total_revenue']);
         $this->assertSame(25000.0, $rows->get(3)['expenses']);
         $this->assertSame(0.0, $rows->get(3)['employee_fees']);
+        $this->assertSame(0.0, $rows->get(3)['employee_commissions']);
         $this->assertSame(0.0, $rows->get(3)['barber_income']);
         $this->assertSame(-25000.0, $rows->get(3)['profit']);
+        $this->assertSame(-25000.0, $rows->get(3)['net_profit']);
 
         $februarySummary = app(MonthlyReportService::class)->getCurrentMonthSummary(Carbon::parse('2026-02-01'));
 
         $this->assertSame([
             'service_revenue' => 50000.0,
             'product_revenue' => 30000.0,
+            'total_revenue' => 80000.0,
             'expenses' => 10000.0,
             'employee_fees' => 30000.0,
+            'employee_commissions' => 30000.0,
             'barber_income' => 50000.0,
             'profit' => 40000.0,
+            'net_profit' => 40000.0,
         ], $februarySummary);
         $this->assertSame(
-            array_intersect_key($rows->get(2), array_flip(['service_revenue', 'product_revenue', 'expenses', 'employee_fees', 'barber_income', 'profit'])),
+            array_intersect_key($rows->get(2), array_flip([
+                'service_revenue',
+                'product_revenue',
+                'total_revenue',
+                'expenses',
+                'employee_fees',
+                'employee_commissions',
+                'barber_income',
+                'profit',
+                'net_profit',
+            ])),
             $februarySummary
         );
 
@@ -122,22 +144,37 @@ class MonthlyReportControllerTest extends TestCase
             ->get(route('reports.monthly', ['year' => 2026]));
 
         $response->assertOk();
-        $response->assertSeeText('Pendapatan Layanan');
-        $response->assertSeeText('Pendapatan Produk');
+        $response->assertSeeText('Pendapatan layanan');
+        $response->assertSeeText('Pendapatan produk');
+        $response->assertSeeText('Total pendapatan');
+        $response->assertSeeText('Total komisi pegawai');
         $response->assertSeeText('Pengeluaran');
-        $response->assertSeeText('Total Pemasukan Barber');
-        $response->assertSeeText('Keuntungan');
+        $response->assertSeeText('Laba bersih');
+        $response->assertDontSeeText('Total Pemasukan Barber');
+        $response->assertDontSeeText('Keuntungan');
         $response->assertSeeText('Januari 2026');
         $response->assertSeeText('Februari 2026');
         $response->assertSeeText('Maret 2026');
         $response->assertSeeText('Rp 100.000');
         $response->assertSeeText('Rp 40.000');
+        $response->assertSeeText('Rp 140.000');
         $response->assertSeeText('Rp 15.000');
-        $response->assertSeeText('Rp 80.000');
+        $response->assertSeeText('Rp 60.000');
         $response->assertSeeText('Rp 65.000');
         $response->assertSeeText('Rp 50.000');
         $response->assertSeeText('Rp 30.000');
         $response->assertSeeText('Rp 10.000');
         $response->assertSeeText('Rp -25.000');
+    }
+
+    public function test_monthly_report_shows_empty_state_when_year_has_no_data(): void
+    {
+        $response = $this->actingAs(User::factory()->create())
+            ->get(route('reports.monthly', ['year' => 2026]));
+
+        $response->assertOk();
+        $response->assertSeeText('Belum ada data pada tahun ini');
+        $response->assertSeeText('Belum ada transaksi atau pengeluaran yang tercatat untuk tahun 2026.');
+        $response->assertDontSeeText('Januari 2026');
     }
 }

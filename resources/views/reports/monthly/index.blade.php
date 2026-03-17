@@ -6,16 +6,21 @@
     @php
         $rows = collect($rows ?? []);
         $year = (int) ($year ?? now()->year);
-        $yearOptions = collect(range(now()->year, now()->year - 4));
-        $periodLabel = "Tahun {$year}";
+        $yearOptions = collect(range(now()->year, now()->year - 9));
+        $hasData = $rows->contains(fn (array $row): bool => collect([
+            (float) ($row['total_revenue'] ?? 0),
+            (float) ($row['employee_commissions'] ?? 0),
+            (float) ($row['expenses'] ?? 0),
+        ])->contains(fn (float $value): bool => abs($value) > 0.0));
         $tableRows = $rows->map(function (array $row) use ($year): array {
             return [
                 \Illuminate\Support\Carbon::createFromDate($year, $row['month_number'], 1)->locale('id')->translatedFormat('F Y'),
                 format_rupiah($row['service_revenue'] ?? 0),
                 format_rupiah($row['product_revenue'] ?? 0),
+                format_rupiah($row['total_revenue'] ?? 0),
+                format_rupiah($row['employee_commissions'] ?? 0),
                 format_rupiah($row['expenses'] ?? 0),
-                format_rupiah($row['barber_income'] ?? 0),
-                format_rupiah($row['profit'] ?? 0),
+                format_rupiah($row['net_profit'] ?? 0),
             ];
         })->all();
 
@@ -23,9 +28,10 @@
             'Total',
             format_rupiah($rows->sum('service_revenue')),
             format_rupiah($rows->sum('product_revenue')),
+            format_rupiah($rows->sum('total_revenue')),
+            format_rupiah($rows->sum('employee_commissions')),
             format_rupiah($rows->sum('expenses')),
-            format_rupiah($rows->sum('barber_income')),
-            format_rupiah($rows->sum('profit')),
+            format_rupiah($rows->sum('net_profit')),
         ];
     @endphp
 
@@ -48,16 +54,34 @@
             </div>
         </x-report-filter>
 
-        <div class="admin-card">
-            <p class="text-xs uppercase tracking-wide text-slate-500">Periode laporan</p>
-            <p class="mt-1 text-sm font-semibold text-slate-900">{{ $periodLabel }}</p>
-        </div>
+        <p class="px-1 text-xs uppercase tracking-wide text-slate-500">Menampilkan rekap tahun {{ $year }}</p>
 
-        <x-report-table
-            :headers="['Bulan', 'Pendapatan Layanan', 'Pendapatan Produk', 'Pengeluaran', 'Total Pemasukan Barber', 'Keuntungan']"
-            :rows="$tableRows"
-            :footer="$footer"
-            empty-message="Belum ada data laporan pada tahun ini."
-        />
+        @if ($hasData)
+            <x-report-table
+                :headers="[
+                    'Bulan',
+                    'Pendapatan layanan',
+                    'Pendapatan produk',
+                    'Total pendapatan',
+                    'Total komisi pegawai',
+                    'Pengeluaran',
+                    'Laba bersih',
+                ]"
+                :rows="$tableRows"
+                :footer="$footer"
+            />
+        @else
+            <section class="admin-card">
+                <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
+                    <h3 class="text-base font-semibold text-slate-900">Belum ada data pada tahun ini</h3>
+                    <p class="mt-2 text-sm text-slate-500">
+                        Belum ada transaksi atau pengeluaran yang tercatat untuk tahun {{ $year }}.
+                    </p>
+                    <p class="mt-1 text-sm text-slate-500">
+                        Pilih tahun lain untuk melihat rekap performa bisnis per bulan.
+                    </p>
+                </div>
+            </section>
+        @endif
     </div>
 </x-app-layout>

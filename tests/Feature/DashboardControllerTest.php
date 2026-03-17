@@ -152,14 +152,27 @@ class DashboardControllerTest extends TestCase
         $response->assertViewHas('monthlySummary', fn (array $summary): bool => $summary === [
             'service_revenue' => 150000.0,
             'product_revenue' => 70000.0,
+            'total_revenue' => 220000.0,
             'expenses' => 30000.0,
             'employee_fees' => 90000.0,
+            'employee_commissions' => 90000.0,
             'barber_income' => 130000.0,
             'profit' => 100000.0,
+            'net_profit' => 100000.0,
         ]);
         $response->assertViewHas('monthlySummary', fn (array $summary): bool => $summary === array_intersect_key(
             $marchRow,
-            array_flip(['service_revenue', 'product_revenue', 'expenses', 'employee_fees', 'barber_income', 'profit'])
+            array_flip([
+                'service_revenue',
+                'product_revenue',
+                'total_revenue',
+                'expenses',
+                'employee_fees',
+                'employee_commissions',
+                'barber_income',
+                'profit',
+                'net_profit',
+            ])
         ));
         $response->assertSeeText('Pendapatan layanan');
         $response->assertSeeText('Pendapatan produk');

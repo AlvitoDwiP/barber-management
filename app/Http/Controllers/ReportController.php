@@ -22,36 +22,40 @@ class ReportController extends Controller
     public function daily(Request $request, DailyReportService $dailyReportService): View
     {
         $validated = $request->validate([
-            'start_date' => ['nullable', 'date', 'date_format:Y-m-d'],
-            'end_date' => ['nullable', 'date', 'date_format:Y-m-d'],
+            'tanggal_awal' => ['nullable', 'date', 'date_format:Y-m-d'],
+            'tanggal_akhir' => ['nullable', 'date', 'date_format:Y-m-d'],
         ], [
-            'start_date.date' => 'Tanggal tidak valid.',
-            'end_date.date' => 'Tanggal tidak valid.',
-            'start_date.date_format' => 'Tanggal tidak valid.',
-            'end_date.date_format' => 'Tanggal tidak valid.',
+            'tanggal_awal.date' => 'Tanggal awal tidak valid.',
+            'tanggal_akhir.date' => 'Tanggal akhir tidak valid.',
+            'tanggal_awal.date_format' => 'Tanggal awal tidak valid.',
+            'tanggal_akhir.date_format' => 'Tanggal akhir tidak valid.',
         ]);
 
-        $startDate = $validated['start_date'] ?? now()->subDays(7)->toDateString();
-        $endDate = $validated['end_date'] ?? now()->toDateString();
+        $tanggalAwal = $validated['tanggal_awal'] ?? now()->subDays(7)->toDateString();
+        $tanggalAkhir = $validated['tanggal_akhir'] ?? now()->toDateString();
 
-        $start = Carbon::parse($startDate);
-        $end = Carbon::parse($endDate);
+        $start = Carbon::parse($tanggalAwal);
+        $end = Carbon::parse($tanggalAkhir);
 
         if ($start->gt($end)) {
             throw ValidationException::withMessages([
-                'start_date' => 'Tanggal tidak valid.',
+                'tanggal_awal' => 'Tanggal awal tidak boleh lebih besar dari tanggal akhir.',
             ]);
         }
 
         if ($start->diffInDays($end) > 365) {
             throw ValidationException::withMessages([
-                'start_date' => 'Rentang laporan maksimal 365 hari.',
+                'tanggal_awal' => 'Rentang laporan maksimal 365 hari.',
             ]);
         }
 
-        $rows = $dailyReportService->getDailyRevenueReport($startDate, $endDate);
+        $rows = $dailyReportService->getDailyRevenueReport($tanggalAwal, $tanggalAkhir);
 
-        return view('reports.daily.index', compact('rows', 'startDate', 'endDate'));
+        return view('reports.daily.index', [
+            'rows' => $rows,
+            'tanggalAwal' => $tanggalAwal,
+            'tanggalAkhir' => $tanggalAkhir,
+        ]);
     }
 
     public function monthly(Request $request, MonthlyReportService $monthlyReportService): View

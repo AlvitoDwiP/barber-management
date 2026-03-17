@@ -139,15 +139,20 @@ class MonthlyReportService
         float $expenses,
         float $employeeFees
     ): array {
+        $totalRevenue = $serviceRevenue + $productRevenue;
         $barberIncome = $serviceRevenue + $productRevenue - $employeeFees;
+        $netProfit = $totalRevenue - $employeeFees - $expenses;
 
         return [
             'service_revenue' => $serviceRevenue,
             'product_revenue' => $productRevenue,
+            'total_revenue' => $totalRevenue,
             'expenses' => $expenses,
             'employee_fees' => $employeeFees,
+            'employee_commissions' => $employeeFees,
             'barber_income' => $barberIncome,
-            'profit' => $barberIncome - $expenses,
+            'profit' => $netProfit,
+            'net_profit' => $netProfit,
         ];
     }
 

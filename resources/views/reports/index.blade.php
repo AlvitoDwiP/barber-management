@@ -18,10 +18,10 @@
                 Laporan metode pembayaran
             </a>
             <a href="{{ route('reports.products') }}" class="btn-brand-primary w-full text-center">
-                Laporan produk
+                Laporan penjualan produk
             </a>
             <a href="{{ route('reports.employees') }}" class="btn-brand-primary w-full text-center sm:col-span-2">
-                Laporan produktivitas pegawai
+                Laporan kinerja pegawai
             </a>
         </div>
     </div>

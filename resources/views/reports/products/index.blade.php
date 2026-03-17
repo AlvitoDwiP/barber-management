@@ -1,29 +1,96 @@
 <x-app-layout>
     <x-slot name="header">
-        <x-report-page-header title="Laporan Produk" />
+        <x-report-page-header title="Laporan Penjualan Produk" />
     </x-slot>
 
     @php
         $rows = collect($rows ?? []);
+        $products = collect($products ?? []);
+        $produkId = isset($produkId) ? (int) $produkId : null;
+        $tanggalAwal = $tanggalAwal ?? now()->startOfMonth()->toDateString();
+        $tanggalAkhir = $tanggalAkhir ?? now()->toDateString();
+        $produkLabel = $produkId !== null
+            ? ($products->firstWhere('id', $produkId)?->name ?? 'Produk terpilih')
+            : 'Semua produk';
+        $periodLabel = \Illuminate\Support\Carbon::parse($tanggalAwal)->locale('id')->translatedFormat('d M Y')
+            .' - '.
+            \Illuminate\Support\Carbon::parse($tanggalAkhir)->locale('id')->translatedFormat('d M Y');
 
-        $tableRows = $rows->map(function ($row) {
-            $stockRemaining = (int) ($row['stock_remaining'] ?? 0);
-            $stockLabel = $stockRemaining < 5 ? ' (Stok rendah)' : '';
-
+        $tableRows = $rows->map(function (array $row): array {
             return [
                 $row['product_name'] ?? '-',
                 number_format((int) ($row['total_qty_sold'] ?? 0), 0, ',', '.'),
+                format_rupiah($row['average_selling_price'] ?? 0),
                 format_rupiah($row['total_revenue'] ?? 0),
-                number_format($stockRemaining, 0, ',', '.').$stockLabel,
             ];
         })->all();
+
+        $totalQty = (int) $rows->sum('total_qty_sold');
+        $totalRevenue = (float) $rows->sum('total_revenue');
+        $footer = [
+            'Total',
+            number_format($totalQty, 0, ',', '.'),
+            format_rupiah($totalQty > 0 ? $totalRevenue / $totalQty : 0),
+            format_rupiah($totalRevenue),
+        ];
     @endphp
 
     <div class="space-y-6">
-        <x-report-table
-            :headers="['Produk', 'Qty terjual', 'Pendapatan produk', 'Stok tersisa']"
-            :rows="$tableRows"
-            empty-message="Belum ada penjualan produk."
-        />
+        <x-report-filter
+            :action="route('reports.products')"
+            :showDateRange="true"
+            :showYear="false"
+            :startDateField="'tanggal_awal'"
+            :endDateField="'tanggal_akhir'"
+            :startDate="$tanggalAwal"
+            :endDate="$tanggalAkhir"
+            :filterKeys="['tanggal_awal', 'tanggal_akhir', 'produk_id']"
+        >
+            <div>
+                <label for="produk_id" class="text-sm font-medium text-slate-700">Produk</label>
+                <select
+                    id="produk_id"
+                    name="produk_id"
+                    class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-[#A85F3B] focus:ring-[#A85F3B]"
+                >
+                    <option value="">Semua produk</option>
+                    @foreach ($products as $product)
+                        <option value="{{ $product->id }}" @selected($produkId === (int) $product->id)>{{ $product->name }}</option>
+                    @endforeach
+                </select>
+                @error('produk_id')
+                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                @enderror
+            </div>
+        </x-report-filter>
+
+        <p class="px-1 text-xs uppercase tracking-wide text-slate-500">
+            Periode {{ $periodLabel }} · {{ $produkLabel }}
+        </p>
+
+        @if ($rows->isNotEmpty())
+            <x-report-table
+                :headers="[
+                    'Nama produk',
+                    'Qty terjual',
+                    'Harga jual rata-rata',
+                    'Total omzet',
+                ]"
+                :rows="$tableRows"
+                :footer="$footer"
+            />
+        @else
+            <section class="admin-card">
+                <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
+                    <h3 class="text-base font-semibold text-slate-900">Belum ada data penjualan produk</h3>
+                    <p class="mt-2 text-sm text-slate-500">
+                        Tidak ada penjualan produk yang tercatat untuk {{ $periodLabel }}.
+                    </p>
+                    <p class="mt-1 text-sm text-slate-500">
+                        Ubah filter tanggal atau pilih produk lain untuk melihat penjualannya.
+                    </p>
+                </div>
+            </section>
+        @endif
     </div>
 </x-app-layout>

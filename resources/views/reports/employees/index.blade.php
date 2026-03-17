@@ -1,74 +1,103 @@
 <x-app-layout>
     <x-slot name="header">
-        <x-report-page-header title="Laporan Produktivitas Pegawai" />
+        <x-report-page-header title="Laporan Kinerja Pegawai" />
     </x-slot>
 
     @php
         $rows = collect($rows ?? []);
-        $month = (int) ($month ?? now()->month);
-        $year = (int) ($year ?? now()->year);
+        $employees = collect($employees ?? []);
+        $pegawaiId = isset($pegawaiId) ? (int) $pegawaiId : null;
+        $tanggalAwal = $tanggalAwal ?? now()->startOfMonth()->toDateString();
+        $tanggalAkhir = $tanggalAkhir ?? now()->toDateString();
+        $pegawaiLabel = $pegawaiId !== null
+            ? ($employees->firstWhere('id', $pegawaiId)?->name ?? 'Pegawai terpilih')
+            : 'Semua pegawai';
+        $periodLabel = \Illuminate\Support\Carbon::parse($tanggalAwal)->locale('id')->translatedFormat('d M Y')
+            .' - '.
+            \Illuminate\Support\Carbon::parse($tanggalAkhir)->locale('id')->translatedFormat('d M Y');
 
-        $monthOptions = collect(range(1, 12))->mapWithKeys(function (int $monthNumber) {
-            return [
-                $monthNumber => \Illuminate\Support\Carbon::createFromDate(null, $monthNumber, 1)->locale('id')->translatedFormat('F'),
-            ];
-        });
-        $yearOptions = collect(range(now()->year, now()->year - 4));
-        $periodLabel = \Illuminate\Support\Carbon::create($year, $month, 1)->locale('id')->translatedFormat('F Y');
-
-        $tableRows = $rows->map(function ($row) {
+        $tableRows = $rows->map(function (array $row): array {
             return [
                 $row['employee_name'] ?? '-',
+                number_format((int) ($row['total_transactions'] ?? 0), 0, ',', '.'),
                 number_format((int) ($row['total_services'] ?? 0), 0, ',', '.'),
+                format_rupiah($row['service_revenue'] ?? 0),
                 number_format((int) ($row['total_products'] ?? 0), 0, ',', '.'),
+                format_rupiah($row['product_revenue'] ?? 0),
                 format_rupiah($row['total_commission'] ?? 0),
             ];
         })->all();
+
+        $footer = [
+            'Total',
+            number_format((int) $rows->sum('total_transactions'), 0, ',', '.'),
+            number_format((int) $rows->sum('total_services'), 0, ',', '.'),
+            format_rupiah($rows->sum('service_revenue')),
+            number_format((int) $rows->sum('total_products'), 0, ',', '.'),
+            format_rupiah($rows->sum('product_revenue')),
+            format_rupiah($rows->sum('total_commission')),
+        ];
     @endphp
 
     <div class="space-y-6">
-        <x-report-filter :action="route('reports.employees')" :showDateRange="false" :showYear="false" :filterKeys="['month', 'year']">
+        <x-report-filter
+            :action="route('reports.employees')"
+            :showDateRange="true"
+            :showYear="false"
+            :startDateField="'tanggal_awal'"
+            :endDateField="'tanggal_akhir'"
+            :startDate="$tanggalAwal"
+            :endDate="$tanggalAkhir"
+            :filterKeys="['tanggal_awal', 'tanggal_akhir', 'pegawai_id']"
+        >
             <div>
-                <label for="month" class="text-sm font-medium text-slate-700">Bulan</label>
+                <label for="pegawai_id" class="text-sm font-medium text-slate-700">Pegawai</label>
                 <select
-                    id="month"
-                    name="month"
+                    id="pegawai_id"
+                    name="pegawai_id"
                     class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-[#A85F3B] focus:ring-[#A85F3B]"
                 >
-                    @foreach ($monthOptions as $optionMonth => $monthName)
-                        <option value="{{ $optionMonth }}" @selected((int) $month === (int) $optionMonth)>{{ $monthName }}</option>
+                    <option value="">Semua pegawai</option>
+                    @foreach ($employees as $employee)
+                        <option value="{{ $employee->id }}" @selected($pegawaiId === (int) $employee->id)>{{ $employee->name }}</option>
                     @endforeach
                 </select>
-                @error('month')
-                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                @enderror
-            </div>
-            <div>
-                <label for="year" class="text-sm font-medium text-slate-700">Tahun</label>
-                <select
-                    id="year"
-                    name="year"
-                    class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-[#A85F3B] focus:ring-[#A85F3B]"
-                >
-                    @foreach ($yearOptions as $optionYear)
-                        <option value="{{ $optionYear }}" @selected((int) $year === (int) $optionYear)>{{ $optionYear }}</option>
-                    @endforeach
-                </select>
-                @error('year')
+                @error('pegawai_id')
                     <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                 @enderror
             </div>
         </x-report-filter>
 
-        <div class="admin-card">
-            <p class="text-xs uppercase tracking-wide text-slate-500">Periode laporan</p>
-            <p class="mt-1 text-sm font-semibold text-slate-900">{{ $periodLabel }}</p>
-        </div>
+        <p class="px-1 text-xs uppercase tracking-wide text-slate-500">
+            Periode {{ $periodLabel }} · {{ $pegawaiLabel }}
+        </p>
 
-        <x-report-table
-            :headers="['Pegawai', 'Jumlah layanan', 'Jumlah produk', 'Total komisi']"
-            :rows="$tableRows"
-            empty-message="Belum ada aktivitas pegawai pada periode ini."
-        />
+        @if ($rows->isNotEmpty())
+            <x-report-table
+                :headers="[
+                    'Nama pegawai',
+                    'Jumlah transaksi',
+                    'Jumlah layanan dikerjakan',
+                    'Omzet layanan',
+                    'Jumlah produk terjual',
+                    'Omzet produk',
+                    'Total komisi',
+                ]"
+                :rows="$tableRows"
+                :footer="$footer"
+            />
+        @else
+            <section class="admin-card">
+                <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
+                    <h3 class="text-base font-semibold text-slate-900">Belum ada data kinerja pegawai</h3>
+                    <p class="mt-2 text-sm text-slate-500">
+                        Tidak ada transaksi pegawai yang tercatat untuk {{ $periodLabel }}.
+                    </p>
+                    <p class="mt-1 text-sm text-slate-500">
+                        Ubah filter tanggal atau pilih pegawai lain untuk melihat kontribusinya.
+                    </p>
+                </div>
+            </section>
+        @endif
     </div>
 </x-app-layout>

@@ -42,15 +42,21 @@
             <p class="text-sm text-slate-500">Buka filter saat diperlukan untuk menyaring data laporan.</p>
         </div>
 
-        <button
-            type="button"
-            class="btn-neutral-warm justify-center"
-            @click="filterOpen = !filterOpen"
-            :aria-expanded="filterOpen.toString()"
-            aria-controls="{{ $filterId }}"
-        >
-            <span x-text="filterOpen ? 'Tutup Filter' : closedLabel"></span>
-        </button>
+        <div class="flex flex-wrap items-center gap-3">
+            @isset($actions)
+                {{ $actions }}
+            @endisset
+
+            <button
+                type="button"
+                class="btn-neutral-warm justify-center"
+                @click="filterOpen = !filterOpen"
+                :aria-expanded="filterOpen.toString()"
+                aria-controls="{{ $filterId }}"
+            >
+                <span x-text="filterOpen ? 'Tutup Filter' : closedLabel"></span>
+            </button>
+        </div>
     </div>
 
     <div

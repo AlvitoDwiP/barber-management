@@ -22,10 +22,14 @@ Route::middleware('auth')->group(function () {
     Route::prefix('reports')->name('reports.')->group(function () {
         Route::get('/', [ReportController::class, 'index'])->name('index');
         Route::get('/daily', [ReportController::class, 'daily'])->name('daily');
+        Route::get('/daily/export/csv', [ReportController::class, 'exportDailyCsv'])->name('daily.export.csv');
         Route::get('/monthly', [ReportController::class, 'monthly'])->name('monthly');
+        Route::get('/monthly/export/csv', [ReportController::class, 'exportMonthlyCsv'])->name('monthly.export.csv');
         Route::get('/payment', [ReportController::class, 'payment'])->name('payment');
         Route::get('/products', [ReportController::class, 'products'])->name('products');
+        Route::get('/products/export/csv', [ReportController::class, 'exportProductsCsv'])->name('products.export.csv');
         Route::get('/employees', [ReportController::class, 'employees'])->name('employees');
+        Route::get('/employees/export/csv', [ReportController::class, 'exportEmployeesCsv'])->name('employees.export.csv');
     });
 
     Route::get('/transactions/create', fn () => redirect()->route('transactions.daily-batch.create'))->name('transactions.create');

@@ -177,4 +177,60 @@ class MonthlyReportControllerTest extends TestCase
         $response->assertSeeText('Belum ada transaksi atau pengeluaran yang tercatat untuk tahun 2026.');
         $response->assertDontSeeText('Januari 2026');
     }
+
+    public function test_monthly_report_can_export_csv_using_active_year_filter(): void
+    {
+        $employee = Employee::query()->create([
+            'name' => 'Budi',
+            'status' => 'tetap',
+        ]);
+
+        $service = Service::query()->create([
+            'name' => 'Haircut Premium',
+            'price' => '100000.00',
+        ]);
+
+        $product = Product::query()->create([
+            'name' => 'Pomade',
+            'price' => '20000.00',
+            'stock' => 20,
+        ]);
+
+        app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-01-10',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'services' => [$service->id],
+            'products' => [$product->id => 2],
+        ]);
+
+        Expense::query()->create([
+            'expense_date' => '2026-01-12',
+            'category' => 'listrik',
+            'amount' => '15000.00',
+        ]);
+
+        $response = $this->actingAs(User::factory()->create())
+            ->get(route('reports.monthly.export.csv', ['year' => 2026]));
+
+        $response->assertOk();
+        $response->assertHeader('content-disposition', 'attachment; filename=laporan-bulanan-2026.csv');
+
+        $csv = $this->parseCsv($response->streamedContent());
+
+        $this->assertSame(
+            ['Bulan', 'Pendapatan layanan', 'Pendapatan produk', 'Total pendapatan', 'Total komisi pegawai', 'Pengeluaran', 'Laba bersih'],
+            $csv[0]
+        );
+        $this->assertSame(['Januari 2026', '100000', '40000', '140000', '60000', '15000', '65000'], $csv[1]);
+        $this->assertSame(['Total', '100000', '40000', '140000', '60000', '15000', '65000'], end($csv));
+    }
+
+    private function parseCsv(string $content): array
+    {
+        $content = preg_replace('/^\xEF\xBB\xBF/', '', $content) ?? $content;
+        $lines = preg_split("/\r\n|\n|\r/", trim($content)) ?: [];
+
+        return array_map(fn (string $line): array => str_getcsv($line), $lines);
+    }
 }

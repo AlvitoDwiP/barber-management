@@ -172,11 +172,63 @@ class ProductReportControllerTest extends TestCase
         $emptyResponse->assertSeeText('Tidak ada penjualan produk yang tercatat');
     }
 
+    public function test_product_sales_report_can_export_csv_with_product_filter(): void
+    {
+        $employee = $this->createEmployee();
+        $pomade = Product::query()->create([
+            'name' => 'Pomade',
+            'price' => '20000.00',
+            'stock' => 20,
+        ]);
+        $gel = Product::query()->create([
+            'name' => 'Gel Styling',
+            'price' => '30000.00',
+            'stock' => 20,
+        ]);
+
+        app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-10',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'services' => [],
+            'products' => [$pomade->id => 2, $gel->id => 1],
+        ]);
+
+        $response = $this->actingAs(User::factory()->create())
+            ->get(route('reports.products.export.csv', [
+                'tanggal_awal' => '2026-03-10',
+                'tanggal_akhir' => '2026-03-10',
+                'produk_id' => $gel->id,
+            ]));
+
+        $response->assertOk();
+        $response->assertHeader(
+            'content-disposition',
+            'attachment; filename=laporan-penjualan-produk-2026-03-10_sampai_2026-03-10-gel-styling.csv'
+        );
+
+        $csv = $this->parseCsv($response->streamedContent());
+
+        $this->assertSame([
+            ['Nama produk', 'Qty terjual', 'Harga jual rata-rata', 'Total omzet'],
+            ['Gel Styling', '1', '30000', '30000'],
+            ['Total', '1', '30000', '30000'],
+        ], $csv);
+    }
+
     private function createEmployee(): Employee
     {
         return Employee::query()->create([
             'name' => 'Budi',
             'status' => 'tetap',
         ]);
+    }
+
+    private function parseCsv(string $content): array
+    {
+        $content = preg_replace('/^\xEF\xBB\xBF/', '', $content) ?? $content;
+        $lines = preg_split("/\r\n|\n|\r/", trim($content)) ?: [];
+
+        return array_map(fn (string $line): array => str_getcsv($line), $lines);
     }
 }

@@ -5,6 +5,11 @@
 
     @php
         $rows = collect($rows ?? []);
+        $table = $table ?? [
+            'headers' => [],
+            'displayRows' => [],
+            'displayFooter' => [],
+        ];
         $employees = collect($employees ?? []);
         $pegawaiId = isset($pegawaiId) ? (int) $pegawaiId : null;
         $tanggalAwal = $tanggalAwal ?? now()->startOfMonth()->toDateString();
@@ -15,28 +20,11 @@
         $periodLabel = \Illuminate\Support\Carbon::parse($tanggalAwal)->locale('id')->translatedFormat('d M Y')
             .' - '.
             \Illuminate\Support\Carbon::parse($tanggalAkhir)->locale('id')->translatedFormat('d M Y');
-
-        $tableRows = $rows->map(function (array $row): array {
-            return [
-                $row['employee_name'] ?? '-',
-                number_format((int) ($row['total_transactions'] ?? 0), 0, ',', '.'),
-                number_format((int) ($row['total_services'] ?? 0), 0, ',', '.'),
-                format_rupiah($row['service_revenue'] ?? 0),
-                number_format((int) ($row['total_products'] ?? 0), 0, ',', '.'),
-                format_rupiah($row['product_revenue'] ?? 0),
-                format_rupiah($row['total_commission'] ?? 0),
-            ];
-        })->all();
-
-        $footer = [
-            'Total',
-            number_format((int) $rows->sum('total_transactions'), 0, ',', '.'),
-            number_format((int) $rows->sum('total_services'), 0, ',', '.'),
-            format_rupiah($rows->sum('service_revenue')),
-            number_format((int) $rows->sum('total_products'), 0, ',', '.'),
-            format_rupiah($rows->sum('product_revenue')),
-            format_rupiah($rows->sum('total_commission')),
-        ];
+        $exportQuery = array_filter([
+            'tanggal_awal' => $tanggalAwal,
+            'tanggal_akhir' => $tanggalAkhir,
+            'pegawai_id' => $pegawaiId,
+        ], fn ($value) => $value !== null && $value !== '');
     @endphp
 
     <div class="space-y-6">
@@ -50,6 +38,12 @@
             :endDate="$tanggalAkhir"
             :filterKeys="['tanggal_awal', 'tanggal_akhir', 'pegawai_id']"
         >
+            <x-slot name="actions">
+                <a href="{{ route('reports.employees.export.csv', $exportQuery) }}" class="btn-neutral-warm shrink-0">
+                    Export CSV
+                </a>
+            </x-slot>
+
             <div>
                 <label for="pegawai_id" class="text-sm font-medium text-slate-700">Pegawai</label>
                 <select
@@ -74,17 +68,9 @@
 
         @if ($rows->isNotEmpty())
             <x-report-table
-                :headers="[
-                    'Nama pegawai',
-                    'Jumlah transaksi',
-                    'Jumlah layanan dikerjakan',
-                    'Omzet layanan',
-                    'Jumlah produk terjual',
-                    'Omzet produk',
-                    'Total komisi',
-                ]"
-                :rows="$tableRows"
-                :footer="$footer"
+                :headers="$table['headers']"
+                :rows="$table['displayRows']"
+                :footer="$table['displayFooter']"
             />
         @else
             <section class="admin-card">

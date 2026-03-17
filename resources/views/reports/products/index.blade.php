@@ -5,6 +5,11 @@
 
     @php
         $rows = collect($rows ?? []);
+        $table = $table ?? [
+            'headers' => [],
+            'displayRows' => [],
+            'displayFooter' => [],
+        ];
         $products = collect($products ?? []);
         $produkId = isset($produkId) ? (int) $produkId : null;
         $tanggalAwal = $tanggalAwal ?? now()->startOfMonth()->toDateString();
@@ -15,24 +20,11 @@
         $periodLabel = \Illuminate\Support\Carbon::parse($tanggalAwal)->locale('id')->translatedFormat('d M Y')
             .' - '.
             \Illuminate\Support\Carbon::parse($tanggalAkhir)->locale('id')->translatedFormat('d M Y');
-
-        $tableRows = $rows->map(function (array $row): array {
-            return [
-                $row['product_name'] ?? '-',
-                number_format((int) ($row['total_qty_sold'] ?? 0), 0, ',', '.'),
-                format_rupiah($row['average_selling_price'] ?? 0),
-                format_rupiah($row['total_revenue'] ?? 0),
-            ];
-        })->all();
-
-        $totalQty = (int) $rows->sum('total_qty_sold');
-        $totalRevenue = (float) $rows->sum('total_revenue');
-        $footer = [
-            'Total',
-            number_format($totalQty, 0, ',', '.'),
-            format_rupiah($totalQty > 0 ? $totalRevenue / $totalQty : 0),
-            format_rupiah($totalRevenue),
-        ];
+        $exportQuery = array_filter([
+            'tanggal_awal' => $tanggalAwal,
+            'tanggal_akhir' => $tanggalAkhir,
+            'produk_id' => $produkId,
+        ], fn ($value) => $value !== null && $value !== '');
     @endphp
 
     <div class="space-y-6">
@@ -46,6 +38,12 @@
             :endDate="$tanggalAkhir"
             :filterKeys="['tanggal_awal', 'tanggal_akhir', 'produk_id']"
         >
+            <x-slot name="actions">
+                <a href="{{ route('reports.products.export.csv', $exportQuery) }}" class="btn-neutral-warm shrink-0">
+                    Export CSV
+                </a>
+            </x-slot>
+
             <div>
                 <label for="produk_id" class="text-sm font-medium text-slate-700">Produk</label>
                 <select
@@ -70,14 +68,9 @@
 
         @if ($rows->isNotEmpty())
             <x-report-table
-                :headers="[
-                    'Nama produk',
-                    'Qty terjual',
-                    'Harga jual rata-rata',
-                    'Total omzet',
-                ]"
-                :rows="$tableRows"
-                :footer="$footer"
+                :headers="$table['headers']"
+                :rows="$table['displayRows']"
+                :footer="$table['displayFooter']"
             />
         @else
             <section class="admin-card">

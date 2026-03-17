@@ -172,6 +172,49 @@ class EmployeePerformanceReportControllerTest extends TestCase
         $emptyResponse->assertSeeText('Tidak ada transaksi pegawai yang tercatat');
     }
 
+    public function test_employee_performance_report_can_export_csv_with_employee_filter(): void
+    {
+        [$employeeOne, $employeeTwo] = $this->createEmployees();
+        [$haircut, $wash] = array_slice($this->createItems(), 0, 2);
+
+        app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-10',
+            'employee_id' => $employeeOne->id,
+            'payment_method' => 'cash',
+            'services' => [$haircut->id],
+            'products' => [],
+        ]);
+
+        app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-10',
+            'employee_id' => $employeeTwo->id,
+            'payment_method' => 'qr',
+            'services' => [$wash->id],
+            'products' => [],
+        ]);
+
+        $response = $this->actingAs(User::factory()->create())
+            ->get(route('reports.employees.export.csv', [
+                'tanggal_awal' => '2026-03-10',
+                'tanggal_akhir' => '2026-03-10',
+                'pegawai_id' => $employeeTwo->id,
+            ]));
+
+        $response->assertOk();
+        $response->assertHeader(
+            'content-disposition',
+            'attachment; filename=laporan-kinerja-pegawai-2026-03-10_sampai_2026-03-10-sari.csv'
+        );
+
+        $csv = $this->parseCsv($response->streamedContent());
+
+        $this->assertSame([
+            ['Nama pegawai', 'Jumlah transaksi', 'Jumlah layanan dikerjakan', 'Omzet layanan', 'Jumlah produk terjual', 'Omzet produk', 'Total komisi'],
+            ['Sari', '1', '1', '50000', '0', '0', '25000'],
+            ['Total', '1', '1', '50000', '0', '0', '25000'],
+        ], $csv);
+    }
+
     private function createEmployees(): array
     {
         return [
@@ -208,5 +251,13 @@ class EmployeePerformanceReportControllerTest extends TestCase
                 'stock' => 20,
             ]),
         ];
+    }
+
+    private function parseCsv(string $content): array
+    {
+        $content = preg_replace('/^\xEF\xBB\xBF/', '', $content) ?? $content;
+        $lines = preg_split("/\r\n|\n|\r/", trim($content)) ?: [];
+
+        return array_map(fn (string $line): array => str_getcsv($line), $lines);
     }
 }

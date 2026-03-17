@@ -5,6 +5,11 @@
 
     @php
         $rows = collect($rows ?? []);
+        $table = $table ?? [
+            'headers' => [],
+            'displayRows' => [],
+            'displayFooter' => [],
+        ];
         $year = (int) ($year ?? now()->year);
         $yearOptions = collect(range(now()->year, now()->year - 9));
         $hasData = $rows->contains(fn (array $row): bool => collect([
@@ -12,31 +17,16 @@
             (float) ($row['employee_commissions'] ?? 0),
             (float) ($row['expenses'] ?? 0),
         ])->contains(fn (float $value): bool => abs($value) > 0.0));
-        $tableRows = $rows->map(function (array $row) use ($year): array {
-            return [
-                \Illuminate\Support\Carbon::createFromDate($year, $row['month_number'], 1)->locale('id')->translatedFormat('F Y'),
-                format_rupiah($row['service_revenue'] ?? 0),
-                format_rupiah($row['product_revenue'] ?? 0),
-                format_rupiah($row['total_revenue'] ?? 0),
-                format_rupiah($row['employee_commissions'] ?? 0),
-                format_rupiah($row['expenses'] ?? 0),
-                format_rupiah($row['net_profit'] ?? 0),
-            ];
-        })->all();
-
-        $footer = [
-            'Total',
-            format_rupiah($rows->sum('service_revenue')),
-            format_rupiah($rows->sum('product_revenue')),
-            format_rupiah($rows->sum('total_revenue')),
-            format_rupiah($rows->sum('employee_commissions')),
-            format_rupiah($rows->sum('expenses')),
-            format_rupiah($rows->sum('net_profit')),
-        ];
     @endphp
 
     <div class="space-y-6">
         <x-report-filter :action="route('reports.monthly')" :showDateRange="false" :showYear="false" :filterKeys="['year']">
+            <x-slot name="actions">
+                <a href="{{ route('reports.monthly.export.csv', ['year' => $year]) }}" class="btn-neutral-warm shrink-0">
+                    Export CSV
+                </a>
+            </x-slot>
+
             <div>
                 <label for="year" class="text-sm font-medium text-slate-700">Tahun</label>
                 <select
@@ -58,17 +48,9 @@
 
         @if ($hasData)
             <x-report-table
-                :headers="[
-                    'Bulan',
-                    'Pendapatan layanan',
-                    'Pendapatan produk',
-                    'Total pendapatan',
-                    'Total komisi pegawai',
-                    'Pengeluaran',
-                    'Laba bersih',
-                ]"
-                :rows="$tableRows"
-                :footer="$footer"
+                :headers="$table['headers']"
+                :rows="$table['displayRows']"
+                :footer="$table['displayFooter']"
             />
         @else
             <section class="admin-card">

@@ -188,4 +188,70 @@ class DailyReportControllerTest extends TestCase
         $response->assertSeeText('Belum ada data pada periode ini');
         $response->assertSeeText('Tidak ada transaksi atau pengeluaran yang tercatat');
     }
+
+    public function test_daily_report_can_export_csv_using_active_filters(): void
+    {
+        $employee = Employee::query()->create([
+            'name' => 'Budi',
+            'status' => 'tetap',
+        ]);
+
+        $service = Service::query()->create([
+            'name' => 'Haircut Premium',
+            'price' => '100000.00',
+        ]);
+
+        $product = Product::query()->create([
+            'name' => 'Pomade',
+            'price' => '20000.00',
+            'stock' => 20,
+        ]);
+
+        app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-10',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'services' => [$service->id],
+            'products' => [$product->id => 1],
+        ]);
+
+        Expense::query()->create([
+            'expense_date' => '2026-03-10',
+            'category' => 'listrik',
+            'amount' => '15000.00',
+        ]);
+
+        app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-20',
+            'employee_id' => $employee->id,
+            'payment_method' => 'qr',
+            'services' => [$service->id],
+            'products' => [],
+        ]);
+
+        $response = $this->actingAs(User::factory()->create())
+            ->get(route('reports.daily.export.csv', [
+                'tanggal_awal' => '2026-03-10',
+                'tanggal_akhir' => '2026-03-10',
+            ]));
+
+        $response->assertOk();
+        $response->assertHeader('content-disposition', 'attachment; filename=laporan-harian-2026-03-10_sampai_2026-03-10.csv');
+
+        $csv = $this->parseCsv($response->streamedContent());
+
+        $this->assertSame([
+            ['Tanggal', 'Jumlah transaksi', 'Pendapatan layanan', 'Pendapatan produk', 'Total pendapatan', 'Cash', 'QR', 'Pengeluaran', 'Pendapatan bersih'],
+            ['2026-03-10', '1', '100000', '20000', '120000', '120000', '0', '15000', '105000'],
+            ['Total', '1', '100000', '20000', '120000', '120000', '0', '15000', '105000'],
+        ], $csv);
+    }
+
+    private function parseCsv(string $content): array
+    {
+        $content = preg_replace('/^\xEF\xBB\xBF/', '', $content) ?? $content;
+        $lines = preg_split("/\r\n|\n|\r/", trim($content)) ?: [];
+
+        return array_map(fn (string $line): array => str_getcsv($line), $lines);
+    }
 }

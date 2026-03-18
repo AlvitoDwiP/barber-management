@@ -60,6 +60,13 @@
             'active' => request()->routeIs('reports.*'),
             'icon' => 'reports',
         ],
+        [
+            'label' => 'Pengaturan',
+            'route' => 'settings.commission.edit',
+            'href' => $resolveRoute('settings.commission.edit'),
+            'active' => request()->routeIs('settings.*'),
+            'icon' => 'settings',
+        ],
     ];
 @endphp
 
@@ -121,6 +128,11 @@
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 19.5h13.5" />
                             <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 16.5V10.5M12 16.5V7.5M16.5 16.5V12" />
+                        </svg>
+                    @elseif ($item['icon'] === 'settings')
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h3M7.697 7.697l2.122 2.121M6 10.5h3M7.697 16.303l2.122-2.121M10.5 18h3M16.303 16.303l-2.121-2.121M18 10.5h-3M16.303 7.697l-2.121 2.121" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15.75a3.75 3.75 0 100-7.5 3.75 3.75 0 000 7.5z" />
                         </svg>
                     @endif
                 </span>

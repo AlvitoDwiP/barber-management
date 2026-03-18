@@ -42,4 +42,13 @@ class CommissionSettingsService
             'commission_value' => $settings->default_product_commission_value,
         ];
     }
+
+    public function update(array $attributes): CommissionSetting
+    {
+        $settings = $this->get();
+        $settings->fill($attributes);
+        $settings->save();
+
+        return $settings->fresh();
+    }
 }

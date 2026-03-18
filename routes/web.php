@@ -8,6 +8,7 @@ use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\CommissionSettingsController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\TransactionController;
 use Illuminate\Support\Facades\Route;
@@ -46,6 +47,10 @@ Route::middleware('auth')->group(function () {
     Route::resource('services', ServiceController::class);
     Route::resource('products', ProductController::class);
     Route::resource('expenses', ExpenseController::class);
+    Route::prefix('settings')->name('settings.')->group(function () {
+        Route::get('/commission', [CommissionSettingsController::class, 'edit'])->name('commission.edit');
+        Route::put('/commission', [CommissionSettingsController::class, 'update'])->name('commission.update');
+    });
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

@@ -5,11 +5,17 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
 use App\Models\Product;
+use App\Services\CommissionSettingsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
 class ProductController extends Controller
 {
+    public function __construct(
+        private readonly CommissionSettingsService $commissionSettingsService,
+    ) {
+    }
+
     public function index(): View
     {
         $products = Product::query()->latest()->get();
@@ -19,7 +25,9 @@ class ProductController extends Controller
 
     public function create(): View
     {
-        return view('products.create');
+        return view('products.create', [
+            'defaultCommissionValue' => $this->commissionSettingsService->getDefaultProductCommission()['commission_value'],
+        ]);
     }
 
     public function store(StoreProductRequest $request): RedirectResponse
@@ -38,7 +46,10 @@ class ProductController extends Controller
 
     public function edit(Product $product): View
     {
-        return view('products.edit', compact('product'));
+        return view('products.edit', [
+            'product' => $product,
+            'defaultCommissionValue' => $this->commissionSettingsService->getDefaultProductCommission()['commission_value'],
+        ]);
     }
 
     public function update(UpdateProductRequest $request, Product $product): RedirectResponse

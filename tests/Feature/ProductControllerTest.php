@@ -5,11 +5,59 @@ namespace Tests\Feature;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ProductControllerTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_create_product_form_shows_global_default_commission_value_as_readonly(): void
+    {
+        DB::table('commission_settings')->where('id', 1)->update([
+            'default_service_commission_type' => 'percent',
+            'default_service_commission_value' => '35.00',
+            'default_product_commission_type' => 'fixed',
+            'default_product_commission_value' => '8000.00',
+            'updated_at' => now(),
+        ]);
+
+        $response = $this->actingAs(User::factory()->create())
+            ->get(route('products.create'));
+
+        $response->assertOk();
+        $response->assertSee('value="8000.00"', false);
+        $response->assertSee('readonly', false);
+        $response->assertSeeText('Nilai default produk dari pengaturan global ditampilkan otomatis dan tidak bisa diedit di sini.');
+        $response->assertSee("x-bind:name=\"commissionType === '' ? 'commission_value' : null\"", false);
+    }
+
+    public function test_edit_product_form_keeps_existing_custom_commission_override_editable(): void
+    {
+        DB::table('commission_settings')->where('id', 1)->update([
+            'default_service_commission_type' => 'percent',
+            'default_service_commission_value' => '35.00',
+            'default_product_commission_type' => 'fixed',
+            'default_product_commission_value' => '8000.00',
+            'updated_at' => now(),
+        ]);
+
+        $product = Product::query()->create([
+            'name' => 'Pomade',
+            'price' => '45000.00',
+            'stock' => 12,
+            'commission_type' => 'fixed',
+            'commission_value' => '2500.00',
+        ]);
+
+        $response = $this->actingAs(User::factory()->create())
+            ->get(route('products.edit', $product));
+
+        $response->assertOk();
+        $response->assertSee('value="2500.00"', false);
+        $response->assertSee('name="commission_value"', false);
+        $response->assertSeeText('Masukkan nilai custom persen atau rupiah untuk override komisi produk ini.');
+    }
 
     public function test_store_product_can_persist_fixed_commission_override(): void
     {

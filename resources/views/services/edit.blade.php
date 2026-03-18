@@ -15,6 +15,7 @@
 
                         @include('services._form', [
                             'service' => $service,
+                            'defaultCommissionValue' => $defaultCommissionValue,
                             'submitLabel' => 'Simpan Perubahan',
                         ])
                     </form>

@@ -5,11 +5,17 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreServiceRequest;
 use App\Http\Requests\UpdateServiceRequest;
 use App\Models\Service;
+use App\Services\CommissionSettingsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
 class ServiceController extends Controller
 {
+    public function __construct(
+        private readonly CommissionSettingsService $commissionSettingsService,
+    ) {
+    }
+
     public function index(): View
     {
         $services = Service::query()->latest()->get();
@@ -19,7 +25,9 @@ class ServiceController extends Controller
 
     public function create(): View
     {
-        return view('services.create');
+        return view('services.create', [
+            'defaultCommissionValue' => $this->commissionSettingsService->getDefaultServiceCommission()['commission_value'],
+        ]);
     }
 
     public function store(StoreServiceRequest $request): RedirectResponse
@@ -38,7 +46,10 @@ class ServiceController extends Controller
 
     public function edit(Service $service): View
     {
-        return view('services.edit', compact('service'));
+        return view('services.edit', [
+            'service' => $service,
+            'defaultCommissionValue' => $this->commissionSettingsService->getDefaultServiceCommission()['commission_value'],
+        ]);
     }
 
     public function update(UpdateServiceRequest $request, Service $service): RedirectResponse

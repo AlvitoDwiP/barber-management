@@ -5,11 +5,58 @@ namespace Tests\Feature;
 use App\Models\Service;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ServiceControllerTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_create_service_form_shows_global_default_commission_value_as_readonly(): void
+    {
+        DB::table('commission_settings')->where('id', 1)->update([
+            'default_service_commission_type' => 'percent',
+            'default_service_commission_value' => '35.00',
+            'default_product_commission_type' => 'fixed',
+            'default_product_commission_value' => '9000.00',
+            'updated_at' => now(),
+        ]);
+
+        $response = $this->actingAs(User::factory()->create())
+            ->get(route('services.create'));
+
+        $response->assertOk();
+        $response->assertSee('value="35.00"', false);
+        $response->assertSee('readonly', false);
+        $response->assertSeeText('Nilai default layanan dari pengaturan global ditampilkan otomatis dan tidak bisa diedit di sini.');
+        $response->assertSee("x-bind:name=\"commissionType === '' ? 'commission_value' : null\"", false);
+    }
+
+    public function test_edit_service_form_keeps_existing_custom_commission_override_editable(): void
+    {
+        DB::table('commission_settings')->where('id', 1)->update([
+            'default_service_commission_type' => 'percent',
+            'default_service_commission_value' => '35.00',
+            'default_product_commission_type' => 'fixed',
+            'default_product_commission_value' => '9000.00',
+            'updated_at' => now(),
+        ]);
+
+        $service = Service::query()->create([
+            'name' => 'Haircut',
+            'price' => '50000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '40.00',
+        ]);
+
+        $response = $this->actingAs(User::factory()->create())
+            ->get(route('services.edit', $service));
+
+        $response->assertOk();
+        $response->assertSee('value="40.00"', false);
+        $response->assertSee('name="commission_value"', false);
+        $response->assertSeeText('Masukkan nilai custom 0 sampai 100 untuk override komisi layanan ini.');
+    }
 
     public function test_store_service_allows_null_commission_override(): void
     {

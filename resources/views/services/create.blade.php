@@ -14,6 +14,7 @@
 
                         @include('services._form', [
                             'service' => null,
+                            'defaultCommissionValue' => $defaultCommissionValue,
                             'submitLabel' => 'Simpan',
                         ])
                     </form>

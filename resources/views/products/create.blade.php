@@ -14,6 +14,7 @@
 
                         @include('products._form', [
                             'product' => null,
+                            'defaultCommissionValue' => $defaultCommissionValue,
                             'submitLabel' => 'Simpan',
                         ])
                     </form>

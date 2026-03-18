@@ -1,8 +1,11 @@
 @php
     $nameValue = old('name', $service?->name);
     $priceValue = old('price', $service?->price);
-    $commissionTypeValue = old('commission_type', $service?->commission_type);
-    $commissionValue = old('commission_value', $service?->commission_value);
+    $commissionTypeValue = old('commission_type', $service?->commission_type ?? '');
+    $commissionValue = old('commission_value', $service?->commission_value ?? '');
+    $isGlobalCommission = blank($commissionTypeValue);
+    $customCommissionValue = $isGlobalCommission ? '' : $commissionValue;
+    $displayCommissionValue = $isGlobalCommission ? $defaultCommissionValue : $customCommissionValue;
 @endphp
 
 <div>
@@ -17,7 +20,14 @@
     <x-input-error :messages="$errors->get('price')" class="mt-2" />
 </div>
 
-<div class="rounded-lg border border-slate-200 p-4 space-y-4">
+<div
+    class="rounded-lg border border-slate-200 p-4 space-y-4"
+    x-data="{
+        commissionType: @js((string) $commissionTypeValue),
+        defaultCommissionValue: @js((string) $defaultCommissionValue),
+        customCommissionValue: @js((string) $customCommissionValue),
+    }"
+>
     <div>
         <h3 class="text-sm font-semibold text-slate-900">Override Komisi</h3>
         <p class="mt-1 text-sm text-slate-600">Kosongkan tipe dan nilai jika layanan ini harus mengikuti default global.</p>
@@ -29,6 +39,7 @@
             id="commission_type"
             name="commission_type"
             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#A85F3B] focus:ring-[#A85F3B]"
+            x-model="commissionType"
         >
             <option value="">Global</option>
             <option value="percent" @selected($commissionTypeValue === 'percent')>Custom (Persen [%])</option>
@@ -38,16 +49,37 @@
 
     <div>
         <x-input-label for="commission_value" :value="__('Nilai Komisi')" />
-        <x-text-input
+        <input
             id="commission_value"
-            name="commission_value"
             type="number"
             step="0.01"
             min="0"
-            class="mt-1 block w-full"
-            :value="$commissionValue"
+            class="border-gray-300 focus:border-[#A85F3B] focus:ring-[#A85F3B] rounded-md shadow-sm mt-1 block w-full"
+            x-bind:class="commissionType === '' ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : ''"
+            @if (! $isGlobalCommission)
+                name="commission_value"
+            @endif
+            value="{{ $displayCommissionValue }}"
+            @readonly($isGlobalCommission)
+            x-bind:name="commissionType === '' ? null : 'commission_value'"
+            x-bind:readonly="commissionType === ''"
+            x-bind:value="commissionType === '' ? defaultCommissionValue : customCommissionValue"
+            x-on:input="if (commissionType !== '') customCommissionValue = $event.target.value"
+        >
+        <input
+            type="hidden"
+            value=""
+            @if ($isGlobalCommission)
+                name="commission_value"
+            @endif
+            x-bind:name="commissionType === '' ? 'commission_value' : null"
         />
-        <p class="mt-1 text-sm text-slate-500">Pilih Global untuk mengikuti default sistem, atau pilih Custom (Persen [%]) untuk komisi khusus layanan ini.</p>
+        <p
+            class="mt-1 text-sm text-slate-500"
+            x-text="commissionType === ''
+                ? 'Nilai default layanan dari pengaturan global ditampilkan otomatis dan tidak bisa diedit di sini.'
+                : 'Masukkan nilai custom 0 sampai 100 untuk override komisi layanan ini.'"
+        >{{ $isGlobalCommission ? 'Nilai default layanan dari pengaturan global ditampilkan otomatis dan tidak bisa diedit di sini.' : 'Masukkan nilai custom 0 sampai 100 untuk override komisi layanan ini.' }}</p>
         <x-input-error :messages="$errors->get('commission_value')" class="mt-2" />
     </div>
 </div>

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CommissionSetting;
 use App\Models\Employee;
 use App\Models\Expense;
 use App\Models\FreelancePayment;
@@ -255,5 +256,58 @@ class FreelancePayrollControllerTest extends TestCase
         $payment->refresh();
 
         $this->assertNotNull($payment->paid_at);
+    }
+
+    public function test_freelance_summary_stays_based_on_transaction_item_snapshots_after_master_commission_changes(): void
+    {
+        $user = User::factory()->create();
+        $employee = Employee::query()->create([
+            'name' => 'Budi Freelance',
+            'employment_type' => 'freelance',
+        ]);
+        $service = Service::query()->create([
+            'name' => 'Coloring',
+            'price' => '120000.00',
+        ]);
+        $product = Product::query()->create([
+            'name' => 'Serum',
+            'price' => '40000.00',
+            'stock' => 5,
+        ]);
+
+        app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-16',
+            'employee_id' => $employee->id,
+            'payment_method' => 'qr',
+            'services' => [$service->id],
+            'products' => [$product->id => 2],
+        ]);
+
+        $service->update([
+            'commission_type' => 'percent',
+            'commission_value' => '10.00',
+        ]);
+        $product->update([
+            'commission_type' => 'percent',
+            'commission_value' => '1.00',
+        ]);
+        CommissionSetting::query()->update([
+            'default_service_commission_type' => 'percent',
+            'default_service_commission_value' => '5.00',
+            'default_product_commission_type' => 'percent',
+            'default_product_commission_value' => '2.00',
+        ]);
+
+        $response = $this->actingAs($user)->post(route('payroll.freelance.prepare-payment'), [
+            'employee_id' => $employee->id,
+            'work_date' => '2026-03-16',
+        ]);
+
+        $payment = FreelancePayment::query()->firstOrFail();
+
+        $response->assertRedirect(route('expenses.create', ['freelance_payment' => $payment->id]));
+        $this->assertSame('60000.00', $payment->service_commission);
+        $this->assertSame('10000.00', $payment->product_commission);
+        $this->assertSame('70000.00', $payment->total_commission);
     }
 }

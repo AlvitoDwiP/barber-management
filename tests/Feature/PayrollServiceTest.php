@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\CommissionSetting;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollResult;
+use App\Models\Product;
 use App\Models\Service;
 use App\Models\Transaction;
 use App\Models\User;
@@ -66,7 +68,17 @@ class PayrollServiceTest extends TestCase
         $payrollPeriod = app(PayrollService::class)->openPayroll('2026-03-01', '2026-03-31');
         app(PayrollService::class)->closePayroll($payrollPeriod);
 
-        $service->update(['price' => '600000.00']);
+        $service->update([
+            'price' => '600000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '10.00',
+        ]);
+        CommissionSetting::query()->update([
+            'default_service_commission_type' => 'percent',
+            'default_service_commission_value' => '10.00',
+            'default_product_commission_type' => 'percent',
+            'default_product_commission_value' => '1.00',
+        ]);
         $employee->update(['name' => 'Budi Updated']);
 
         $payrollResult = PayrollResult::query()->where('payroll_period_id', $payrollPeriod->id)->firstOrFail();
@@ -75,6 +87,53 @@ class PayrollServiceTest extends TestCase
         $this->assertSame('450000.00', $payrollResult->total_service_amount);
         $this->assertSame('225000.00', $payrollResult->total_service_commission);
         $this->assertSame('225000.00', $payrollResult->total_commission);
+    }
+
+    public function test_close_payroll_uses_transaction_item_commission_snapshots_even_if_master_rules_change_before_close(): void
+    {
+        $employee = $this->createEmployee();
+        $service = Service::query()->create([
+            'name' => 'Haircut',
+            'price' => '100000.00',
+        ]);
+        $product = Product::query()->create([
+            'name' => 'Pomade',
+            'price' => '50000.00',
+            'stock' => 10,
+        ]);
+
+        app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-10',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'services' => [$service->id],
+            'products' => [$product->id => 2],
+        ]);
+
+        $service->update([
+            'commission_type' => 'percent',
+            'commission_value' => '10.00',
+        ]);
+        $product->update([
+            'commission_type' => 'percent',
+            'commission_value' => '1.00',
+        ]);
+        CommissionSetting::query()->update([
+            'default_service_commission_type' => 'percent',
+            'default_service_commission_value' => '5.00',
+            'default_product_commission_type' => 'percent',
+            'default_product_commission_value' => '2.00',
+        ]);
+
+        $payrollPeriod = app(PayrollService::class)->openPayroll('2026-03-01', '2026-03-31');
+        app(PayrollService::class)->closePayroll($payrollPeriod);
+
+        $payrollResult = PayrollResult::query()->where('payroll_period_id', $payrollPeriod->id)->firstOrFail();
+
+        $this->assertSame('100000.00', $payrollResult->total_service_amount);
+        $this->assertSame('50000.00', $payrollResult->total_service_commission);
+        $this->assertSame('10000.00', $payrollResult->total_product_commission);
+        $this->assertSame('60000.00', $payrollResult->total_commission);
     }
 
     public function test_transactions_in_closed_payroll_cannot_be_updated_or_deleted(): void

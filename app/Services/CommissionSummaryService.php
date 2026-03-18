@@ -15,6 +15,7 @@ class CommissionSummaryService
             return collect();
         }
 
+        // Payroll must aggregate frozen transaction item snapshots, never live master commission rules.
         return $this->baseSummaryQuery(Employee::EMPLOYMENT_TYPE_PERMANENT)
             ->whereIn('transactions.id', $transactionIds)
             ->selectRaw("

@@ -58,6 +58,7 @@ class MonthlyReportService
 
     private function getTransactionMetricsForPeriod(string $startDate, string $endDate): array
     {
+        // Monthly fees and profit must use frozen transaction item snapshots, not live master commission rules.
         $metrics = TransactionItem::query()
             ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
             ->whereBetween('transactions.transaction_date', [$startDate, $endDate])
@@ -88,6 +89,7 @@ class MonthlyReportService
         $endDate = Carbon::create($year, 1, 1)->endOfYear()->toDateString();
         ['year' => $yearExpression, 'month' => $monthExpression] = $this->getYearMonthExpressions('transactions.transaction_date');
 
+        // Monthly rollups stay historical by aggregating transaction item snapshots.
         return TransactionItem::query()
             ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
             ->whereBetween('transactions.transaction_date', [$startDate, $endDate])

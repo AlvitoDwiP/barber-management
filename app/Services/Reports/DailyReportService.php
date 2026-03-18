@@ -107,6 +107,7 @@ class DailyReportService
         [$rangeStart, $rangeEnd] = $this->getRangeBounds($startDate, $endDate);
         $dateExpression = $this->getDateExpression('transactions.transaction_date');
 
+        // Daily revenue is sourced from frozen transaction item subtotals to keep historical reports stable.
         return TransactionItem::query()
             ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
             ->whereBetween('transactions.transaction_date', [$rangeStart, $rangeEnd])

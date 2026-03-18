@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CommissionSetting;
 use App\Models\Employee;
 use App\Models\Expense;
 use App\Models\Product;
@@ -245,6 +246,64 @@ class DailyReportControllerTest extends TestCase
             ['2026-03-10', '1', '100000', '20000', '120000', '120000', '0', '15000', '105000'],
             ['Total', '1', '100000', '20000', '120000', '120000', '0', '15000', '105000'],
         ], $csv);
+    }
+
+    public function test_daily_report_stays_historical_after_master_price_and_commission_changes(): void
+    {
+        $employee = Employee::query()->create([
+            'name' => 'Budi',
+            'status' => 'tetap',
+        ]);
+
+        $service = Service::query()->create([
+            'name' => 'Haircut Premium',
+            'price' => '100000.00',
+        ]);
+
+        $product = Product::query()->create([
+            'name' => 'Pomade',
+            'price' => '20000.00',
+            'stock' => 20,
+        ]);
+
+        app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-10',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'services' => [$service->id],
+            'products' => [$product->id => 2],
+        ]);
+
+        Expense::query()->create([
+            'expense_date' => '2026-03-10',
+            'category' => 'listrik',
+            'amount' => '15000.00',
+        ]);
+
+        $service->update([
+            'price' => '250000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '10.00',
+        ]);
+        $product->update([
+            'price' => '50000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '1.00',
+        ]);
+        CommissionSetting::query()->update([
+            'default_service_commission_type' => 'percent',
+            'default_service_commission_value' => '5.00',
+            'default_product_commission_type' => 'percent',
+            'default_product_commission_value' => '2.00',
+        ]);
+
+        $report = app(DailyReportService::class)->getDailyReport('2026-03-10', '2026-03-10');
+        $row = $report['rows']->first();
+
+        $this->assertSame(100000.0, $row['service_revenue']);
+        $this->assertSame(40000.0, $row['product_revenue']);
+        $this->assertSame(140000.0, $row['total_revenue']);
+        $this->assertSame(125000.0, $row['net_income']);
     }
 
     private function parseCsv(string $content): array

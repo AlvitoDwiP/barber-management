@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CommissionSetting;
 use App\Models\Employee;
 use App\Models\Product;
 use App\Models\Service;
@@ -213,6 +214,49 @@ class EmployeePerformanceReportControllerTest extends TestCase
             ['Sari', '1', '1', '50000', '0', '0', '25000'],
             ['Total', '1', '1', '50000', '0', '0', '25000'],
         ], $csv);
+    }
+
+    public function test_employee_performance_report_stays_historical_after_master_commission_changes(): void
+    {
+        [$employee] = $this->createEmployees();
+        [$haircut, , $pomade] = array_slice($this->createItems(), 0, 3);
+
+        app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-10',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'services' => [$haircut->id],
+            'products' => [$pomade->id => 2],
+        ]);
+
+        $haircut->update([
+            'price' => '250000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '10.00',
+        ]);
+        $pomade->update([
+            'price' => '50000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '1.00',
+        ]);
+        CommissionSetting::query()->update([
+            'default_service_commission_type' => 'percent',
+            'default_service_commission_value' => '5.00',
+            'default_product_commission_type' => 'percent',
+            'default_product_commission_value' => '2.00',
+        ]);
+
+        $row = app(EmployeePerformanceReportService::class)
+            ->getEmployeePerformanceReport('2026-03-10', '2026-03-10', $employee->id)
+            ->first();
+
+        $this->assertSame('Budi', $row['employee_name']);
+        $this->assertSame(1, $row['total_transactions']);
+        $this->assertSame(1, $row['total_services']);
+        $this->assertSame(100000.0, $row['service_revenue']);
+        $this->assertSame(2, $row['total_products']);
+        $this->assertSame(40000.0, $row['product_revenue']);
+        $this->assertSame(60000.0, $row['total_commission']);
     }
 
     private function createEmployees(): array

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CommissionSetting;
 use App\Models\Employee;
 use App\Models\Expense;
 use App\Models\Product;
@@ -224,6 +225,66 @@ class MonthlyReportControllerTest extends TestCase
         );
         $this->assertSame(['Januari 2026', '100000', '40000', '140000', '60000', '15000', '65000'], $csv[1]);
         $this->assertSame(['Total', '100000', '40000', '140000', '60000', '15000', '65000'], end($csv));
+    }
+
+    public function test_monthly_report_stays_historical_after_master_commission_changes(): void
+    {
+        $employee = Employee::query()->create([
+            'name' => 'Budi',
+            'status' => 'tetap',
+        ]);
+
+        $service = Service::query()->create([
+            'name' => 'Haircut Premium',
+            'price' => '100000.00',
+        ]);
+
+        $product = Product::query()->create([
+            'name' => 'Pomade',
+            'price' => '20000.00',
+            'stock' => 20,
+        ]);
+
+        app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-01-10',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'services' => [$service->id],
+            'products' => [$product->id => 2],
+        ]);
+
+        Expense::query()->create([
+            'expense_date' => '2026-01-12',
+            'category' => 'listrik',
+            'amount' => '15000.00',
+        ]);
+
+        $service->update([
+            'price' => '250000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '10.00',
+        ]);
+        $product->update([
+            'price' => '50000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '1.00',
+        ]);
+        CommissionSetting::query()->update([
+            'default_service_commission_type' => 'percent',
+            'default_service_commission_value' => '5.00',
+            'default_product_commission_type' => 'percent',
+            'default_product_commission_value' => '2.00',
+        ]);
+
+        $row = app(MonthlyReportService::class)->getMonthlyRevenueReport(2026)->firstWhere('month_number', 1);
+
+        $this->assertSame(100000.0, $row['service_revenue']);
+        $this->assertSame(40000.0, $row['product_revenue']);
+        $this->assertSame(140000.0, $row['total_revenue']);
+        $this->assertSame(60000.0, $row['employee_fees']);
+        $this->assertSame(80000.0, $row['barber_income']);
+        $this->assertSame(65000.0, $row['profit']);
+        $this->assertSame(65000.0, $row['net_profit']);
     }
 
     private function parseCsv(string $content): array

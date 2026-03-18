@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CommissionSetting;
 use App\Models\Employee;
 use App\Models\Expense;
 use App\Models\Product;
@@ -181,6 +182,72 @@ class DashboardControllerTest extends TestCase
         $response->assertSeeText('Keuntungan');
         $response->assertDontSeeText('Pendapatan bulan ini');
         $response->assertDontSeeText('Estimasi laba bulan ini');
+    }
+
+    public function test_dashboard_monthly_summary_stays_historical_after_master_commission_changes(): void
+    {
+        config(['app.timezone' => 'Asia/Jakarta']);
+
+        $this->travelTo(Carbon::parse('2026-03-15 09:00:00', config('app.timezone')));
+
+        $user = User::factory()->create();
+        $employee = $this->createEmployee();
+        $service = Service::query()->create([
+            'name' => 'Haircut Premium',
+            'price' => '100000.00',
+        ]);
+        $product = Product::query()->create([
+            'name' => 'Pomade',
+            'price' => '20000.00',
+            'stock' => 20,
+        ]);
+
+        app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-15',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'services' => [$service->id],
+            'products' => [$product->id => 2],
+        ]);
+
+        Expense::query()->create([
+            'expense_date' => '2026-03-10',
+            'category' => 'listrik',
+            'amount' => '15000.00',
+            'note' => 'Biaya bulan berjalan',
+        ]);
+
+        $service->update([
+            'price' => '250000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '10.00',
+        ]);
+        $product->update([
+            'price' => '50000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '1.00',
+        ]);
+        CommissionSetting::query()->update([
+            'default_service_commission_type' => 'percent',
+            'default_service_commission_value' => '5.00',
+            'default_product_commission_type' => 'percent',
+            'default_product_commission_value' => '2.00',
+        ]);
+
+        $response = $this->actingAs($user)->get(route('dashboard'));
+
+        $response->assertOk();
+        $response->assertViewHas('monthlySummary', fn (array $summary): bool => $summary === [
+            'service_revenue' => 100000.0,
+            'product_revenue' => 40000.0,
+            'total_revenue' => 140000.0,
+            'expenses' => 15000.0,
+            'employee_fees' => 60000.0,
+            'employee_commissions' => 60000.0,
+            'barber_income' => 80000.0,
+            'profit' => 65000.0,
+            'net_profit' => 65000.0,
+        ]);
     }
 
     private function createEmployee(): Employee

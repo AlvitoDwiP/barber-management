@@ -42,6 +42,7 @@ class EmployeePerformanceReportService
     {
         $dateExpression = $this->getDateExpression('transactions.transaction_date');
 
+        // Employee contribution metrics must follow frozen transaction item snapshots for revenue and commission.
         return Transaction::query()
             ->join('employees', 'employees.id', '=', 'transactions.employee_id')
             ->leftJoin('transaction_items', 'transaction_items.transaction_id', '=', 'transactions.id')

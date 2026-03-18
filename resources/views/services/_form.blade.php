@@ -30,8 +30,8 @@
             name="commission_type"
             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#A85F3B] focus:ring-[#A85F3B]"
         >
-            <option value="">Ikuti Default Global</option>
-            <option value="percent" @selected($commissionTypeValue === 'percent')>Persen (%)</option>
+            <option value="">Global</option>
+            <option value="percent" @selected($commissionTypeValue === 'percent')>Custom (Persen [%])</option>
         </select>
         <x-input-error :messages="$errors->get('commission_type')" class="mt-2" />
     </div>
@@ -47,7 +47,7 @@
             class="mt-1 block w-full"
             :value="$commissionValue"
         />
-        <p class="mt-1 text-sm text-slate-500">Gunakan nilai 0 sampai 100 untuk komisi berbasis Persen (%).</p>
+        <p class="mt-1 text-sm text-slate-500">Pilih Global untuk mengikuti default sistem, atau pilih Custom (Persen [%]) untuk komisi khusus layanan ini.</p>
         <x-input-error :messages="$errors->get('commission_value')" class="mt-2" />
     </div>
 </div>

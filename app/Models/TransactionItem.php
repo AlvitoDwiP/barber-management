@@ -20,6 +20,9 @@ class TransactionItem extends Model
         'unit_price',
         'qty',
         'subtotal',
+        'commission_source',
+        'commission_type',
+        'commission_value',
         'commission_amount',
     ];
 
@@ -29,6 +32,7 @@ class TransactionItem extends Model
             'unit_price' => 'decimal:2',
             'qty' => 'integer',
             'subtotal' => 'decimal:2',
+            'commission_value' => 'decimal:2',
             'commission_amount' => 'decimal:2',
         ];
     }

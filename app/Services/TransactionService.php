@@ -21,9 +21,12 @@ class TransactionService
     private const CLOSED_PAYROLL_MESSAGE = 'Transaksi yang sudah terikat ke payroll tertutup tidak dapat diubah atau dihapus.';
     private const MONEY_SCALE = 2;
     private const MINOR_UNIT_MULTIPLIER = 100;
-    private const SERVICE_COMMISSION_BASIS_POINTS = 5000;
-    private const PRODUCT_COMMISSION_PER_UNIT = '5000.00';
     private const TRANSACTION_CODE_RETRY_LIMIT = 5;
+
+    public function __construct(
+        private readonly CommissionRuleResolver $commissionRuleResolver,
+    ) {
+    }
 
     public function storeTransaction(array $validatedData): Transaction
     {
@@ -184,8 +187,8 @@ class TransactionService
             $existingDetail = $serviceDetailQueue->shift();
             $existingServiceDetailsById->put($serviceId, $serviceDetailQueue);
             $detailAttributes = $existingDetail instanceof TransactionItem && (int) $existingDetail->qty === 1
-                ? $this->buildReusedServiceDetailAttributes($existingDetail)
-                : $this->buildFreshServiceDetailAttributes($services->get($serviceId), $serviceId);
+                ? $this->buildServiceDetailAttributes($services->get($serviceId), $serviceId, $existingDetail)
+                : $this->buildServiceDetailAttributes($services->get($serviceId), $serviceId);
 
             $transaction->transactionItems()->create($detailAttributes);
             $totalMinorUnits += $this->moneyToMinorUnits($detailAttributes['subtotal']);
@@ -221,8 +224,8 @@ class TransactionService
             $this->assertStockAvailable($product, $qty);
             $existingDetail = $existingProductDetails->get($productId);
             $detailAttributes = $existingDetail !== null && (int) $existingDetail->qty === $qty
-                ? $this->buildReusedProductDetailAttributes($existingDetail)
-                : $this->buildFreshProductDetailAttributes($product, $qty);
+                ? $this->buildProductDetailAttributes($product, $qty, $existingDetail)
+                : $this->buildProductDetailAttributes($product, $qty);
 
             $currentStock = (int) $product->stock;
             $product->decrement('stock', $qty);
@@ -235,81 +238,63 @@ class TransactionService
         return $totalMinorUnits;
     }
 
-    private function buildFreshServiceDetailAttributes(?Service $service, int $serviceId): array
+    private function buildServiceDetailAttributes(
+        ?Service $service,
+        int $serviceId,
+        ?TransactionItem $existingDetail = null
+    ): array
     {
         if (! $service) {
             throw new DomainException("Layanan dengan ID {$serviceId} tidak ditemukan.");
         }
 
-        $unitPriceMinorUnits = $this->moneyToMinorUnits($service->price);
+        $unitPrice = $existingDetail instanceof TransactionItem
+            ? $this->formatMoneyValue($existingDetail->unit_price)
+            : $this->formatMoneyValue($service->price);
+        $unitPriceMinorUnits = $this->moneyToMinorUnits($unitPrice);
         $subtotalMinorUnits = $unitPriceMinorUnits;
-        $commissionMinorUnits = $this->calculatePercentageMinorUnits(
-            $subtotalMinorUnits,
-            self::SERVICE_COMMISSION_BASIS_POINTS
-        );
+        $commissionSnapshot = $this->commissionRuleResolver->resolveForService($service, $subtotalMinorUnits);
 
         return [
             'item_type' => 'service',
             'service_id' => $service->id,
             'product_id' => null,
-            'item_name' => $service->name,
+            'item_name' => $existingDetail?->item_name ?? $service->name,
             'unit_price' => $this->formatMoneyFromMinorUnits($unitPriceMinorUnits),
             'qty' => 1,
             'subtotal' => $this->formatMoneyFromMinorUnits($subtotalMinorUnits),
-            'commission_amount' => $this->formatMoneyFromMinorUnits($commissionMinorUnits),
+            'commission_source' => $commissionSnapshot['commission_source'],
+            'commission_type' => $commissionSnapshot['commission_type'],
+            'commission_value' => $commissionSnapshot['commission_value'],
+            'commission_amount' => $commissionSnapshot['commission_amount'],
         ];
     }
 
-    private function buildFreshProductDetailAttributes(Product $product, int $qty): array
+    private function buildProductDetailAttributes(
+        Product $product,
+        int $qty,
+        ?TransactionItem $existingDetail = null
+    ): array
     {
-        $unitPriceMinorUnits = $this->moneyToMinorUnits($product->price);
+        $unitPrice = $existingDetail instanceof TransactionItem
+            ? $this->formatMoneyValue($existingDetail->unit_price)
+            : $this->formatMoneyValue($product->price);
+        $unitPriceMinorUnits = $this->moneyToMinorUnits($unitPrice);
         $subtotalMinorUnits = $unitPriceMinorUnits * $qty;
-        $commissionMinorUnits = $this->moneyToMinorUnits(self::PRODUCT_COMMISSION_PER_UNIT) * $qty;
+        $commissionSnapshot = $this->commissionRuleResolver->resolveForProduct($product, $subtotalMinorUnits, $qty);
 
         return [
             'item_type' => 'product',
             'service_id' => null,
             'product_id' => $product->id,
-            'item_name' => $product->name,
+            'item_name' => $existingDetail?->item_name ?? $product->name,
             'unit_price' => $this->formatMoneyFromMinorUnits($unitPriceMinorUnits),
             'qty' => $qty,
             'subtotal' => $this->formatMoneyFromMinorUnits($subtotalMinorUnits),
-            'commission_amount' => $this->formatMoneyFromMinorUnits($commissionMinorUnits),
-        ];
-    }
-
-    private function buildReusedServiceDetailAttributes(TransactionItem $detail): array
-    {
-        $unitPrice = $this->formatMoneyValue($detail->unit_price);
-        $unitPriceMinorUnits = $this->moneyToMinorUnits($unitPrice);
-        $commissionMinorUnits = $this->calculatePercentageMinorUnits(
-            $unitPriceMinorUnits,
-            self::SERVICE_COMMISSION_BASIS_POINTS
-        );
-
-        return [
-            'item_type' => 'service',
-            'service_id' => $detail->service_id,
-            'product_id' => null,
-            'item_name' => $detail->item_name,
-            'unit_price' => $unitPrice,
-            'qty' => 1,
-            'subtotal' => $this->formatMoneyFromMinorUnits($unitPriceMinorUnits),
-            'commission_amount' => $this->formatMoneyFromMinorUnits($commissionMinorUnits),
-        ];
-    }
-
-    private function buildReusedProductDetailAttributes(TransactionItem $detail): array
-    {
-        return [
-            'item_type' => 'product',
-            'service_id' => null,
-            'product_id' => $detail->product_id,
-            'item_name' => $detail->item_name,
-            'unit_price' => $this->formatMoneyValue($detail->unit_price),
-            'qty' => (int) $detail->qty,
-            'subtotal' => $this->formatMoneyValue($detail->subtotal),
-            'commission_amount' => $this->formatMoneyValue($detail->commission_amount),
+            'commission_source' => $commissionSnapshot['commission_source'],
+            'commission_type' => $commissionSnapshot['commission_type'],
+            'commission_value' => $commissionSnapshot['commission_value'],
+            'commission_amount' => $commissionSnapshot['commission_amount'],
         ];
     }
 

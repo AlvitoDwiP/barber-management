@@ -6,6 +6,8 @@ use Closure;
 
 trait InteractsWithCommissionOverride
 {
+    use InteractsWithExactMoneyValidation;
+
     abstract protected function allowedCommissionTypes(): array;
 
     protected function prepareCommissionOverrideForValidation(): void
@@ -24,8 +26,7 @@ trait InteractsWithCommissionOverride
             'commission_type' => ['nullable', 'in:'.implode(',', $allowedTypes), 'required_with:commission_value'],
             'commission_value' => [
                 'nullable',
-                'decimal:0,2',
-                'min:0',
+                ...$this->nonNegativeMoneyRules('Nilai komisi'),
                 'required_with:commission_type',
                 $this->percentCommissionRangeRule(),
             ],
@@ -45,7 +46,6 @@ trait InteractsWithCommissionOverride
             'commission_type.required_with' => 'Tipe komisi wajib dipilih saat nilai komisi diisi.',
             'commission_value.required_with' => 'Nilai komisi wajib diisi saat tipe komisi dipilih.',
             'commission_value.decimal' => 'Nilai komisi maksimal boleh memiliki 2 angka desimal.',
-            'commission_value.min' => 'Nilai komisi tidak boleh negatif.',
         ];
     }
 
@@ -56,7 +56,7 @@ trait InteractsWithCommissionOverride
                 return;
             }
 
-            if ((float) $value > 100) {
+            if ($this->percentageExceedsHundred(is_string($value) || is_int($value) ? $value : null)) {
                 $fail('Nilai komisi persen harus berada di antara 0 sampai 100.');
             }
         };

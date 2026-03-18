@@ -4,12 +4,15 @@ namespace App\Services\Reports;
 
 use App\Models\Transaction;
 use App\Models\TransactionItem;
+use App\Services\Reports\Concerns\InteractsWithExactReportMoney;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class EmployeePerformanceReportService
 {
+    use InteractsWithExactReportMoney;
+
     public function getTopEmployeeOfMonth(?Carbon $month = null): ?array
     {
         $targetMonth = $month ?? now();
@@ -66,10 +69,10 @@ class EmployeePerformanceReportService
                     'employee_name' => $row->employee_name,
                     'total_transactions' => (int) $row->total_transactions,
                     'total_services' => (int) $row->total_services,
-                    'service_revenue' => (float) $row->service_revenue,
+                    'service_revenue' => $this->moneyToDecimal($row->service_revenue),
                     'total_products' => (int) $row->total_products,
-                    'product_revenue' => (float) $row->product_revenue,
-                    'total_commission' => (float) $row->total_commission,
+                    'product_revenue' => $this->moneyToDecimal($row->product_revenue),
+                    'total_commission' => $this->moneyToDecimal($row->total_commission),
                 ];
             });
     }

@@ -95,49 +95,49 @@ class DailyReportControllerTest extends TestCase
         $this->assertSame([
             'total_days_in_period' => 3,
             'total_transactions' => 3,
-            'service_revenue' => 150000.0,
-            'product_revenue' => 70000.0,
-            'total_revenue' => 220000.0,
-            'cash' => 140000.0,
-            'qr' => 80000.0,
-            'expenses' => 50000.0,
-            'net_income' => 170000.0,
+            'service_revenue' => '150000.00',
+            'product_revenue' => '70000.00',
+            'total_revenue' => '220000.00',
+            'cash' => '140000.00',
+            'qr' => '80000.00',
+            'expenses' => '50000.00',
+            'net_income' => '170000.00',
         ], $report['summary']);
 
         $this->assertSame([
             'report_date' => '2026-03-10',
             'total_transactions' => 2,
-            'service_revenue' => 150000.0,
-            'product_revenue' => 40000.0,
-            'total_revenue' => 190000.0,
-            'cash' => 140000.0,
-            'qr' => 50000.0,
-            'expenses' => 15000.0,
-            'net_income' => 175000.0,
+            'service_revenue' => '150000.00',
+            'product_revenue' => '40000.00',
+            'total_revenue' => '190000.00',
+            'cash' => '140000.00',
+            'qr' => '50000.00',
+            'expenses' => '15000.00',
+            'net_income' => '175000.00',
         ], $rows->get('2026-03-10'));
 
         $this->assertSame([
             'report_date' => '2026-03-11',
             'total_transactions' => 1,
-            'service_revenue' => 0.0,
-            'product_revenue' => 30000.0,
-            'total_revenue' => 30000.0,
-            'cash' => 0.0,
-            'qr' => 30000.0,
-            'expenses' => 10000.0,
-            'net_income' => 20000.0,
+            'service_revenue' => '0.00',
+            'product_revenue' => '30000.00',
+            'total_revenue' => '30000.00',
+            'cash' => '0.00',
+            'qr' => '30000.00',
+            'expenses' => '10000.00',
+            'net_income' => '20000.00',
         ], $rows->get('2026-03-11'));
 
         $this->assertSame([
             'report_date' => '2026-03-12',
             'total_transactions' => 0,
-            'service_revenue' => 0.0,
-            'product_revenue' => 0.0,
-            'total_revenue' => 0.0,
-            'cash' => 0.0,
-            'qr' => 0.0,
-            'expenses' => 25000.0,
-            'net_income' => -25000.0,
+            'service_revenue' => '0.00',
+            'product_revenue' => '0.00',
+            'total_revenue' => '0.00',
+            'cash' => '0.00',
+            'qr' => '0.00',
+            'expenses' => '25000.00',
+            'net_income' => '-25000.00',
         ], $rows->get('2026-03-12'));
 
         $response = $this->actingAs(User::factory()->create())
@@ -300,10 +300,62 @@ class DailyReportControllerTest extends TestCase
         $report = app(DailyReportService::class)->getDailyReport('2026-03-10', '2026-03-10');
         $row = $report['rows']->first();
 
-        $this->assertSame(100000.0, $row['service_revenue']);
-        $this->assertSame(40000.0, $row['product_revenue']);
-        $this->assertSame(140000.0, $row['total_revenue']);
-        $this->assertSame(125000.0, $row['net_income']);
+        $this->assertSame('100000.00', $row['service_revenue']);
+        $this->assertSame('40000.00', $row['product_revenue']);
+        $this->assertSame('140000.00', $row['total_revenue']);
+        $this->assertSame('125000.00', $row['net_income']);
+    }
+
+    public function test_daily_report_keeps_exact_decimal_totals_for_sensitive_nominals(): void
+    {
+        $employee = Employee::query()->create([
+            'name' => 'Budi',
+            'status' => 'tetap',
+        ]);
+        $service = Service::query()->create([
+            'name' => 'Color Consultation',
+            'price' => '1000.00',
+        ]);
+        $product = Product::query()->create([
+            'name' => 'Ampoule Sample',
+            'price' => '0.01',
+            'stock' => 10,
+        ]);
+
+        app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-18',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'services' => [$service->id],
+            'products' => [$product->id => 3],
+        ]);
+
+        Expense::query()->create([
+            'expense_date' => '2026-03-18',
+            'category' => 'lainnya',
+            'amount' => '0.01',
+        ]);
+
+        $report = app(DailyReportService::class)->getDailyReport('2026-03-18', '2026-03-18');
+        $row = $report['rows']->first();
+
+        $this->assertSame([
+            'total_days_in_period' => 1,
+            'total_transactions' => 1,
+            'service_revenue' => '1000.00',
+            'product_revenue' => '0.03',
+            'total_revenue' => '1000.03',
+            'cash' => '1000.03',
+            'qr' => '0.00',
+            'expenses' => '0.01',
+            'net_income' => '1000.02',
+        ], $report['summary']);
+
+        $this->assertSame('1000.00', $row['service_revenue']);
+        $this->assertSame('0.03', $row['product_revenue']);
+        $this->assertSame('1000.03', $row['total_revenue']);
+        $this->assertSame('0.01', $row['expenses']);
+        $this->assertSame('1000.02', $row['net_income']);
     }
 
     private function parseCsv(string $content): array

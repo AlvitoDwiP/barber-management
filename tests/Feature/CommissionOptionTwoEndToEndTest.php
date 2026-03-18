@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\CommissionSetting;
 use App\Models\Employee;
 use App\Models\Expense;
+use App\Models\FreelancePayment;
 use App\Models\PayrollResult;
 use App\Models\Product;
 use App\Models\Service;
@@ -142,15 +143,15 @@ class CommissionOptionTwoEndToEndTest extends TestCase
         $monthlySummary = app(MonthlyReportService::class)->getCurrentMonthSummary(Carbon::parse('2026-03-01'));
 
         $this->assertSame([
-            'service_revenue' => 200000.0,
-            'product_revenue' => 150000.0,
-            'total_revenue' => 350000.0,
-            'expenses' => 15000.0,
-            'employee_fees' => 106000.0,
-            'employee_commissions' => 106000.0,
-            'barber_income' => 244000.0,
-            'profit' => 229000.0,
-            'net_profit' => 229000.0,
+            'service_revenue' => '200000.00',
+            'product_revenue' => '150000.00',
+            'total_revenue' => '350000.00',
+            'expenses' => '15000.00',
+            'employee_fees' => '106000.00',
+            'employee_commissions' => '106000.00',
+            'barber_income' => '244000.00',
+            'profit' => '229000.00',
+            'net_profit' => '229000.00',
         ], $monthlySummary);
 
         $employeePerformance = app(EmployeePerformanceReportService::class)
@@ -160,10 +161,10 @@ class CommissionOptionTwoEndToEndTest extends TestCase
         $this->assertSame('Budi', $employeePerformance['employee_name']);
         $this->assertSame(2, $employeePerformance['total_transactions']);
         $this->assertSame(2, $employeePerformance['total_services']);
-        $this->assertSame(200000.0, $employeePerformance['service_revenue']);
+        $this->assertSame('200000.00', $employeePerformance['service_revenue']);
         $this->assertSame(3, $employeePerformance['total_products']);
-        $this->assertSame(150000.0, $employeePerformance['product_revenue']);
-        $this->assertSame(106000.0, $employeePerformance['total_commission']);
+        $this->assertSame('150000.00', $employeePerformance['product_revenue']);
+        $this->assertSame('106000.00', $employeePerformance['total_commission']);
 
         $dashboardResponse = $this->actingAs($user)->get(route('dashboard'));
 
@@ -172,5 +173,145 @@ class CommissionOptionTwoEndToEndTest extends TestCase
 
         $this->assertSame(2, Transaction::query()->count());
         $this->assertSame(17, $product->fresh()->stock);
+    }
+
+    public function test_exact_commission_edges_stay_consistent_across_transaction_payroll_report_and_freelance_settlement(): void
+    {
+        config(['app.timezone' => 'Asia/Jakarta']);
+        $this->travelTo(Carbon::parse('2026-03-20 09:00:00', config('app.timezone')));
+
+        $user = User::factory()->create();
+        $permanentEmployee = Employee::query()->create([
+            'name' => 'Budi Permanent',
+            'employment_type' => 'permanent',
+            'status' => 'tetap',
+        ]);
+        $freelanceEmployee = Employee::query()->create([
+            'name' => 'Sari Freelance',
+            'employment_type' => 'freelance',
+            'status' => 'freelance',
+        ]);
+        $permanentService = Service::query()->create([
+            'name' => 'Color Consultation',
+            'price' => '1000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '66.67',
+        ]);
+        $freelanceService = Service::query()->create([
+            'name' => 'Trim Sensitive',
+            'price' => '1000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '33.33',
+        ]);
+        $sample = Product::query()->create([
+            'name' => 'Ampoule Sample',
+            'price' => '100.00',
+            'stock' => 20,
+            'commission_type' => 'fixed',
+            'commission_value' => '0.01',
+        ]);
+
+        $permanentTransaction = app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-18',
+            'employee_id' => $permanentEmployee->id,
+            'payment_method' => 'cash',
+            'services' => [$permanentService->id],
+            'products' => [$sample->id => 3],
+        ]);
+
+        $freelanceTransaction = app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-19',
+            'employee_id' => $freelanceEmployee->id,
+            'payment_method' => 'qr',
+            'services' => [$freelanceService->id],
+            'products' => [],
+        ]);
+
+        $permanentDetails = $permanentTransaction->fresh()->transactionItems()->orderBy('item_type')->orderBy('id')->get();
+        $permanentProduct = $permanentDetails->firstWhere('item_type', 'product');
+        $permanentServiceDetail = $permanentDetails->firstWhere('item_type', 'service');
+        $freelanceServiceDetail = $freelanceTransaction->fresh()->transactionItems()->firstWhere('item_type', 'service');
+
+        $this->assertSame('66.67', $permanentServiceDetail?->commission_value);
+        $this->assertSame('666.70', $permanentServiceDetail?->commission_amount);
+        $this->assertSame('0.01', $permanentProduct?->commission_value);
+        $this->assertSame('0.03', $permanentProduct?->commission_amount);
+        $this->assertSame('33.33', $freelanceServiceDetail?->commission_value);
+        $this->assertSame('333.30', $freelanceServiceDetail?->commission_amount);
+
+        $prepareResponse = $this->actingAs($user)->post(route('payroll.freelance.prepare-payment'), [
+            'employee_id' => $freelanceEmployee->id,
+            'work_date' => '2026-03-19',
+        ]);
+
+        $freelancePayment = FreelancePayment::query()->firstOrFail();
+
+        $prepareResponse->assertRedirect(route('expenses.create', ['freelance_payment' => $freelancePayment->id]));
+        $this->assertSame('333.30', $freelancePayment->total_commission);
+
+        $this->actingAs($user)->post(route('expenses.store'), [
+            'freelance_payment_id' => $freelancePayment->id,
+            'expense_date' => '2026-03-20',
+            'category' => Expense::CATEGORY_PAY_FREELANCE,
+            'amount' => '333.30',
+            'note' => 'Pembayaran komisi freelance presisi',
+        ])->assertRedirect(route('payroll.freelance.index', [
+            'start_date' => '2026-03-19',
+            'end_date' => '2026-03-19',
+            'employee_id' => $freelanceEmployee->id,
+        ]));
+
+        $payrollPeriod = app(PayrollService::class)->openPayroll('2026-03-01', '2026-03-31');
+        app(PayrollService::class)->closePayroll($payrollPeriod);
+
+        $payrollResult = PayrollResult::query()
+            ->where('payroll_period_id', $payrollPeriod->id)
+            ->where('employee_id', $permanentEmployee->id)
+            ->firstOrFail();
+
+        $this->assertSame('1000.00', $payrollResult->total_service_amount);
+        $this->assertSame('666.70', $payrollResult->total_service_commission);
+        $this->assertSame('0.03', $payrollResult->total_product_commission);
+        $this->assertSame('666.73', $payrollResult->total_commission);
+
+        $monthlySummary = app(MonthlyReportService::class)->getCurrentMonthSummary(Carbon::parse('2026-03-01'));
+
+        $this->assertSame([
+            'service_revenue' => '2000.00',
+            'product_revenue' => '300.00',
+            'total_revenue' => '2300.00',
+            'expenses' => '333.30',
+            'employee_fees' => '1000.03',
+            'employee_commissions' => '1000.03',
+            'barber_income' => '1299.97',
+            'profit' => '966.67',
+            'net_profit' => '966.67',
+        ], $monthlySummary);
+
+        $employeePerformance = app(EmployeePerformanceReportService::class)
+            ->getEmployeePerformanceReport('2026-03-01', '2026-03-31', $permanentEmployee->id)
+            ->first();
+
+        $this->assertSame('Budi Permanent', $employeePerformance['employee_name']);
+        $this->assertSame(1, $employeePerformance['total_transactions']);
+        $this->assertSame(1, $employeePerformance['total_services']);
+        $this->assertSame('1000.00', $employeePerformance['service_revenue']);
+        $this->assertSame(3, $employeePerformance['total_products']);
+        $this->assertSame('300.00', $employeePerformance['product_revenue']);
+        $this->assertSame('666.73', $employeePerformance['total_commission']);
+
+        $dashboardResponse = $this->actingAs($user)->get(route('dashboard'));
+
+        $dashboardResponse->assertOk();
+        $dashboardResponse->assertViewHas('monthlySummary', fn (array $summary): bool => $summary === $monthlySummary);
+
+        $this->assertDatabaseHas('expenses', [
+            'category' => Expense::CATEGORY_PAY_FREELANCE,
+            'amount' => '333.30',
+        ]);
+        $this->assertDatabaseHas('freelance_payments', [
+            'id' => $freelancePayment->id,
+            'payment_status' => FreelancePayment::STATUS_PAID,
+        ]);
     }
 }

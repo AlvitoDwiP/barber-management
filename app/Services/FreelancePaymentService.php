@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Employee;
 use App\Models\Expense;
 use App\Models\FreelancePayment;
+use App\Support\Money;
 use DomainException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -178,7 +179,7 @@ class FreelancePaymentService
                 throw new DomainException('Kategori pengeluaran untuk pembayaran freelance harus Bayar Freelance.');
             }
 
-            if ((float) $expenseAttributes['amount'] !== (float) $payment->total_commission) {
+            if (! $this->settlementAmountMatchesPayment($expenseAttributes['amount'] ?? null, (string) $payment->total_commission)) {
                 throw new DomainException('Nominal pengeluaran harus sama dengan total komisi freelance settlement.');
             }
 
@@ -286,5 +287,16 @@ class FreelancePaymentService
         return 'Pembayaran komisi freelance '.$employeeName
             .' untuk transaksi tanggal '.$workDateLabel
             .' sebesar '.format_rupiah($payment->total_commission);
+    }
+
+    private function settlementAmountMatchesPayment(mixed $expenseAmount, string $paymentTotalCommission): bool
+    {
+        if (! is_string($expenseAmount) && ! is_int($expenseAmount)) {
+            return false;
+        }
+
+        return Money::fromInput($expenseAmount)->equals(
+            Money::parse($paymentTotalCommission)
+        );
     }
 }

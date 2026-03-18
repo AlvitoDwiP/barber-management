@@ -4,12 +4,16 @@ namespace App\Services\Reports;
 
 use App\Models\Product;
 use App\Models\TransactionItem;
+use App\Services\Reports\Concerns\InteractsWithExactReportMoney;
+use App\Support\Money;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class ProductReportService
 {
+    use InteractsWithExactReportMoney;
+
     public function getTopProductOfMonth(?Carbon $month = null): ?array
     {
         $targetMonth = $month ?? now();
@@ -61,13 +65,16 @@ class ProductReportService
             ->get()
             ->map(function ($row) {
                 $totalQtySold = (int) $row->total_qty_sold;
-                $totalRevenue = (float) $row->total_revenue;
+                $totalRevenueMinorUnits = $this->moneyToMinorUnits($row->total_revenue);
+                $averageSellingPriceMinorUnits = $totalQtySold > 0
+                    ? $this->divideMinorUnits($totalRevenueMinorUnits, $totalQtySold, Money::ROUND_HALF_UP)
+                    : 0;
 
                 return [
                     'product_name' => $row->product_name,
                     'total_qty_sold' => $totalQtySold,
-                    'average_selling_price' => $totalQtySold > 0 ? $totalRevenue / $totalQtySold : 0.0,
-                    'total_revenue' => $totalRevenue,
+                    'average_selling_price' => $this->moneyFromMinorUnits($averageSellingPriceMinorUnits),
+                    'total_revenue' => $this->moneyFromMinorUnits($totalRevenueMinorUnits),
                 ];
             });
     }

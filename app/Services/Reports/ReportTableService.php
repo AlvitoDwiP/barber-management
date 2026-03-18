@@ -2,11 +2,15 @@
 
 namespace App\Services\Reports;
 
+use App\Services\Reports\Concerns\InteractsWithExactReportMoney;
+use App\Support\Money;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class ReportTableService
 {
+    use InteractsWithExactReportMoney;
+
     public function buildDailyTable(Collection $rows): array
     {
         $headers = [
@@ -37,35 +41,35 @@ class ReportTableService
             'displayFooter' => [
                 'Total',
                 number_format((int) $rows->sum('total_transactions'), 0, ',', '.'),
-                format_rupiah($rows->sum('service_revenue')),
-                format_rupiah($rows->sum('product_revenue')),
-                format_rupiah($rows->sum('total_revenue')),
-                format_rupiah($rows->sum('cash')),
-                format_rupiah($rows->sum('qr')),
-                format_rupiah($rows->sum('expenses')),
-                format_rupiah($rows->sum('net_income')),
+                format_rupiah($this->sumMoney($rows, 'service_revenue')),
+                format_rupiah($this->sumMoney($rows, 'product_revenue')),
+                format_rupiah($this->sumMoney($rows, 'total_revenue')),
+                format_rupiah($this->sumMoney($rows, 'cash')),
+                format_rupiah($this->sumMoney($rows, 'qr')),
+                format_rupiah($this->sumMoney($rows, 'expenses')),
+                format_rupiah($this->sumMoney($rows, 'net_income')),
             ],
             'csvRows' => $rows->map(fn (array $row) => [
                 $row['report_date'] ?? '',
                 (int) ($row['total_transactions'] ?? 0),
-                (float) ($row['service_revenue'] ?? 0),
-                (float) ($row['product_revenue'] ?? 0),
-                (float) ($row['total_revenue'] ?? 0),
-                (float) ($row['cash'] ?? 0),
-                (float) ($row['qr'] ?? 0),
-                (float) ($row['expenses'] ?? 0),
-                (float) ($row['net_income'] ?? 0),
+                $this->moneyToDecimal($row['service_revenue'] ?? 0),
+                $this->moneyToDecimal($row['product_revenue'] ?? 0),
+                $this->moneyToDecimal($row['total_revenue'] ?? 0),
+                $this->moneyToDecimal($row['cash'] ?? 0),
+                $this->moneyToDecimal($row['qr'] ?? 0),
+                $this->moneyToDecimal($row['expenses'] ?? 0),
+                $this->moneyToDecimal($row['net_income'] ?? 0),
             ])->all(),
             'csvFooter' => [
                 'Total',
                 (int) $rows->sum('total_transactions'),
-                (float) $rows->sum('service_revenue'),
-                (float) $rows->sum('product_revenue'),
-                (float) $rows->sum('total_revenue'),
-                (float) $rows->sum('cash'),
-                (float) $rows->sum('qr'),
-                (float) $rows->sum('expenses'),
-                (float) $rows->sum('net_income'),
+                $this->sumMoney($rows, 'service_revenue'),
+                $this->sumMoney($rows, 'product_revenue'),
+                $this->sumMoney($rows, 'total_revenue'),
+                $this->sumMoney($rows, 'cash'),
+                $this->sumMoney($rows, 'qr'),
+                $this->sumMoney($rows, 'expenses'),
+                $this->sumMoney($rows, 'net_income'),
             ],
         ];
     }
@@ -97,32 +101,32 @@ class ReportTableService
             })->all(),
             'displayFooter' => [
                 'Total',
-                format_rupiah($rows->sum('service_revenue')),
-                format_rupiah($rows->sum('product_revenue')),
-                format_rupiah($rows->sum('total_revenue')),
-                format_rupiah($rows->sum('employee_commissions')),
-                format_rupiah($rows->sum('expenses')),
-                format_rupiah($rows->sum('net_profit')),
+                format_rupiah($this->sumMoney($rows, 'service_revenue')),
+                format_rupiah($this->sumMoney($rows, 'product_revenue')),
+                format_rupiah($this->sumMoney($rows, 'total_revenue')),
+                format_rupiah($this->sumMoney($rows, 'employee_commissions')),
+                format_rupiah($this->sumMoney($rows, 'expenses')),
+                format_rupiah($this->sumMoney($rows, 'net_profit')),
             ],
             'csvRows' => $rows->map(function (array $row) use ($year): array {
                 return [
                     Carbon::createFromDate($year, $row['month_number'], 1)->locale('id')->translatedFormat('F Y'),
-                    (float) ($row['service_revenue'] ?? 0),
-                    (float) ($row['product_revenue'] ?? 0),
-                    (float) ($row['total_revenue'] ?? 0),
-                    (float) ($row['employee_commissions'] ?? 0),
-                    (float) ($row['expenses'] ?? 0),
-                    (float) ($row['net_profit'] ?? 0),
+                    $this->moneyToDecimal($row['service_revenue'] ?? 0),
+                    $this->moneyToDecimal($row['product_revenue'] ?? 0),
+                    $this->moneyToDecimal($row['total_revenue'] ?? 0),
+                    $this->moneyToDecimal($row['employee_commissions'] ?? 0),
+                    $this->moneyToDecimal($row['expenses'] ?? 0),
+                    $this->moneyToDecimal($row['net_profit'] ?? 0),
                 ];
             })->all(),
             'csvFooter' => [
                 'Total',
-                (float) $rows->sum('service_revenue'),
-                (float) $rows->sum('product_revenue'),
-                (float) $rows->sum('total_revenue'),
-                (float) $rows->sum('employee_commissions'),
-                (float) $rows->sum('expenses'),
-                (float) $rows->sum('net_profit'),
+                $this->sumMoney($rows, 'service_revenue'),
+                $this->sumMoney($rows, 'product_revenue'),
+                $this->sumMoney($rows, 'total_revenue'),
+                $this->sumMoney($rows, 'employee_commissions'),
+                $this->sumMoney($rows, 'expenses'),
+                $this->sumMoney($rows, 'net_profit'),
             ],
         ];
     }
@@ -154,28 +158,28 @@ class ReportTableService
                 'Total',
                 number_format((int) $rows->sum('total_transactions'), 0, ',', '.'),
                 number_format((int) $rows->sum('total_services'), 0, ',', '.'),
-                format_rupiah($rows->sum('service_revenue')),
+                format_rupiah($this->sumMoney($rows, 'service_revenue')),
                 number_format((int) $rows->sum('total_products'), 0, ',', '.'),
-                format_rupiah($rows->sum('product_revenue')),
-                format_rupiah($rows->sum('total_commission')),
+                format_rupiah($this->sumMoney($rows, 'product_revenue')),
+                format_rupiah($this->sumMoney($rows, 'total_commission')),
             ],
             'csvRows' => $rows->map(fn (array $row): array => [
                 $row['employee_name'] ?? '',
                 (int) ($row['total_transactions'] ?? 0),
                 (int) ($row['total_services'] ?? 0),
-                (float) ($row['service_revenue'] ?? 0),
+                $this->moneyToDecimal($row['service_revenue'] ?? 0),
                 (int) ($row['total_products'] ?? 0),
-                (float) ($row['product_revenue'] ?? 0),
-                (float) ($row['total_commission'] ?? 0),
+                $this->moneyToDecimal($row['product_revenue'] ?? 0),
+                $this->moneyToDecimal($row['total_commission'] ?? 0),
             ])->all(),
             'csvFooter' => [
                 'Total',
                 (int) $rows->sum('total_transactions'),
                 (int) $rows->sum('total_services'),
-                (float) $rows->sum('service_revenue'),
+                $this->sumMoney($rows, 'service_revenue'),
                 (int) $rows->sum('total_products'),
-                (float) $rows->sum('product_revenue'),
-                (float) $rows->sum('total_commission'),
+                $this->sumMoney($rows, 'product_revenue'),
+                $this->sumMoney($rows, 'total_commission'),
             ],
         ];
     }
@@ -190,8 +194,12 @@ class ReportTableService
         ];
 
         $totalQty = (int) $rows->sum('total_qty_sold');
-        $totalRevenue = (float) $rows->sum('total_revenue');
-        $averageSellingPrice = $totalQty > 0 ? $totalRevenue / $totalQty : 0.0;
+        $totalRevenueMinorUnits = $this->sumMoneyMinorUnits($rows, 'total_revenue');
+        $averageSellingPriceMinorUnits = $totalQty > 0
+            ? $this->divideMinorUnits($totalRevenueMinorUnits, $totalQty, Money::ROUND_HALF_UP)
+            : 0;
+        $totalRevenue = $this->moneyFromMinorUnits($totalRevenueMinorUnits);
+        $averageSellingPrice = $this->moneyFromMinorUnits($averageSellingPriceMinorUnits);
 
         return [
             'headers' => $headers,
@@ -210,8 +218,8 @@ class ReportTableService
             'csvRows' => $rows->map(fn (array $row): array => [
                 $row['product_name'] ?? '',
                 (int) ($row['total_qty_sold'] ?? 0),
-                (float) ($row['average_selling_price'] ?? 0),
-                (float) ($row['total_revenue'] ?? 0),
+                $this->moneyToDecimal($row['average_selling_price'] ?? 0),
+                $this->moneyToDecimal($row['total_revenue'] ?? 0),
             ])->all(),
             'csvFooter' => [
                 'Total',

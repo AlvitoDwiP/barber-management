@@ -4,12 +4,15 @@ namespace App\Services\Reports;
 
 use App\Models\Expense;
 use App\Models\TransactionItem;
+use App\Services\Reports\Concerns\InteractsWithExactReportMoney;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class MonthlyReportService
 {
+    use InteractsWithExactReportMoney;
+
     public function getCurrentMonthSummary(?Carbon $month = null): array
     {
         $targetMonth = $month ?? Carbon::now(config('app.timezone'));
@@ -46,10 +49,10 @@ class MonthlyReportService
                 return [
                     'month_number' => $monthNumber,
                     ...$this->buildMonthlySummary(
-                        serviceRevenue: (float) ($transactionRow['service_revenue'] ?? 0),
-                        productRevenue: (float) ($transactionRow['product_revenue'] ?? 0),
-                        expenses: (float) ($expenseRow['expenses'] ?? 0),
-                        employeeFees: (float) ($transactionRow['employee_fees'] ?? 0),
+                        serviceRevenue: (string) ($transactionRow['service_revenue'] ?? '0.00'),
+                        productRevenue: (string) ($transactionRow['product_revenue'] ?? '0.00'),
+                        expenses: (string) ($expenseRow['expenses'] ?? '0.00'),
+                        employeeFees: (string) ($transactionRow['employee_fees'] ?? '0.00'),
                     ),
                 ];
             })
@@ -70,17 +73,17 @@ class MonthlyReportService
             ->first();
 
         return [
-            'service_revenue' => (float) ($metrics->service_revenue ?? 0),
-            'product_revenue' => (float) ($metrics->product_revenue ?? 0),
-            'employee_fees' => (float) ($metrics->employee_fees ?? 0),
+            'service_revenue' => $this->moneyToDecimal($metrics->service_revenue ?? 0),
+            'product_revenue' => $this->moneyToDecimal($metrics->product_revenue ?? 0),
+            'employee_fees' => $this->moneyToDecimal($metrics->employee_fees ?? 0),
         ];
     }
 
-    private function getExpenseTotalForPeriod(string $startDate, string $endDate): float
+    private function getExpenseTotalForPeriod(string $startDate, string $endDate): string
     {
-        return (float) Expense::query()
+        return $this->moneyToDecimal(Expense::query()
             ->whereBetween('expense_date', [$startDate, $endDate])
-            ->sum('amount');
+            ->sum('amount'));
     }
 
     private function getMonthlyTransactionMetrics(int $year): Collection
@@ -105,9 +108,9 @@ class MonthlyReportService
             ->map(function ($row): array {
                 return [
                     'month_number' => (int) $row->month_number,
-                    'service_revenue' => (float) $row->service_revenue,
-                    'product_revenue' => (float) $row->product_revenue,
-                    'employee_fees' => (float) $row->employee_fees,
+                    'service_revenue' => $this->moneyToDecimal($row->service_revenue),
+                    'product_revenue' => $this->moneyToDecimal($row->product_revenue),
+                    'employee_fees' => $this->moneyToDecimal($row->employee_fees),
                 ];
             });
     }
@@ -130,31 +133,35 @@ class MonthlyReportService
             ->map(function ($row): array {
                 return [
                     'month_number' => (int) $row->month_number,
-                    'expenses' => (float) $row->expenses,
+                    'expenses' => $this->moneyToDecimal($row->expenses),
                 ];
             });
     }
 
     private function buildMonthlySummary(
-        float $serviceRevenue,
-        float $productRevenue,
-        float $expenses,
-        float $employeeFees
+        string $serviceRevenue,
+        string $productRevenue,
+        string $expenses,
+        string $employeeFees
     ): array {
-        $totalRevenue = $serviceRevenue + $productRevenue;
-        $barberIncome = $serviceRevenue + $productRevenue - $employeeFees;
-        $netProfit = $totalRevenue - $employeeFees - $expenses;
+        $serviceRevenueMinorUnits = $this->moneyToMinorUnits($serviceRevenue);
+        $productRevenueMinorUnits = $this->moneyToMinorUnits($productRevenue);
+        $expensesMinorUnits = $this->moneyToMinorUnits($expenses);
+        $employeeFeesMinorUnits = $this->moneyToMinorUnits($employeeFees);
+        $totalRevenueMinorUnits = $serviceRevenueMinorUnits + $productRevenueMinorUnits;
+        $barberIncomeMinorUnits = $totalRevenueMinorUnits - $employeeFeesMinorUnits;
+        $netProfitMinorUnits = $totalRevenueMinorUnits - $employeeFeesMinorUnits - $expensesMinorUnits;
 
         return [
-            'service_revenue' => $serviceRevenue,
-            'product_revenue' => $productRevenue,
-            'total_revenue' => $totalRevenue,
-            'expenses' => $expenses,
-            'employee_fees' => $employeeFees,
-            'employee_commissions' => $employeeFees,
-            'barber_income' => $barberIncome,
-            'profit' => $netProfit,
-            'net_profit' => $netProfit,
+            'service_revenue' => $this->moneyFromMinorUnits($serviceRevenueMinorUnits),
+            'product_revenue' => $this->moneyFromMinorUnits($productRevenueMinorUnits),
+            'total_revenue' => $this->moneyFromMinorUnits($totalRevenueMinorUnits),
+            'expenses' => $this->moneyFromMinorUnits($expensesMinorUnits),
+            'employee_fees' => $this->moneyFromMinorUnits($employeeFeesMinorUnits),
+            'employee_commissions' => $this->moneyFromMinorUnits($employeeFeesMinorUnits),
+            'barber_income' => $this->moneyFromMinorUnits($barberIncomeMinorUnits),
+            'profit' => $this->moneyFromMinorUnits($netProfitMinorUnits),
+            'net_profit' => $this->moneyFromMinorUnits($netProfitMinorUnits),
         ];
     }
 

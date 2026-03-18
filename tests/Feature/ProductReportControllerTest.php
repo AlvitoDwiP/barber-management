@@ -64,15 +64,15 @@ class ProductReportControllerTest extends TestCase
         $this->assertSame([
             'product_name' => 'Pomade',
             'total_qty_sold' => 3,
-            'average_selling_price' => 20000.0,
-            'total_revenue' => 60000.0,
+            'average_selling_price' => '20000.00',
+            'total_revenue' => '60000.00',
         ], $rows->get('Pomade'));
 
         $this->assertSame([
             'product_name' => 'Gel',
             'total_qty_sold' => 1,
-            'average_selling_price' => 30000.0,
-            'total_revenue' => 30000.0,
+            'average_selling_price' => '30000.00',
+            'total_revenue' => '30000.00',
         ], $rows->get('Gel'));
 
         $response = $this->actingAs(User::factory()->create())
@@ -138,6 +138,44 @@ class ProductReportControllerTest extends TestCase
         $response->assertSeeText('Gel');
         $response->assertSeeText('Rp 30.000');
         $response->assertDontSeeText('Rp 60.000');
+    }
+
+    public function test_product_sales_report_rounds_average_selling_price_explicitly_to_two_decimals(): void
+    {
+        $employee = $this->createEmployee();
+        $pomade = Product::query()->create([
+            'name' => 'Pomade',
+            'price' => '50.00',
+            'stock' => 20,
+        ]);
+
+        app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-10',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'services' => [],
+            'products' => [$pomade->id => 1],
+        ]);
+
+        $pomade->update([
+            'price' => '50.01',
+        ]);
+
+        app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-11',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'services' => [],
+            'products' => [$pomade->id => 2],
+        ]);
+
+        $row = app(ProductReportService::class)
+            ->getProductSalesReport('2026-03-10', '2026-03-11')
+            ->firstWhere('product_name', 'Pomade');
+
+        $this->assertSame(3, $row['total_qty_sold']);
+        $this->assertSame('150.02', $row['total_revenue']);
+        $this->assertSame('50.01', $row['average_selling_price']);
     }
 
     public function test_product_sales_report_handles_invalid_range_and_empty_state(): void

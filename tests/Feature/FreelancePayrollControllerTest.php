@@ -310,4 +310,168 @@ class FreelancePayrollControllerTest extends TestCase
         $this->assertSame('10000.00', $payment->product_commission);
         $this->assertSame('70000.00', $payment->total_commission);
     }
+
+    public function test_freelance_settlement_accepts_exact_decimal_commission_amount(): void
+    {
+        $user = User::factory()->create();
+        $employee = Employee::query()->create([
+            'name' => 'Dini Freelance',
+            'employment_type' => 'freelance',
+        ]);
+        $service = Service::query()->create([
+            'name' => 'Trim Sensitive',
+            'price' => '1000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '33.33',
+        ]);
+
+        app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-18',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'services' => [$service->id],
+            'products' => [],
+        ]);
+
+        $this->actingAs($user)->post(route('payroll.freelance.prepare-payment'), [
+            'employee_id' => $employee->id,
+            'work_date' => '2026-03-18',
+        ]);
+
+        $payment = FreelancePayment::query()->firstOrFail();
+
+        $this->assertSame('333.30', $payment->total_commission);
+
+        $response = $this->actingAs($user)->post(route('expenses.store'), [
+            'freelance_payment_id' => $payment->id,
+            'expense_date' => '2026-03-18',
+            'category' => Expense::CATEGORY_PAY_FREELANCE,
+            'amount' => '333.30',
+            'note' => 'Pembayaran komisi sensitif',
+        ]);
+
+        $response->assertRedirect(route('payroll.freelance.index', [
+            'start_date' => '2026-03-18',
+            'end_date' => '2026-03-18',
+            'employee_id' => $employee->id,
+        ]));
+
+        $this->assertDatabaseHas('expenses', [
+            'category' => Expense::CATEGORY_PAY_FREELANCE,
+            'amount' => '333.30',
+        ]);
+    }
+
+    public function test_freelance_settlement_preserves_66_67_percent_and_fixed_0_01_exactly(): void
+    {
+        $user = User::factory()->create();
+        $employee = Employee::query()->create([
+            'name' => 'Tia Freelance',
+            'employment_type' => 'freelance',
+        ]);
+        $service = Service::query()->create([
+            'name' => 'Color Consultation',
+            'price' => '1000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '66.67',
+        ]);
+        $product = Product::query()->create([
+            'name' => 'Ampoule Sample',
+            'price' => '100.00',
+            'stock' => 10,
+            'commission_type' => 'fixed',
+            'commission_value' => '0.01',
+        ]);
+
+        app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-18',
+            'employee_id' => $employee->id,
+            'payment_method' => 'qr',
+            'services' => [$service->id],
+            'products' => [$product->id => 3],
+        ]);
+
+        $prepareResponse = $this->actingAs($user)->post(route('payroll.freelance.prepare-payment'), [
+            'employee_id' => $employee->id,
+            'work_date' => '2026-03-18',
+        ]);
+
+        $payment = FreelancePayment::query()->firstOrFail();
+
+        $prepareResponse->assertRedirect(route('expenses.create', ['freelance_payment' => $payment->id]));
+        $this->assertSame('1000.00', $payment->total_service_amount);
+        $this->assertSame('666.70', $payment->service_commission);
+        $this->assertSame('0.03', $payment->product_commission);
+        $this->assertSame('666.73', $payment->total_commission);
+
+        $storeResponse = $this->actingAs($user)->post(route('expenses.store'), [
+            'freelance_payment_id' => $payment->id,
+            'expense_date' => '2026-03-18',
+            'category' => Expense::CATEGORY_PAY_FREELANCE,
+            'amount' => '666.73',
+            'note' => 'Pembayaran komisi presisi',
+        ]);
+
+        $storeResponse->assertRedirect(route('payroll.freelance.index', [
+            'start_date' => '2026-03-18',
+            'end_date' => '2026-03-18',
+            'employee_id' => $employee->id,
+        ]));
+
+        $this->assertDatabaseHas('expenses', [
+            'category' => Expense::CATEGORY_PAY_FREELANCE,
+            'amount' => '666.73',
+        ]);
+        $this->assertDatabaseHas('freelance_payments', [
+            'id' => $payment->id,
+            'payment_status' => FreelancePayment::STATUS_PAID,
+        ]);
+    }
+
+    public function test_freelance_settlement_rejects_exact_decimal_amount_mismatch(): void
+    {
+        $user = User::factory()->create();
+        $employee = Employee::query()->create([
+            'name' => 'Raka Freelance',
+            'employment_type' => 'freelance',
+        ]);
+        $service = Service::query()->create([
+            'name' => 'Trim Sensitive',
+            'price' => '1000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '33.33',
+        ]);
+
+        app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-18',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'services' => [$service->id],
+            'products' => [],
+        ]);
+
+        $this->actingAs($user)->post(route('payroll.freelance.prepare-payment'), [
+            'employee_id' => $employee->id,
+            'work_date' => '2026-03-18',
+        ]);
+
+        $payment = FreelancePayment::query()->firstOrFail();
+
+        $response = $this->actingAs($user)->from(route('expenses.create', ['freelance_payment' => $payment->id]))
+            ->post(route('expenses.store'), [
+                'freelance_payment_id' => $payment->id,
+                'expense_date' => '2026-03-18',
+                'category' => Expense::CATEGORY_PAY_FREELANCE,
+                'amount' => '333.29',
+                'note' => 'Pembayaran komisi sensitif',
+            ]);
+
+        $response->assertRedirect(route('expenses.create', ['freelance_payment' => $payment->id]));
+        $response->assertSessionHas('error', 'Nominal pengeluaran harus sama dengan total komisi freelance settlement.');
+        $this->assertDatabaseCount('expenses', 0);
+        $this->assertDatabaseHas('freelance_payments', [
+            'id' => $payment->id,
+            'payment_status' => FreelancePayment::STATUS_UNPAID,
+        ]);
+    }
 }

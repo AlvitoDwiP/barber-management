@@ -223,6 +223,57 @@ class TransactionServiceTest extends TestCase
         $this->assertSame('21000.00', $productDetail?->commission_amount);
     }
 
+    public function test_store_transaction_preserves_exact_decimal_commissions_for_sensitive_percentages_and_minimal_fixed_fees(): void
+    {
+        $employee = $this->createEmployee();
+        $trim = Service::query()->create([
+            'name' => 'Trim Detail',
+            'price' => '1000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '33.33',
+        ]);
+        $color = Service::query()->create([
+            'name' => 'Color Correction',
+            'price' => '1000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '66.67',
+        ]);
+        $sample = Product::query()->create([
+            'name' => 'Ampoule Sample',
+            'price' => '100.00',
+            'stock' => 10,
+            'commission_type' => 'fixed',
+            'commission_value' => '0.01',
+        ]);
+
+        $transaction = app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-18',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'services' => [$trim->id, $color->id],
+            'products' => [$sample->id => 3],
+        ]);
+
+        $transaction->refresh();
+        $details = $transaction->transactionItems()->orderBy('item_type')->orderBy('id')->get();
+        $trimDetail = $details->firstWhere('service_id', $trim->id);
+        $colorDetail = $details->firstWhere('service_id', $color->id);
+        $sampleDetail = $details->firstWhere('product_id', $sample->id);
+
+        $this->assertSame('2300.00', $transaction->subtotal_amount);
+        $this->assertSame('2300.00', $transaction->total_amount);
+
+        $this->assertSame('33.33', $trimDetail?->commission_value);
+        $this->assertSame('333.30', $trimDetail?->commission_amount);
+
+        $this->assertSame('66.67', $colorDetail?->commission_value);
+        $this->assertSame('666.70', $colorDetail?->commission_amount);
+
+        $this->assertSame('0.01', $sampleDetail?->commission_value);
+        $this->assertSame('300.00', $sampleDetail?->subtotal);
+        $this->assertSame('0.03', $sampleDetail?->commission_amount);
+    }
+
     public function test_existing_transaction_snapshot_does_not_change_after_default_settings_change(): void
     {
         $employee = $this->createEmployee();

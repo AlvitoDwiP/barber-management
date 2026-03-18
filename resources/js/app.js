@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', initDatePickers);
 
 const currencyFormatter = new Intl.NumberFormat('id-ID');
 let transactionFormRowCounter = 0;
+const DECIMAL_MONEY_PATTERN = /^-?\d+(?:\.\d{1,2})?$/;
 
 const createTransactionFormKey = (prefix = 'row') => {
     transactionFormRowCounter += 1;
@@ -91,15 +92,64 @@ const normalizeLineItems = (rows, type) => {
     ));
 };
 
+const normalizeMoneyInput = (value) => {
+    if (value === null || value === undefined) {
+        return '0';
+    }
+
+    const normalized = String(value).trim();
+
+    return normalized === '' ? '0' : normalized;
+};
+
+const parseDecimalToMinorUnits = (value) => {
+    const normalized = normalizeMoneyInput(value);
+
+    if (! DECIMAL_MONEY_PATTERN.test(normalized)) {
+        return 0;
+    }
+
+    const isNegative = normalized.startsWith('-');
+    const absoluteValue = isNegative ? normalized.slice(1) : normalized;
+    const [wholePart, fractionPart = ''] = absoluteValue.split('.');
+    const paddedFractionPart = `${fractionPart}00`.slice(0, 2);
+    const minorUnits = (Number.parseInt(wholePart, 10) * 100) + Number.parseInt(paddedFractionPart, 10);
+
+    return isNegative ? -minorUnits : minorUnits;
+};
+
+const roundMinorUnitsToWholeRupiah = (minorUnits) => {
+    const isNegative = minorUnits < 0;
+    const absoluteAmount = isNegative ? -minorUnits : minorUnits;
+    const fractionPart = absoluteAmount % 100;
+    let wholePart = (absoluteAmount - fractionPart) / 100;
+
+    if (fractionPart >= 50) {
+        wholePart += 1;
+    }
+
+    return isNegative ? -wholePart : wholePart;
+};
+
+const formatCurrency = (minorUnits) => `Rp ${currencyFormatter.format(roundMinorUnitsToWholeRupiah(minorUnits))}`;
+
+const normalizePricedOptions = (options) => (
+    Array.isArray(options)
+        ? options.map((option) => ({
+            ...option,
+            price: normalizeMoneyInput(option?.price),
+            price_minor_units: parseDecimalToMinorUnits(option?.price),
+        }))
+        : []
+);
+
 const findOptionById = (options, id) => options.find((option) => String(option.id) === String(id));
 
 const resolveLineSubtotal = (options, id, qty) => {
     const option = findOptionById(options, id);
 
-    return Number(option?.price ?? 0) * qty;
+    return (option?.price_minor_units ?? 0) * qty;
 };
-
-const formatCurrency = (amount) => `Rp ${currencyFormatter.format(Math.round(Number(amount) || 0))}`;
 
 const createDailyBatchEntry = (entry = {}) => ({
     key: createTransactionFormKey('entry'),
@@ -112,8 +162,8 @@ const createDailyBatchEntry = (entry = {}) => ({
 document.addEventListener('alpine:init', () => {
     Alpine.data('transactionFormEditor', (config = {}) => ({
         errors: config.errors ?? {},
-        serviceOptions: config.serviceOptions ?? [],
-        productOptions: config.productOptions ?? [],
+        serviceOptions: normalizePricedOptions(config.serviceOptions ?? []),
+        productOptions: normalizePricedOptions(config.productOptions ?? []),
         services: normalizeLineItems(config.initialServices ?? [], 'service'),
         products: normalizeLineItems(config.initialProducts ?? [], 'product'),
         addRow(type) {
@@ -153,8 +203,8 @@ document.addEventListener('alpine:init', () => {
 
     Alpine.data('dailyBatchTransactionForm', (config = {}) => ({
         errors: config.errors ?? {},
-        serviceOptions: config.serviceOptions ?? [],
-        productOptions: config.productOptions ?? [],
+        serviceOptions: normalizePricedOptions(config.serviceOptions ?? []),
+        productOptions: normalizePricedOptions(config.productOptions ?? []),
         entries: [],
         init() {
             const initialEntries = Array.isArray(config.initialEntries) && config.initialEntries.length > 0

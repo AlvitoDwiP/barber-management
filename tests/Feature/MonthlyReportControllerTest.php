@@ -83,48 +83,48 @@ class MonthlyReportControllerTest extends TestCase
 
         $rows = app(MonthlyReportService::class)->getMonthlyRevenueReport(2026)->keyBy('month_number');
 
-        $this->assertSame(100000.0, $rows->get(1)['service_revenue']);
-        $this->assertSame(40000.0, $rows->get(1)['product_revenue']);
-        $this->assertSame(140000.0, $rows->get(1)['total_revenue']);
-        $this->assertSame(15000.0, $rows->get(1)['expenses']);
-        $this->assertSame(60000.0, $rows->get(1)['employee_fees']);
-        $this->assertSame(60000.0, $rows->get(1)['employee_commissions']);
-        $this->assertSame(80000.0, $rows->get(1)['barber_income']);
-        $this->assertSame(65000.0, $rows->get(1)['profit']);
-        $this->assertSame(65000.0, $rows->get(1)['net_profit']);
+        $this->assertSame('100000.00', $rows->get(1)['service_revenue']);
+        $this->assertSame('40000.00', $rows->get(1)['product_revenue']);
+        $this->assertSame('140000.00', $rows->get(1)['total_revenue']);
+        $this->assertSame('15000.00', $rows->get(1)['expenses']);
+        $this->assertSame('60000.00', $rows->get(1)['employee_fees']);
+        $this->assertSame('60000.00', $rows->get(1)['employee_commissions']);
+        $this->assertSame('80000.00', $rows->get(1)['barber_income']);
+        $this->assertSame('65000.00', $rows->get(1)['profit']);
+        $this->assertSame('65000.00', $rows->get(1)['net_profit']);
 
-        $this->assertSame(50000.0, $rows->get(2)['service_revenue']);
-        $this->assertSame(30000.0, $rows->get(2)['product_revenue']);
-        $this->assertSame(80000.0, $rows->get(2)['total_revenue']);
-        $this->assertSame(10000.0, $rows->get(2)['expenses']);
-        $this->assertSame(30000.0, $rows->get(2)['employee_fees']);
-        $this->assertSame(30000.0, $rows->get(2)['employee_commissions']);
-        $this->assertSame(50000.0, $rows->get(2)['barber_income']);
-        $this->assertSame(40000.0, $rows->get(2)['profit']);
-        $this->assertSame(40000.0, $rows->get(2)['net_profit']);
+        $this->assertSame('50000.00', $rows->get(2)['service_revenue']);
+        $this->assertSame('30000.00', $rows->get(2)['product_revenue']);
+        $this->assertSame('80000.00', $rows->get(2)['total_revenue']);
+        $this->assertSame('10000.00', $rows->get(2)['expenses']);
+        $this->assertSame('30000.00', $rows->get(2)['employee_fees']);
+        $this->assertSame('30000.00', $rows->get(2)['employee_commissions']);
+        $this->assertSame('50000.00', $rows->get(2)['barber_income']);
+        $this->assertSame('40000.00', $rows->get(2)['profit']);
+        $this->assertSame('40000.00', $rows->get(2)['net_profit']);
 
-        $this->assertSame(0.0, $rows->get(3)['service_revenue']);
-        $this->assertSame(0.0, $rows->get(3)['product_revenue']);
-        $this->assertSame(0.0, $rows->get(3)['total_revenue']);
-        $this->assertSame(25000.0, $rows->get(3)['expenses']);
-        $this->assertSame(0.0, $rows->get(3)['employee_fees']);
-        $this->assertSame(0.0, $rows->get(3)['employee_commissions']);
-        $this->assertSame(0.0, $rows->get(3)['barber_income']);
-        $this->assertSame(-25000.0, $rows->get(3)['profit']);
-        $this->assertSame(-25000.0, $rows->get(3)['net_profit']);
+        $this->assertSame('0.00', $rows->get(3)['service_revenue']);
+        $this->assertSame('0.00', $rows->get(3)['product_revenue']);
+        $this->assertSame('0.00', $rows->get(3)['total_revenue']);
+        $this->assertSame('25000.00', $rows->get(3)['expenses']);
+        $this->assertSame('0.00', $rows->get(3)['employee_fees']);
+        $this->assertSame('0.00', $rows->get(3)['employee_commissions']);
+        $this->assertSame('0.00', $rows->get(3)['barber_income']);
+        $this->assertSame('-25000.00', $rows->get(3)['profit']);
+        $this->assertSame('-25000.00', $rows->get(3)['net_profit']);
 
         $februarySummary = app(MonthlyReportService::class)->getCurrentMonthSummary(Carbon::parse('2026-02-01'));
 
         $this->assertSame([
-            'service_revenue' => 50000.0,
-            'product_revenue' => 30000.0,
-            'total_revenue' => 80000.0,
-            'expenses' => 10000.0,
-            'employee_fees' => 30000.0,
-            'employee_commissions' => 30000.0,
-            'barber_income' => 50000.0,
-            'profit' => 40000.0,
-            'net_profit' => 40000.0,
+            'service_revenue' => '50000.00',
+            'product_revenue' => '30000.00',
+            'total_revenue' => '80000.00',
+            'expenses' => '10000.00',
+            'employee_fees' => '30000.00',
+            'employee_commissions' => '30000.00',
+            'barber_income' => '50000.00',
+            'profit' => '40000.00',
+            'net_profit' => '40000.00',
         ], $februarySummary);
         $this->assertSame(
             array_intersect_key($rows->get(2), array_flip([
@@ -278,13 +278,61 @@ class MonthlyReportControllerTest extends TestCase
 
         $row = app(MonthlyReportService::class)->getMonthlyRevenueReport(2026)->firstWhere('month_number', 1);
 
-        $this->assertSame(100000.0, $row['service_revenue']);
-        $this->assertSame(40000.0, $row['product_revenue']);
-        $this->assertSame(140000.0, $row['total_revenue']);
-        $this->assertSame(60000.0, $row['employee_fees']);
-        $this->assertSame(80000.0, $row['barber_income']);
-        $this->assertSame(65000.0, $row['profit']);
-        $this->assertSame(65000.0, $row['net_profit']);
+        $this->assertSame('100000.00', $row['service_revenue']);
+        $this->assertSame('40000.00', $row['product_revenue']);
+        $this->assertSame('140000.00', $row['total_revenue']);
+        $this->assertSame('60000.00', $row['employee_fees']);
+        $this->assertSame('80000.00', $row['barber_income']);
+        $this->assertSame('65000.00', $row['profit']);
+        $this->assertSame('65000.00', $row['net_profit']);
+    }
+
+    public function test_monthly_report_keeps_exact_decimal_owner_metrics_for_sensitive_commission_edges(): void
+    {
+        $employee = Employee::query()->create([
+            'name' => 'Budi',
+            'status' => 'tetap',
+            'employment_type' => 'permanent',
+        ]);
+        $service = Service::query()->create([
+            'name' => 'Color Consultation',
+            'price' => '1000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '66.67',
+        ]);
+        $product = Product::query()->create([
+            'name' => 'Ampoule Sample',
+            'price' => '100.00',
+            'stock' => 10,
+            'commission_type' => 'fixed',
+            'commission_value' => '0.01',
+        ]);
+
+        app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-01-18',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'services' => [$service->id],
+            'products' => [$product->id => 3],
+        ]);
+
+        Expense::query()->create([
+            'expense_date' => '2026-01-18',
+            'category' => 'lainnya',
+            'amount' => '0.01',
+        ]);
+
+        $row = app(MonthlyReportService::class)->getMonthlyRevenueReport(2026)->firstWhere('month_number', 1);
+
+        $this->assertSame('1000.00', $row['service_revenue']);
+        $this->assertSame('300.00', $row['product_revenue']);
+        $this->assertSame('1300.00', $row['total_revenue']);
+        $this->assertSame('0.01', $row['expenses']);
+        $this->assertSame('666.73', $row['employee_fees']);
+        $this->assertSame('666.73', $row['employee_commissions']);
+        $this->assertSame('633.27', $row['barber_income']);
+        $this->assertSame('633.26', $row['profit']);
+        $this->assertSame('633.26', $row['net_profit']);
     }
 
     private function parseCsv(string $content): array

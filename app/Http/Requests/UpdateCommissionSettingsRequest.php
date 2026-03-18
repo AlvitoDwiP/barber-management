@@ -2,12 +2,15 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\InteractsWithExactMoneyValidation;
 use App\Models\CommissionSetting;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
 class UpdateCommissionSettingsRequest extends FormRequest
 {
+    use InteractsWithExactMoneyValidation;
+
     public function authorize(): bool
     {
         return true;
@@ -27,9 +30,9 @@ class UpdateCommissionSettingsRequest extends FormRequest
     {
         return [
             'default_service_commission_type' => ['required', 'in:'.CommissionSetting::TYPE_PERCENT],
-            'default_service_commission_value' => ['required', 'decimal:0,2', 'min:0'],
+            'default_service_commission_value' => ['required', ...$this->nonNegativeMoneyRules('Nilai komisi layanan default')],
             'default_product_commission_type' => ['required', 'in:'.implode(',', CommissionSetting::validTypes())],
-            'default_product_commission_value' => ['required', 'decimal:0,2', 'min:0'],
+            'default_product_commission_value' => ['required', ...$this->nonNegativeMoneyRules('Nilai komisi produk default')],
         ];
     }
 
@@ -40,12 +43,10 @@ class UpdateCommissionSettingsRequest extends FormRequest
             'default_service_commission_type.in' => 'Tipe komisi layanan default harus berupa Persen (%).',
             'default_service_commission_value.required' => 'Nilai komisi layanan default wajib diisi.',
             'default_service_commission_value.decimal' => 'Nilai komisi layanan default maksimal boleh memiliki 2 angka desimal.',
-            'default_service_commission_value.min' => 'Nilai komisi layanan default tidak boleh negatif.',
             'default_product_commission_type.required' => 'Tipe komisi produk default wajib dipilih.',
             'default_product_commission_type.in' => 'Tipe komisi produk default harus berupa Persen (%) atau Rupiah (Rp).',
             'default_product_commission_value.required' => 'Nilai komisi produk default wajib diisi.',
             'default_product_commission_value.decimal' => 'Nilai komisi produk default maksimal boleh memiliki 2 angka desimal.',
-            'default_product_commission_value.min' => 'Nilai komisi produk default tidak boleh negatif.',
         ];
     }
 
@@ -54,7 +55,7 @@ class UpdateCommissionSettingsRequest extends FormRequest
         $validator->after(function (Validator $validator): void {
             $serviceValue = $this->input('default_service_commission_value');
 
-            if ($serviceValue !== null && (float) $serviceValue > 100) {
+            if ($this->percentageExceedsHundred(is_string($serviceValue) || is_int($serviceValue) ? $serviceValue : null)) {
                 $validator->errors()->add(
                     'default_service_commission_value',
                     'Nilai komisi layanan default persen harus berada di antara 0 sampai 100.'
@@ -82,7 +83,7 @@ class UpdateCommissionSettingsRequest extends FormRequest
 
         $value = $this->input($valueField);
 
-        if ($value !== null && (float) $value > 100) {
+        if ($this->percentageExceedsHundred(is_string($value) || is_int($value) ? $value : null)) {
             $validator->errors()->add($valueField, $message);
         }
     }

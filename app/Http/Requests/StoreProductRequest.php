@@ -28,7 +28,7 @@ class StoreProductRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'price' => ['required', 'numeric', 'gt:0'],
+            'price' => ['required', ...$this->positiveMoneyRules('Harga produk')],
             'stock' => ['required', 'integer', 'min:0'],
             ...$this->commissionOverrideRules(),
         ];
@@ -36,6 +36,9 @@ class StoreProductRequest extends FormRequest
 
     public function messages(): array
     {
-        return $this->commissionOverrideMessages();
+        return [
+            'price.decimal' => 'Harga produk maksimal boleh memiliki 2 angka desimal.',
+            ...$this->commissionOverrideMessages(),
+        ];
     }
 }

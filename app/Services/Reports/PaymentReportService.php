@@ -3,18 +3,21 @@
 namespace App\Services\Reports;
 
 use App\Models\Transaction;
+use App\Services\Reports\Concerns\InteractsWithExactReportMoney;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class PaymentReportService
 {
+    use InteractsWithExactReportMoney;
+
     public function getMonthlyPaymentSummary(?Carbon $month = null): array
     {
         return [
             'month' => ($month ?? now())->format('Y-m'),
-            'cash' => 0,
-            'qr' => 0,
+            'cash' => '0.00',
+            'qr' => '0.00',
             'total_transactions' => 0,
         ];
     }
@@ -39,8 +42,8 @@ class PaymentReportService
             ->map(function ($row) {
                 return [
                     'month_number' => (int) $row->month_number,
-                    'total_cash' => (float) $row->total_cash,
-                    'total_qr' => (float) $row->total_qr,
+                    'total_cash' => $this->moneyToDecimal($row->total_cash),
+                    'total_qr' => $this->moneyToDecimal($row->total_qr),
                     'total_transactions' => (int) $row->total_transactions,
                 ];
             })
@@ -51,8 +54,8 @@ class PaymentReportService
 
             return [
                 'month_number' => $month,
-                'total_cash' => (float) ($row['total_cash'] ?? 0),
-                'total_qr' => (float) ($row['total_qr'] ?? 0),
+                'total_cash' => (string) ($row['total_cash'] ?? '0.00'),
+                'total_qr' => (string) ($row['total_qr'] ?? '0.00'),
                 'total_transactions' => (int) ($row['total_transactions'] ?? 0),
             ];
         });

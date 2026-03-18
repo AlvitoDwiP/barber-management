@@ -61,20 +61,20 @@ class EmployeePerformanceReportControllerTest extends TestCase
             'employee_name' => 'Budi',
             'total_transactions' => 2,
             'total_services' => 2,
-            'service_revenue' => 150000.0,
+            'service_revenue' => '150000.00',
             'total_products' => 3,
-            'product_revenue' => 70000.0,
-            'total_commission' => 90000.0,
+            'product_revenue' => '70000.00',
+            'total_commission' => '90000.00',
         ], $rows->get('Budi'));
 
         $this->assertSame([
             'employee_name' => 'Sari',
             'total_transactions' => 1,
             'total_services' => 1,
-            'service_revenue' => 50000.0,
+            'service_revenue' => '50000.00',
             'total_products' => 0,
-            'product_revenue' => 0.0,
-            'total_commission' => 25000.0,
+            'product_revenue' => '0.00',
+            'total_commission' => '25000.00',
         ], $rows->get('Sari'));
 
         $response = $this->actingAs(User::factory()->create())
@@ -253,10 +253,10 @@ class EmployeePerformanceReportControllerTest extends TestCase
         $this->assertSame('Budi', $row['employee_name']);
         $this->assertSame(1, $row['total_transactions']);
         $this->assertSame(1, $row['total_services']);
-        $this->assertSame(100000.0, $row['service_revenue']);
+        $this->assertSame('100000.00', $row['service_revenue']);
         $this->assertSame(2, $row['total_products']);
-        $this->assertSame(40000.0, $row['product_revenue']);
-        $this->assertSame(60000.0, $row['total_commission']);
+        $this->assertSame('40000.00', $row['product_revenue']);
+        $this->assertSame('60000.00', $row['total_commission']);
     }
 
     private function createEmployees(): array

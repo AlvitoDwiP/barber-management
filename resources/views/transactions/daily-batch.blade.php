@@ -8,12 +8,12 @@
     $serviceOptions = $services->map(fn ($service) => [
         'id' => $service->id,
         'name' => $service->name,
-        'price' => (float) $service->price,
+        'price' => (string) $service->price,
     ])->values();
     $productOptions = $products->map(fn ($product) => [
         'id' => $product->id,
         'name' => $product->name,
-        'price' => (float) $product->price,
+        'price' => (string) $product->price,
         'stock' => (int) $product->stock,
     ])->values();
 @endphp
@@ -162,7 +162,7 @@
                                                 <select class="form-brand-control min-w-0 text-slate-900" :name="`entries[${entryIndex}][services][${rowIndex}][service_id]`" x-model="row.service_id">
                                                     <option value="">Pilih layanan</option>
                                                     <template x-for="service in serviceOptions" :key="service.id">
-                                                        <option :value="String(service.id)" x-text="`${service.name} - ${formatCurrency(service.price)}`"></option>
+                                                        <option :value="String(service.id)" x-text="`${service.name} - ${formatCurrency(service.price_minor_units)}`"></option>
                                                     </template>
                                                 </select>
                                                 <template x-for="message in fieldErrors(`entries.${entryIndex}.services.${rowIndex}.service_id`)" :key="message">
@@ -204,7 +204,7 @@
                                                 <select class="form-brand-control min-w-0 text-slate-900" :name="`entries[${entryIndex}][products][${rowIndex}][product_id]`" x-model="row.product_id">
                                                     <option value="">Pilih produk</option>
                                                     <template x-for="product in productOptions" :key="product.id">
-                                                        <option :value="String(product.id)" x-text="`${product.name} - ${formatCurrency(product.price)} (stok ${product.stock})`"></option>
+                                                        <option :value="String(product.id)" x-text="`${product.name} - ${formatCurrency(product.price_minor_units)} (stok ${product.stock})`"></option>
                                                     </template>
                                                 </select>
                                                 <template x-for="message in fieldErrors(`entries.${entryIndex}.products.${rowIndex}.product_id`)" :key="message">

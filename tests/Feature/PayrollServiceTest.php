@@ -136,6 +136,48 @@ class PayrollServiceTest extends TestCase
         $this->assertSame('60000.00', $payrollResult->total_commission);
     }
 
+    public function test_close_payroll_preserves_exact_sensitive_commission_totals_without_float_drift(): void
+    {
+        $employee = $this->createEmployee();
+        $trim = Service::query()->create([
+            'name' => 'Trim Detail',
+            'price' => '1000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '33.33',
+        ]);
+        $color = Service::query()->create([
+            'name' => 'Color Correction',
+            'price' => '1000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '66.67',
+        ]);
+        $sample = Product::query()->create([
+            'name' => 'Ampoule Sample',
+            'price' => '100.00',
+            'stock' => 10,
+            'commission_type' => 'fixed',
+            'commission_value' => '0.01',
+        ]);
+
+        app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-18',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'services' => [$trim->id, $color->id],
+            'products' => [$sample->id => 3],
+        ]);
+
+        $payrollPeriod = app(PayrollService::class)->openPayroll('2026-03-01', '2026-03-31');
+        app(PayrollService::class)->closePayroll($payrollPeriod);
+
+        $payrollResult = PayrollResult::query()->where('payroll_period_id', $payrollPeriod->id)->firstOrFail();
+
+        $this->assertSame('2000.00', $payrollResult->total_service_amount);
+        $this->assertSame('1000.00', $payrollResult->total_service_commission);
+        $this->assertSame('0.03', $payrollResult->total_product_commission);
+        $this->assertSame('1000.03', $payrollResult->total_commission);
+    }
+
     public function test_transactions_in_closed_payroll_cannot_be_updated_or_deleted(): void
     {
         $employee = $this->createEmployee();

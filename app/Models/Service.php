@@ -13,12 +13,15 @@ class Service extends Model
     protected $fillable = [
         'name',
         'price',
+        'commission_type',
+        'commission_value',
     ];
 
     protected function casts(): array
     {
         return [
             'price' => 'decimal:2',
+            'commission_value' => 'decimal:2',
         ];
     }
 

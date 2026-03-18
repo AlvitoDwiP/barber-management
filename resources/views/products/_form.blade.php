@@ -2,6 +2,8 @@
     $nameValue = old('name', $product?->name);
     $priceValue = old('price', $product?->price);
     $stockValue = old('stock', $product?->stock);
+    $commissionTypeValue = old('commission_type', $product?->commission_type);
+    $commissionValue = old('commission_value', $product?->commission_value);
 @endphp
 
 <div>
@@ -20,6 +22,42 @@
     <x-input-label for="stock" :value="__('Stok')" />
     <x-text-input id="stock" name="stock" type="number" step="1" min="0" class="mt-1 block w-full" :value="$stockValue" required />
     <x-input-error :messages="$errors->get('stock')" class="mt-2" />
+</div>
+
+<div class="rounded-lg border border-slate-200 p-4 space-y-4">
+    <div>
+        <h3 class="text-sm font-semibold text-slate-900">Override Komisi</h3>
+        <p class="mt-1 text-sm text-slate-600">Kosongkan tipe dan nilai jika produk ini harus mengikuti default global.</p>
+    </div>
+
+    <div>
+        <x-input-label for="commission_type" :value="__('Tipe Komisi')" />
+        <select
+            id="commission_type"
+            name="commission_type"
+            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#A85F3B] focus:ring-[#A85F3B]"
+        >
+            <option value="">Ikuti Default Global</option>
+            <option value="percent" @selected($commissionTypeValue === 'percent')>Percent</option>
+            <option value="fixed" @selected($commissionTypeValue === 'fixed')>Fixed</option>
+        </select>
+        <x-input-error :messages="$errors->get('commission_type')" class="mt-2" />
+    </div>
+
+    <div>
+        <x-input-label for="commission_value" :value="__('Nilai Komisi')" />
+        <x-text-input
+            id="commission_value"
+            name="commission_value"
+            type="number"
+            step="0.01"
+            min="0"
+            class="mt-1 block w-full"
+            :value="$commissionValue"
+        />
+        <p class="mt-1 text-sm text-slate-500">Gunakan 0 sampai 100 untuk percent, atau nominal rupiah untuk fixed.</p>
+        <x-input-error :messages="$errors->get('commission_value')" class="mt-2" />
+    </div>
 </div>
 
 @include('partials.crud.form-actions', [

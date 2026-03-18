@@ -102,7 +102,7 @@ class ServiceControllerTest extends TestCase
 
         $response->assertRedirect(route('services.create'));
         $response->assertSessionHasErrors([
-            'commission_type' => 'Tipe komisi harus berupa percent.',
+            'commission_type' => 'Tipe komisi harus berupa Persen (%).',
         ]);
         $this->assertDatabaseCount('services', 0);
     }

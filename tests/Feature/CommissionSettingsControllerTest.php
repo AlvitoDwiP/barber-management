@@ -82,7 +82,7 @@ class CommissionSettingsControllerTest extends TestCase
 
         $response->assertRedirect(route('settings.commission.edit'));
         $response->assertSessionHasErrors([
-            'default_service_commission_type' => 'Tipe komisi layanan default harus berupa percent.',
+            'default_service_commission_type' => 'Tipe komisi layanan default harus berupa Persen (%).',
             'default_service_commission_value' => 'Nilai komisi layanan default persen harus berada di antara 0 sampai 100.',
             'default_product_commission_value' => 'Nilai komisi produk default persen harus berada di antara 0 sampai 100.',
         ]);

@@ -37,12 +37,12 @@ class UpdateCommissionSettingsRequest extends FormRequest
     {
         return [
             'default_service_commission_type.required' => 'Tipe komisi layanan default wajib dipilih.',
-            'default_service_commission_type.in' => 'Tipe komisi layanan default harus berupa percent.',
+            'default_service_commission_type.in' => 'Tipe komisi layanan default harus berupa Persen (%).',
             'default_service_commission_value.required' => 'Nilai komisi layanan default wajib diisi.',
             'default_service_commission_value.decimal' => 'Nilai komisi layanan default maksimal boleh memiliki 2 angka desimal.',
             'default_service_commission_value.min' => 'Nilai komisi layanan default tidak boleh negatif.',
             'default_product_commission_type.required' => 'Tipe komisi produk default wajib dipilih.',
-            'default_product_commission_type.in' => 'Tipe komisi produk default harus berupa percent atau fixed.',
+            'default_product_commission_type.in' => 'Tipe komisi produk default harus berupa Persen (%) atau Rupiah (Rp).',
             'default_product_commission_value.required' => 'Nilai komisi produk default wajib diisi.',
             'default_product_commission_value.decimal' => 'Nilai komisi produk default maksimal boleh memiliki 2 angka desimal.',
             'default_product_commission_value.min' => 'Nilai komisi produk default tidak boleh negatif.',

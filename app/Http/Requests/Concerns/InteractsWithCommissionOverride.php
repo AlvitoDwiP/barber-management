@@ -35,7 +35,10 @@ trait InteractsWithCommissionOverride
     protected function commissionOverrideMessages(): array
     {
         $allowedTypes = $this->allowedCommissionTypes();
-        $allowedTypesLabel = implode(' atau ', $allowedTypes);
+        $allowedTypesLabel = implode(' atau ', array_map(
+            fn (string $type): string => $this->commissionTypeLabel($type),
+            $allowedTypes
+        ));
 
         return [
             'commission_type.in' => "Tipe komisi harus berupa {$allowedTypesLabel}.",
@@ -68,5 +71,14 @@ trait InteractsWithCommissionOverride
         $normalized = trim($value);
 
         return $normalized === '' ? null : $normalized;
+    }
+
+    private function commissionTypeLabel(string $type): string
+    {
+        return match ($type) {
+            'percent' => 'Persen (%)',
+            'fixed' => 'Rupiah (Rp)',
+            default => $type,
+        };
     }
 }

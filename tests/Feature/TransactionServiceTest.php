@@ -190,6 +190,131 @@ class TransactionServiceTest extends TestCase
         $this->assertSame('15000.00', $productDetail?->commission_amount);
     }
 
+    public function test_store_transaction_uses_fixed_product_override_per_quantity(): void
+    {
+        $employee = $this->createEmployee();
+        $service = Service::query()->create([
+            'name' => 'Haircut',
+            'price' => '50000.00',
+        ]);
+        $product = Product::query()->create([
+            'name' => 'Hair Clay',
+            'price' => '75000.00',
+            'stock' => 10,
+            'commission_type' => 'fixed',
+            'commission_value' => '7000.00',
+        ]);
+
+        $transaction = app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-12',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'services' => [$service->id],
+            'products' => [$product->id => 3],
+        ]);
+
+        $productDetail = $transaction->transactionItems()
+            ->where('item_type', 'product')
+            ->first();
+
+        $this->assertSame('override', $productDetail?->commission_source);
+        $this->assertSame('fixed', $productDetail?->commission_type);
+        $this->assertSame('7000.00', $productDetail?->commission_value);
+        $this->assertSame('21000.00', $productDetail?->commission_amount);
+    }
+
+    public function test_existing_transaction_snapshot_does_not_change_after_default_settings_change(): void
+    {
+        $employee = $this->createEmployee();
+        $service = Service::query()->create([
+            'name' => 'Haircut',
+            'price' => '50000.00',
+        ]);
+        $product = Product::query()->create([
+            'name' => 'Hair Tonic',
+            'price' => '30000.00',
+            'stock' => 10,
+        ]);
+
+        $transaction = app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-12',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'services' => [$service->id],
+            'products' => [$product->id => 2],
+        ]);
+
+        CommissionSetting::query()->update([
+            'default_service_commission_type' => 'percent',
+            'default_service_commission_value' => '10.00',
+            'default_product_commission_type' => 'percent',
+            'default_product_commission_value' => '2.00',
+        ]);
+
+        $details = $transaction->fresh()->transactionItems()->orderBy('item_type')->orderBy('id')->get();
+        $productDetail = $details->firstWhere('item_type', 'product');
+        $serviceDetail = $details->firstWhere('item_type', 'service');
+
+        $this->assertSame('default', $serviceDetail?->commission_source);
+        $this->assertSame('percent', $serviceDetail?->commission_type);
+        $this->assertSame('50.00', $serviceDetail?->commission_value);
+        $this->assertSame('25000.00', $serviceDetail?->commission_amount);
+
+        $this->assertSame('default', $productDetail?->commission_source);
+        $this->assertSame('fixed', $productDetail?->commission_type);
+        $this->assertSame('5000.00', $productDetail?->commission_value);
+        $this->assertSame('10000.00', $productDetail?->commission_amount);
+    }
+
+    public function test_existing_transaction_snapshot_does_not_change_after_master_override_change(): void
+    {
+        $employee = $this->createEmployee();
+        $service = Service::query()->create([
+            'name' => 'Haircut',
+            'price' => '50000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '40.00',
+        ]);
+        $product = Product::query()->create([
+            'name' => 'Hair Clay',
+            'price' => '75000.00',
+            'stock' => 10,
+            'commission_type' => 'fixed',
+            'commission_value' => '7000.00',
+        ]);
+
+        $transaction = app(TransactionService::class)->storeTransaction([
+            'transaction_date' => '2026-03-12',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'services' => [$service->id],
+            'products' => [$product->id => 2],
+        ]);
+
+        $service->update([
+            'commission_type' => 'percent',
+            'commission_value' => '10.00',
+        ]);
+        $product->update([
+            'commission_type' => 'percent',
+            'commission_value' => '1.00',
+        ]);
+
+        $details = $transaction->fresh()->transactionItems()->orderBy('item_type')->orderBy('id')->get();
+        $productDetail = $details->firstWhere('item_type', 'product');
+        $serviceDetail = $details->firstWhere('item_type', 'service');
+
+        $this->assertSame('override', $serviceDetail?->commission_source);
+        $this->assertSame('percent', $serviceDetail?->commission_type);
+        $this->assertSame('40.00', $serviceDetail?->commission_value);
+        $this->assertSame('20000.00', $serviceDetail?->commission_amount);
+
+        $this->assertSame('override', $productDetail?->commission_source);
+        $this->assertSame('fixed', $productDetail?->commission_type);
+        $this->assertSame('7000.00', $productDetail?->commission_value);
+        $this->assertSame('14000.00', $productDetail?->commission_amount);
+    }
+
     public function test_store_transaction_rolls_back_when_stock_is_insufficient(): void
     {
         $employee = $this->createEmployee();

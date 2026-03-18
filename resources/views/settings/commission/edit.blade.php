@@ -23,7 +23,7 @@
                         <div class="rounded-lg border border-slate-200 p-4 space-y-4">
                             <div>
                                 <h4 class="text-sm font-semibold text-slate-900">Komisi Layanan Default</h4>
-                                <p class="mt-1 text-sm text-slate-600">Layanan default hanya boleh menggunakan tipe percent.</p>
+                                <p class="mt-1 text-sm text-slate-600">Layanan default hanya boleh menggunakan tipe Persen (%).</p>
                             </div>
 
                             <div>
@@ -33,7 +33,7 @@
                                     name="default_service_commission_type"
                                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#A85F3B] focus:ring-[#A85F3B]"
                                 >
-                                    <option value="percent" @selected(old('default_service_commission_type', $settings->default_service_commission_type) === 'percent')>Percent</option>
+                                    <option value="percent" @selected(old('default_service_commission_type', $settings->default_service_commission_type) === 'percent')>Persen (%)</option>
                                 </select>
                                 <x-input-error :messages="$errors->get('default_service_commission_type')" class="mt-2" />
                             </div>
@@ -51,7 +51,7 @@
                                     :value="old('default_service_commission_value', $settings->default_service_commission_value)"
                                     required
                                 />
-                                <p class="mt-1 text-sm text-slate-500">Gunakan nilai 0 sampai 100 untuk komisi persen layanan.</p>
+                                <p class="mt-1 text-sm text-slate-500">Isi dengan nilai 0 sampai 100 untuk komisi layanan berbasis persentase.</p>
                                 <x-input-error :messages="$errors->get('default_service_commission_value')" class="mt-2" />
                             </div>
                         </div>
@@ -59,7 +59,7 @@
                         <div class="rounded-lg border border-slate-200 p-4 space-y-4">
                             <div>
                                 <h4 class="text-sm font-semibold text-slate-900">Komisi Produk Default</h4>
-                                <p class="mt-1 text-sm text-slate-600">Produk default bisa memakai percent atau fixed sesuai kebutuhan owner.</p>
+                                <p class="mt-1 text-sm text-slate-600">Produk default bisa memakai Persen (%) atau Rupiah (Rp) sesuai kebutuhan owner.</p>
                             </div>
 
                             <div>
@@ -69,8 +69,8 @@
                                     name="default_product_commission_type"
                                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#A85F3B] focus:ring-[#A85F3B]"
                                 >
-                                    <option value="percent" @selected(old('default_product_commission_type', $settings->default_product_commission_type) === 'percent')>Percent</option>
-                                    <option value="fixed" @selected(old('default_product_commission_type', $settings->default_product_commission_type) === 'fixed')>Fixed</option>
+                                    <option value="percent" @selected(old('default_product_commission_type', $settings->default_product_commission_type) === 'percent')>Persen (%)</option>
+                                    <option value="fixed" @selected(old('default_product_commission_type', $settings->default_product_commission_type) === 'fixed')>Rupiah (Rp)</option>
                                 </select>
                                 <x-input-error :messages="$errors->get('default_product_commission_type')" class="mt-2" />
                             </div>
@@ -87,7 +87,7 @@
                                     :value="old('default_product_commission_value', $settings->default_product_commission_value)"
                                     required
                                 />
-                                <p class="mt-1 text-sm text-slate-500">Gunakan 0 sampai 100 untuk percent, atau nominal rupiah untuk fixed.</p>
+                                <p class="mt-1 text-sm text-slate-500">Gunakan nilai 0 sampai 100 untuk Persen (%), atau isi nominal untuk Rupiah (Rp).</p>
                                 <x-input-error :messages="$errors->get('default_product_commission_value')" class="mt-2" />
                             </div>
                         </div>

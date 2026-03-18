@@ -52,6 +52,25 @@ class ProductControllerTest extends TestCase
         $this->assertDatabaseCount('products', 0);
     }
 
+    public function test_store_product_rejects_percent_commission_above_hundred(): void
+    {
+        $response = $this->actingAs(User::factory()->create())
+            ->from(route('products.create'))
+            ->post(route('products.store'), [
+                'name' => 'Pomade',
+                'price' => '45000.00',
+                'stock' => 12,
+                'commission_type' => 'percent',
+                'commission_value' => '150',
+            ]);
+
+        $response->assertRedirect(route('products.create'));
+        $response->assertSessionHasErrors([
+            'commission_value' => 'Nilai komisi persen harus berada di antara 0 sampai 100.',
+        ]);
+        $this->assertDatabaseCount('products', 0);
+    }
+
     public function test_update_product_requires_type_when_commission_value_is_present(): void
     {
         $product = Product::query()->create([

@@ -49,6 +49,24 @@ class ServiceControllerTest extends TestCase
         $this->assertDatabaseCount('services', 0);
     }
 
+    public function test_store_service_rejects_negative_percent_commission_override(): void
+    {
+        $response = $this->actingAs(User::factory()->create())
+            ->from(route('services.create'))
+            ->post(route('services.store'), [
+                'name' => 'Hair Spa',
+                'price' => '120000.00',
+                'commission_type' => 'percent',
+                'commission_value' => '-1',
+            ]);
+
+        $response->assertRedirect(route('services.create'));
+        $response->assertSessionHasErrors([
+            'commission_value' => 'Nilai komisi tidak boleh negatif.',
+        ]);
+        $this->assertDatabaseCount('services', 0);
+    }
+
     public function test_update_service_requires_type_and_value_to_be_consistent(): void
     {
         $service = Service::query()->create([

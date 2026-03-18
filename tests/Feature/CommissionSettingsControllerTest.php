@@ -18,8 +18,10 @@ class CommissionSettingsControllerTest extends TestCase
             ->get(route('settings.commission.edit'));
 
         $response->assertOk();
-        $response->assertSeeText('Pengaturan');
+        $response->assertSeeText('Komisi');
         $response->assertSeeText('Pengaturan Komisi');
+        $response->assertSeeText('Persen (%)');
+        $response->assertSeeText('Rupiah (Rp)');
         $response->assertSee('name="default_service_commission_type"', false);
         $response->assertSee('name="default_service_commission_value"', false);
         $response->assertSee('name="default_product_commission_type"', false);

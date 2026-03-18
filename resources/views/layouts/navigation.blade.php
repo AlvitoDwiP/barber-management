@@ -61,7 +61,7 @@
             'icon' => 'reports',
         ],
         [
-            'label' => 'Pengaturan',
+            'label' => 'Komisi',
             'route' => 'settings.commission.edit',
             'href' => $resolveRoute('settings.commission.edit'),
             'active' => request()->routeIs('settings.*'),

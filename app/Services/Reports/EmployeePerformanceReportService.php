@@ -8,6 +8,7 @@ use App\Services\Reports\Concerns\InteractsWithExactReportMoney;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class EmployeePerformanceReportService
 {
@@ -22,18 +23,30 @@ class EmployeePerformanceReportService
         $endDate = Carbon::create($year, $monthNumber, 1)->endOfMonth()->toDateString();
         $dateExpression = $this->getDateExpression('transactions.transaction_date');
 
-        $topEmployee = TransactionItem::query()
-            ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
-            ->join('employees', 'employees.id', '=', 'transactions.employee_id')
-            ->where('transaction_items.item_type', 'service')
-            ->whereBetween(DB::raw($dateExpression), [$startDate, $endDate])
-            ->groupBy('transactions.employee_id', 'employees.name')
-            ->selectRaw('
-                employees.name as employee_name,
-                COALESCE(SUM(transaction_items.qty), 0) as service_count
-            ')
-            ->orderByDesc('service_count')
-            ->first();
+        $topEmployee = $this->usesItemEmployeeSnapshots()
+            ? TransactionItem::query()
+                ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
+                ->where('transaction_items.item_type', 'service')
+                ->whereBetween(DB::raw($dateExpression), [$startDate, $endDate])
+                ->groupBy('transaction_items.employee_id')
+                ->selectRaw('
+                    MAX(transaction_items.employee_name) as employee_name,
+                    COALESCE(SUM(transaction_items.qty), 0) as service_count
+                ')
+                ->orderByDesc('service_count')
+                ->first()
+            : TransactionItem::query()
+                ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
+                ->join('employees', 'employees.id', '=', 'transactions.employee_id')
+                ->where('transaction_items.item_type', 'service')
+                ->whereBetween(DB::raw($dateExpression), [$startDate, $endDate])
+                ->groupBy('transactions.employee_id', 'employees.name')
+                ->selectRaw('
+                    employees.name as employee_name,
+                    COALESCE(SUM(transaction_items.qty), 0) as service_count
+                ')
+                ->orderByDesc('service_count')
+                ->first();
 
         return [
             'employee_name' => $topEmployee?->employee_name,
@@ -45,25 +58,42 @@ class EmployeePerformanceReportService
     {
         $dateExpression = $this->getDateExpression('transactions.transaction_date');
 
-        // Employee contribution metrics must follow frozen transaction item snapshots for revenue and commission.
-        return Transaction::query()
-            ->join('employees', 'employees.id', '=', 'transactions.employee_id')
-            ->leftJoin('transaction_items', 'transaction_items.transaction_id', '=', 'transactions.id')
-            ->whereBetween(DB::raw($dateExpression), [$startDate, $endDate])
-            ->when($employeeId !== null, fn ($query) => $query->where('transactions.employee_id', $employeeId))
-            ->groupBy('employees.id', 'employees.name')
-            ->selectRaw('
-                employees.name as employee_name,
-                COUNT(DISTINCT transactions.id) as total_transactions,
-                COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.qty ELSE 0 END), 0) as total_services,
-                COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.subtotal ELSE 0 END), 0) as service_revenue,
-                COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.qty ELSE 0 END), 0) as total_products,
-                COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.subtotal ELSE 0 END), 0) as product_revenue,
-                COALESCE(SUM(transaction_items.commission_amount), 0) as total_commission
-            ', ['service', 'service', 'product', 'product'])
-            ->orderByDesc('total_commission')
-            ->orderBy('employees.name')
-            ->get()
+        $query = $this->usesItemEmployeeSnapshots()
+            ? TransactionItem::query()
+                ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
+                ->whereBetween(DB::raw($dateExpression), [$startDate, $endDate])
+                ->when($employeeId !== null, fn ($builder) => $builder->where('transaction_items.employee_id', $employeeId))
+                ->groupBy('transaction_items.employee_id')
+                ->selectRaw('
+                    MAX(transaction_items.employee_name) as employee_name,
+                    COUNT(DISTINCT transaction_items.transaction_id) as total_transactions,
+                    COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.qty ELSE 0 END), 0) as total_services,
+                    COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.subtotal ELSE 0 END), 0) as service_revenue,
+                    COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.qty ELSE 0 END), 0) as total_products,
+                    COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.subtotal ELSE 0 END), 0) as product_revenue,
+                    COALESCE(SUM(transaction_items.commission_amount), 0) as total_commission
+                ', ['service', 'service', 'product', 'product'])
+                ->orderByDesc('total_commission')
+                ->orderBy('employee_name')
+            : Transaction::query()
+                ->join('employees', 'employees.id', '=', 'transactions.employee_id')
+                ->leftJoin('transaction_items', 'transaction_items.transaction_id', '=', 'transactions.id')
+                ->whereBetween(DB::raw($dateExpression), [$startDate, $endDate])
+                ->when($employeeId !== null, fn ($builder) => $builder->where('transactions.employee_id', $employeeId))
+                ->groupBy('employees.id', 'employees.name')
+                ->selectRaw('
+                    employees.name as employee_name,
+                    COUNT(DISTINCT transactions.id) as total_transactions,
+                    COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.qty ELSE 0 END), 0) as total_services,
+                    COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.subtotal ELSE 0 END), 0) as service_revenue,
+                    COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.qty ELSE 0 END), 0) as total_products,
+                    COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.subtotal ELSE 0 END), 0) as product_revenue,
+                    COALESCE(SUM(transaction_items.commission_amount), 0) as total_commission
+                ', ['service', 'service', 'product', 'product'])
+                ->orderByDesc('total_commission')
+                ->orderBy('employees.name');
+
+        return $query->get()
             ->map(function ($row) {
                 return [
                     'employee_name' => $row->employee_name,
@@ -75,6 +105,14 @@ class EmployeePerformanceReportService
                     'total_commission' => $this->moneyToDecimal($row->total_commission),
                 ];
             });
+    }
+
+    private function usesItemEmployeeSnapshots(): bool
+    {
+        return Schema::hasColumns('transaction_items', [
+            'employee_id',
+            'employee_name',
+        ]);
     }
 
     private function getDateExpression(string $column): string

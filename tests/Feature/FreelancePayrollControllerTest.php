@@ -33,20 +33,18 @@ class FreelancePayrollControllerTest extends TestCase
             'price' => '100000.00',
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-16',
             'employee_id' => $freelanceEmployee->id,
             'payment_method' => 'cash',
-            'services' => [$service->id],
-            'products' => [],
+            'items' => $this->transactionItems($freelanceEmployee->id, [$service->id]),
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-16',
             'employee_id' => $permanentEmployee->id,
             'payment_method' => 'cash',
-            'services' => [$service->id],
-            'products' => [],
+            'items' => $this->transactionItems($permanentEmployee->id, [$service->id]),
         ]);
 
         $response = $this->actingAs($user)->get(route('payroll.freelance.index', [
@@ -79,12 +77,11 @@ class FreelancePayrollControllerTest extends TestCase
             'stock' => 5,
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-16',
             'employee_id' => $employee->id,
             'payment_method' => 'qr',
-            'services' => [$service->id],
-            'products' => [$product->id => 2],
+            'items' => $this->transactionItems($employee->id, [$service->id], [$product->id => 2]),
         ]);
 
         $prepareResponse = $this->actingAs($user)->post(route('payroll.freelance.prepare-payment'), [
@@ -155,12 +152,11 @@ class FreelancePayrollControllerTest extends TestCase
             'price' => '100000.00',
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-16',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [$service->id],
-            'products' => [],
+            'items' => $this->transactionItems($employee->id, [$service->id]),
         ]);
 
         $this->actingAs($user)->post(route('payroll.freelance.prepare-payment'), [
@@ -200,12 +196,11 @@ class FreelancePayrollControllerTest extends TestCase
             'price' => '100000.00',
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-16',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [$service->id],
-            'products' => [],
+            'items' => $this->transactionItems($employee->id, [$service->id]),
         ]);
 
         $expense = Expense::query()->create([
@@ -275,12 +270,11 @@ class FreelancePayrollControllerTest extends TestCase
             'stock' => 5,
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-16',
             'employee_id' => $employee->id,
             'payment_method' => 'qr',
-            'services' => [$service->id],
-            'products' => [$product->id => 2],
+            'items' => $this->transactionItems($employee->id, [$service->id], [$product->id => 2]),
         ]);
 
         $service->update([
@@ -325,12 +319,11 @@ class FreelancePayrollControllerTest extends TestCase
             'commission_value' => '33.33',
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-18',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [$service->id],
-            'products' => [],
+            'items' => $this->transactionItems($employee->id, [$service->id]),
         ]);
 
         $this->actingAs($user)->post(route('payroll.freelance.prepare-payment'), [
@@ -383,12 +376,11 @@ class FreelancePayrollControllerTest extends TestCase
             'commission_value' => '0.01',
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-18',
             'employee_id' => $employee->id,
             'payment_method' => 'qr',
-            'services' => [$service->id],
-            'products' => [$product->id => 3],
+            'items' => $this->transactionItems($employee->id, [$service->id], [$product->id => 3]),
         ]);
 
         $prepareResponse = $this->actingAs($user)->post(route('payroll.freelance.prepare-payment'), [
@@ -442,12 +434,11 @@ class FreelancePayrollControllerTest extends TestCase
             'commission_value' => '33.33',
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-18',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [$service->id],
-            'products' => [],
+            'items' => $this->transactionItems($employee->id, [$service->id]),
         ]);
 
         $this->actingAs($user)->post(route('payroll.freelance.prepare-payment'), [

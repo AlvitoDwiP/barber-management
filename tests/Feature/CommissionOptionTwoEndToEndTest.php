@@ -51,12 +51,11 @@ class CommissionOptionTwoEndToEndTest extends TestCase
             'default_product_commission_value' => '8000.00',
         ])->assertRedirect(route('settings.commission.edit'));
 
-        $firstTransaction = app(TransactionService::class)->storeTransaction([
+        $firstTransaction = app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-10',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [$service->id],
-            'products' => [$product->id => 2],
+            'items' => $this->transactionItems($employee->id, [$service->id], [$product->id => 2]),
         ]);
 
         $service->update([
@@ -68,12 +67,11 @@ class CommissionOptionTwoEndToEndTest extends TestCase
             'commission_value' => '10.00',
         ]);
 
-        $secondTransaction = app(TransactionService::class)->storeTransaction([
+        $secondTransaction = app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-11',
             'employee_id' => $employee->id,
             'payment_method' => 'qr',
-            'services' => [$service->id],
-            'products' => [$product->id => 1],
+            'items' => $this->transactionItems($employee->id, [$service->id], [$product->id => 1]),
         ]);
 
         $this->actingAs($user)->put(route('settings.commission.update'), [
@@ -211,20 +209,18 @@ class CommissionOptionTwoEndToEndTest extends TestCase
             'commission_value' => '0.01',
         ]);
 
-        $permanentTransaction = app(TransactionService::class)->storeTransaction([
+        $permanentTransaction = app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-18',
             'employee_id' => $permanentEmployee->id,
             'payment_method' => 'cash',
-            'services' => [$permanentService->id],
-            'products' => [$sample->id => 3],
+            'items' => $this->transactionItems($permanentEmployee->id, [$permanentService->id], [$sample->id => 3]),
         ]);
 
-        $freelanceTransaction = app(TransactionService::class)->storeTransaction([
+        $freelanceTransaction = app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-19',
             'employee_id' => $freelanceEmployee->id,
             'payment_method' => 'qr',
-            'services' => [$freelanceService->id],
-            'products' => [],
+            'items' => $this->transactionItems($freelanceEmployee->id, [$freelanceService->id]),
         ]);
 
         $permanentDetails = $permanentTransaction->fresh()->transactionItems()->orderBy('item_type')->orderBy('id')->get();
@@ -313,5 +309,80 @@ class CommissionOptionTwoEndToEndTest extends TestCase
             'id' => $freelancePayment->id,
             'payment_status' => FreelancePayment::STATUS_PAID,
         ]);
+    }
+
+    public function test_mixed_employee_transaction_keeps_payroll_freelance_and_reports_consistent_per_item_snapshot(): void
+    {
+        $user = User::factory()->create();
+        $permanentEmployee = Employee::query()->create([
+            'name' => 'Raka Permanent',
+            'employment_type' => Employee::EMPLOYMENT_TYPE_PERMANENT,
+            'status' => 'tetap',
+            'is_active' => true,
+        ]);
+        $freelanceEmployee = Employee::query()->create([
+            'name' => 'Maya Freelance',
+            'employment_type' => Employee::EMPLOYMENT_TYPE_FREELANCE,
+            'status' => 'freelance',
+            'is_active' => true,
+        ]);
+        $cut = Service::query()->create([
+            'name' => 'Cut Pro',
+            'price' => '100000.00',
+        ]);
+        $wash = Service::query()->create([
+            'name' => 'Wash Relax',
+            'price' => '80000.00',
+        ]);
+
+        $transaction = app(TransactionService::class)->recordTransaction([
+            'transaction_date' => '2026-03-21',
+            'employee_id' => $permanentEmployee->id,
+            'payment_method' => 'cash',
+            'items' => [
+                [
+                    'item_type' => 'service',
+                    'service_id' => $cut->id,
+                    'employee_id' => $permanentEmployee->id,
+                    'qty' => 1,
+                ],
+                [
+                    'item_type' => 'service',
+                    'service_id' => $wash->id,
+                    'employee_id' => $freelanceEmployee->id,
+                    'qty' => 1,
+                ],
+            ],
+        ]);
+
+        $payrollPeriod = app(PayrollService::class)->openPayroll('2026-03-01', '2026-03-31');
+        app(PayrollService::class)->closePayroll($payrollPeriod);
+
+        $payrollResult = PayrollResult::query()->where('payroll_period_id', $payrollPeriod->id)->firstOrFail();
+
+        $this->assertSame($payrollPeriod->id, $transaction->fresh()->payroll_id);
+        $this->assertSame($permanentEmployee->id, $payrollResult->employee_id);
+        $this->assertSame('Raka Permanent', $payrollResult->employee_name);
+        $this->assertSame('100000.00', $payrollResult->total_service_amount);
+        $this->assertSame('50000.00', $payrollResult->total_service_commission);
+        $this->assertSame('50000.00', $payrollResult->total_commission);
+
+        $performanceRows = app(EmployeePerformanceReportService::class)
+            ->getEmployeePerformanceReport('2026-03-01', '2026-03-31')
+            ->keyBy('employee_name');
+
+        $this->assertSame('50000.00', $performanceRows['Raka Permanent']['total_commission']);
+        $this->assertSame('40000.00', $performanceRows['Maya Freelance']['total_commission']);
+
+        $prepareResponse = $this->actingAs($user)->post(route('payroll.freelance.prepare-payment'), [
+            'employee_id' => $freelanceEmployee->id,
+            'work_date' => '2026-03-21',
+        ]);
+
+        $freelancePayment = FreelancePayment::query()->firstOrFail();
+
+        $prepareResponse->assertRedirect(route('expenses.create', ['freelance_payment' => $freelancePayment->id]));
+        $this->assertSame($freelanceEmployee->id, $freelancePayment->employee_id);
+        $this->assertSame('40000.00', $freelancePayment->total_commission);
     }
 }

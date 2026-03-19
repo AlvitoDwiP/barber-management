@@ -26,12 +26,11 @@ class SchemaCleanupTest extends TestCase
             'price' => '50000.00',
         ]);
 
-        $transaction = app(TransactionService::class)->storeTransaction([
+        $transaction = app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-12',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [$service->id],
-            'products' => [],
+            'items' => $this->transactionItems($employee->id, [$service->id]),
         ]);
 
         $this->assertFalse(class_exists(\App\Models\TransactionDetail::class));
@@ -47,12 +46,11 @@ class SchemaCleanupTest extends TestCase
             'price' => '450000.00',
         ]);
 
-        $transaction = app(TransactionService::class)->storeTransaction([
+        $transaction = app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-12',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [$service->id],
-            'products' => [],
+            'items' => $this->transactionItems($employee->id, [$service->id]),
         ]);
 
         $payrollPeriod = PayrollPeriod::query()->create([
@@ -84,12 +82,11 @@ class SchemaCleanupTest extends TestCase
             'price' => '250000.00',
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-10',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [$service->id],
-            'products' => [],
+            'items' => $this->transactionItems($employee->id, [$service->id]),
         ]);
 
         $payrollPeriod = app(PayrollService::class)->openPayroll('2026-03-01', '2026-03-31');

@@ -16,6 +16,9 @@ class TransactionItem extends Model
         'item_type',
         'service_id',
         'product_id',
+        'employee_id',
+        'employee_name',
+        'employee_employment_type',
         'item_name',
         'unit_price',
         'qty',
@@ -32,6 +35,7 @@ class TransactionItem extends Model
             'unit_price' => 'decimal:2',
             'qty' => 'integer',
             'subtotal' => 'decimal:2',
+            'employee_id' => 'integer',
             'commission_value' => 'decimal:2',
             'commission_amount' => 'decimal:2',
         ];
@@ -50,5 +54,10 @@ class TransactionItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class);
     }
 }

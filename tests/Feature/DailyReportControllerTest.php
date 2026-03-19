@@ -47,28 +47,25 @@ class DailyReportControllerTest extends TestCase
             'stock' => 20,
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-10',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [$haircut->id],
-            'products' => [$pomade->id => 2],
+            'items' => $this->transactionItems($employee->id, [$haircut->id], [$pomade->id => 2]),
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-10',
             'employee_id' => $employee->id,
             'payment_method' => 'qr',
-            'services' => [$wash->id],
-            'products' => [],
+            'items' => $this->transactionItems($employee->id, [$wash->id]),
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-11',
             'employee_id' => $employee->id,
             'payment_method' => 'qr',
-            'services' => [],
-            'products' => [$gel->id => 1],
+            'items' => $this->transactionItems($employee->id, [], [$gel->id => 1]),
         ]);
 
         Expense::query()->create([
@@ -208,12 +205,11 @@ class DailyReportControllerTest extends TestCase
             'stock' => 20,
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-10',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [$service->id],
-            'products' => [$product->id => 1],
+            'items' => $this->transactionItems($employee->id, [$service->id], [$product->id => 1]),
         ]);
 
         Expense::query()->create([
@@ -222,12 +218,11 @@ class DailyReportControllerTest extends TestCase
             'amount' => '15000.00',
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-20',
             'employee_id' => $employee->id,
             'payment_method' => 'qr',
-            'services' => [$service->id],
-            'products' => [],
+            'items' => $this->transactionItems($employee->id, [$service->id]),
         ]);
 
         $response = $this->actingAs(User::factory()->create())
@@ -266,12 +261,11 @@ class DailyReportControllerTest extends TestCase
             'stock' => 20,
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-10',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [$service->id],
-            'products' => [$product->id => 2],
+            'items' => $this->transactionItems($employee->id, [$service->id], [$product->id => 2]),
         ]);
 
         Expense::query()->create([
@@ -322,12 +316,11 @@ class DailyReportControllerTest extends TestCase
             'stock' => 10,
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-18',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [$service->id],
-            'products' => [$product->id => 3],
+            'items' => $this->transactionItems($employee->id, [$service->id], [$product->id => 3]),
         ]);
 
         Expense::query()->create([

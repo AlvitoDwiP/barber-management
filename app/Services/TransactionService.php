@@ -2,25 +2,26 @@
 
 namespace App\Services;
 
-use App\Models\Product;
+use App\Models\Employee;
 use App\Models\PayrollPeriod;
+use App\Models\Product;
 use App\Models\Service;
 use App\Models\Transaction;
 use App\Models\TransactionItem;
+use App\Support\Money;
+use App\Support\Transactions\TransactionItemPayload;
 use DomainException;
 use Illuminate\Database\QueryException;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
 
 class TransactionService
 {
-    private const MINIMUM_ITEM_MESSAGE = 'Transaksi harus berisi minimal 1 item: pilih minimal 1 layanan atau isi qty produk lebih dari 0.';
+    private const MINIMUM_ITEM_MESSAGE = 'Transaksi harus berisi minimal 1 item.';
     private const CLOSED_PAYROLL_MESSAGE = 'Transaksi yang sudah terikat ke payroll tertutup tidak dapat diubah atau dihapus.';
-    private const MONEY_SCALE = 2;
-    private const MINOR_UNIT_MULTIPLIER = 100;
     private const TRANSACTION_CODE_RETRY_LIMIT = 5;
 
     public function __construct(
@@ -28,19 +29,28 @@ class TransactionService
     ) {
     }
 
-    public function storeTransaction(array $validatedData): Transaction
+    /**
+     * Records a transaction snapshot directly for internal orchestration or tests.
+     * The only supported user-facing entry flow remains daily batch input.
+     */
+    public function recordTransaction(array $validatedData): Transaction
     {
+        $validatedData = $this->normalizeItemizedTransactionPayload($validatedData);
+
         return DB::transaction(fn (): Transaction => $this->persistNewTransaction($validatedData));
     }
 
     public function storeDailyBatch(array $validatedData): Collection
     {
+        $validatedData = $this->normalizeDailyBatchPayload($validatedData);
+
         return DB::transaction(function () use ($validatedData): Collection {
             $transactions = collect();
             $batchProductQtyById = $this->extractBatchProductQuantities($validatedData['entries'] ?? []);
             $lockedBatchProducts = $this->lockProducts(array_keys($batchProductQtyById));
 
-            $this->assertBatchStockAvailable($lockedBatchProducts, $batchProductQtyById);
+            $this->assertProductsExist($lockedBatchProducts, array_keys($batchProductQtyById));
+            $this->assertStockAvailableForQuantities($lockedBatchProducts, $batchProductQtyById);
 
             foreach ($validatedData['entries'] ?? [] as $index => $entry) {
                 try {
@@ -56,8 +66,14 @@ class TransactionService
         });
     }
 
-    public function updateTransaction(Transaction $transaction, array $validatedData): Transaction
+    /**
+     * Rebuilds an existing transaction snapshot for internal maintenance logic.
+     * This is not a public single-transaction UI API.
+     */
+    public function replaceTransaction(Transaction $transaction, array $validatedData): Transaction
     {
+        $validatedData = $this->normalizeItemizedTransactionPayload($validatedData);
+
         return DB::transaction(function () use ($transaction, $validatedData): Transaction {
             $transaction = Transaction::query()
                 ->whereKey($transaction->id)
@@ -68,7 +84,7 @@ class TransactionService
             $this->assertTransactionCanBeMutated($transaction);
             $this->syncTransactionItems($transaction, $validatedData, $this->getExistingItems($transaction));
 
-            return $transaction;
+            return $transaction->fresh(['transactionItems']);
         });
     }
 
@@ -92,37 +108,167 @@ class TransactionService
         });
     }
 
+    private function persistNewTransaction(array $validatedData): Transaction
+    {
+        $items = $this->extractItems($validatedData);
+        $this->assertHasMinimumItems($items);
+
+        $transaction = $this->createTransactionRecord($validatedData);
+        $this->syncTransactionItems($transaction, $validatedData);
+
+        return $transaction->fresh(['transactionItems']);
+    }
+
     private function syncTransactionItems(
         Transaction $transaction,
         array $validatedData,
         ?Collection $existingItems = null
     ): void {
-        [$serviceIds, $productQtyById] = $this->extractTransactionItems($validatedData);
-        $this->assertHasMinimumItems($serviceIds, $productQtyById);
+        $items = $this->extractItems($validatedData);
+        $this->assertHasMinimumItems($items);
 
         $existingItems ??= collect();
+        $productQtyById = $this->extractProductQuantitiesFromItems($items);
         $lockedProducts = $this->lockProducts($this->mergeProductIdsForLock($existingItems, $productQtyById));
 
+        $this->assertProductsExist($lockedProducts, array_keys($productQtyById));
         $this->restoreOldProductStocks($existingItems, $lockedProducts);
+        $this->assertStockAvailableForQuantities($lockedProducts, $productQtyById);
+
+        $employees = $this->loadEmployeesForItems($items);
+        $services = $this->loadServicesForItems($items);
+
         $transaction->transactionItems()->delete();
-        $this->updateTransactionHeader($transaction, $validatedData);
+        $this->syncTransactionHeader($transaction, $validatedData);
 
-        $totalMinorUnits = 0;
-        $totalMinorUnits += $this->storeServiceItems($transaction, $serviceIds, $existingItems);
-        $totalMinorUnits += $this->storeProductItems($transaction, $productQtyById, $existingItems, $lockedProducts);
+        $total = Money::zero();
 
-        $this->finalizeTransactionTotals($transaction, $totalMinorUnits);
+        foreach ($items as $item) {
+            $detailAttributes = $this->buildTransactionItemAttributes(
+                $item,
+                $employees,
+                $services,
+                $lockedProducts
+            );
+
+            $transaction->transactionItems()->create($detailAttributes);
+            $total = $total->add(Money::parse($detailAttributes['subtotal']));
+        }
+
+        $this->finalizeTransactionTotals($transaction, $total);
     }
 
-    private function persistNewTransaction(array $validatedData): Transaction
-    {
-        [$serviceIds, $productQtyById] = $this->extractTransactionItems($validatedData);
-        $this->assertHasMinimumItems($serviceIds, $productQtyById);
+    private function buildTransactionItemAttributes(
+        array $item,
+        Collection $employees,
+        Collection $services,
+        Collection $products
+    ): array {
+        $employeeId = (int) ($item['employee_id'] ?? 0);
+        $employee = $employees->get($employeeId);
 
-        $transaction = $this->createTransactionRecord($validatedData);
-        $this->syncTransactionItems($transaction, $validatedData);
+        if (! $employee instanceof Employee) {
+            throw new DomainException("Pegawai dengan ID {$employeeId} tidak ditemukan.");
+        }
 
-        return $transaction;
+        $commissionOverride = $this->extractCommissionOverride($item);
+
+        return match ($item['item_type']) {
+            'service' => $this->buildServiceItemAttributes($item, $employee, $services, $commissionOverride),
+            'product' => $this->buildProductItemAttributes($item, $employee, $products, $commissionOverride),
+            default => throw new DomainException('Tipe item transaksi tidak valid.'),
+        };
+    }
+
+    private function buildServiceItemAttributes(
+        array $item,
+        Employee $employee,
+        Collection $services,
+        ?array $commissionOverride
+    ): array {
+        $serviceId = (int) ($item['service_id'] ?? 0);
+        $qty = (int) ($item['qty'] ?? 0);
+        $service = $services->get($serviceId);
+
+        if (! $service instanceof Service) {
+            throw new DomainException("Layanan dengan ID {$serviceId} tidak ditemukan.");
+        }
+
+        if ($qty !== 1) {
+            throw new DomainException("Qty layanan {$service->name} harus 1.");
+        }
+
+        $unitPrice = Money::fromInput($service->price);
+        $subtotal = $unitPrice;
+        $commissionSnapshot = $this->commissionRuleResolver->resolveForService(
+            $service,
+            $subtotal->minorUnits(),
+            $commissionOverride,
+        );
+
+        return [
+            'item_type' => 'service',
+            'service_id' => $service->id,
+            'product_id' => null,
+            'employee_id' => $employee->id,
+            'employee_name' => $employee->name,
+            'employee_employment_type' => $this->resolveEmployeeEmploymentType($employee),
+            'item_name' => $service->name,
+            'unit_price' => $unitPrice->toDecimal(),
+            'qty' => 1,
+            'subtotal' => $subtotal->toDecimal(),
+            'commission_source' => $commissionSnapshot['commission_source'],
+            'commission_type' => $commissionSnapshot['commission_type'],
+            'commission_value' => $commissionSnapshot['commission_value'],
+            'commission_amount' => $commissionSnapshot['commission_amount'],
+        ];
+    }
+
+    private function buildProductItemAttributes(
+        array $item,
+        Employee $employee,
+        Collection $products,
+        ?array $commissionOverride
+    ): array {
+        $productId = (int) ($item['product_id'] ?? 0);
+        $qty = (int) ($item['qty'] ?? 0);
+        $product = $products->get($productId);
+
+        if (! $product instanceof Product) {
+            throw new DomainException("Produk dengan ID {$productId} tidak ditemukan.");
+        }
+
+        if ($qty < 1) {
+            throw new DomainException("Qty produk {$product->name} minimal 1.");
+        }
+
+        $unitPrice = Money::fromInput($product->price);
+        $subtotal = $unitPrice->multiplyByInteger($qty);
+        $commissionSnapshot = $this->commissionRuleResolver->resolveForProduct(
+            $product,
+            $subtotal->minorUnits(),
+            $qty,
+            $commissionOverride,
+        );
+
+        $this->adjustProductStock($product, -$qty);
+
+        return [
+            'item_type' => 'product',
+            'service_id' => null,
+            'product_id' => $product->id,
+            'employee_id' => $employee->id,
+            'employee_name' => $employee->name,
+            'employee_employment_type' => $this->resolveEmployeeEmploymentType($employee),
+            'item_name' => $product->name,
+            'unit_price' => $unitPrice->toDecimal(),
+            'qty' => $qty,
+            'subtotal' => $subtotal->toDecimal(),
+            'commission_source' => $commissionSnapshot['commission_source'],
+            'commission_type' => $commissionSnapshot['commission_type'],
+            'commission_value' => $commissionSnapshot['commission_value'],
+            'commission_amount' => $commissionSnapshot['commission_amount'],
+        ];
     }
 
     private function createTransactionRecord(array $validatedData): Transaction
@@ -145,305 +291,191 @@ class TransactionService
         throw new RuntimeException('Gagal membuat kode transaksi yang unik.');
     }
 
-    private function updateTransactionHeader(Transaction $transaction, array $validatedData): void
+    private function syncTransactionHeader(Transaction $transaction, array $validatedData): void
     {
         $transaction->update($this->buildTransactionAttributes($validatedData));
     }
 
     private function buildTransactionAttributes(array $validatedData): array
     {
+        $employeeId = (int) ($validatedData['employee_id'] ?? 0);
+
+        if ($employeeId < 1) {
+            throw new DomainException('Pegawai transaksi wajib dipilih.');
+        }
+
         return [
             'transaction_date' => Carbon::parse($validatedData['transaction_date'])->toDateString(),
-            'employee_id' => $validatedData['employee_id'],
+            'employee_id' => $employeeId,
             'payment_method' => $validatedData['payment_method'],
-            'subtotal_amount' => $this->formatMoneyFromMinorUnits(0),
-            'discount_amount' => $this->formatMoneyFromMinorUnits(0),
-            'total_amount' => $this->formatMoneyFromMinorUnits(0),
-            'notes' => $this->normalizeOptionalText($validatedData['notes'] ?? null),
+            'subtotal_amount' => Money::zero()->toDecimal(),
+            'discount_amount' => Money::zero()->toDecimal(),
+            'total_amount' => Money::zero()->toDecimal(),
+            'notes' => TransactionItemPayload::normalizeOptionalText($validatedData['notes'] ?? null),
         ];
     }
 
-    private function storeServiceItems(Transaction $transaction, array $serviceIds, Collection $existingItems): int
+    private function finalizeTransactionTotals(Transaction $transaction, Money $total): void
     {
-        if ($serviceIds === []) {
-            return 0;
-        }
+        $transaction->update([
+            'subtotal_amount' => $total->toDecimal(),
+            'discount_amount' => Money::zero()->toDecimal(),
+            'total_amount' => $total->toDecimal(),
+        ]);
+    }
 
-        $existingServiceDetailsById = $existingItems
-            ->where('item_type', 'service')
-            ->filter(fn (TransactionItem $detail) => $detail->service_id !== null)
-            ->groupBy('service_id')
-            ->map(fn (Collection $rows) => $rows->values());
+    private function loadEmployeesForItems(array $items): Collection
+    {
+        $employeeIds = collect($items)
+            ->pluck('employee_id')
+            ->filter(fn ($id) => filled($id))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
 
-        $services = Service::query()
-            ->whereIn('id', array_values(array_unique($serviceIds)))
+        return Employee::query()
+            ->whereIn('id', $employeeIds)
             ->get()
             ->keyBy('id');
-
-        $totalMinorUnits = 0;
-
-        foreach ($serviceIds as $serviceId) {
-            $serviceDetailQueue = $existingServiceDetailsById->get($serviceId, collect());
-            $existingDetail = $serviceDetailQueue->shift();
-            $existingServiceDetailsById->put($serviceId, $serviceDetailQueue);
-            $detailAttributes = $existingDetail instanceof TransactionItem && (int) $existingDetail->qty === 1
-                ? $this->buildServiceDetailAttributes($services->get($serviceId), $serviceId, $existingDetail)
-                : $this->buildServiceDetailAttributes($services->get($serviceId), $serviceId);
-
-            $transaction->transactionItems()->create($detailAttributes);
-            $totalMinorUnits += $this->moneyToMinorUnits($detailAttributes['subtotal']);
-        }
-
-        return $totalMinorUnits;
     }
 
-    private function storeProductItems(
-        Transaction $transaction,
-        array $productQtyById,
-        Collection $existingItems,
-        Collection $lockedProducts
-    ): int {
-        if ($productQtyById === []) {
-            return 0;
+    private function loadServicesForItems(array $items): Collection
+    {
+        $serviceIds = collect($items)
+            ->where('item_type', 'service')
+            ->pluck('service_id')
+            ->filter(fn ($id) => filled($id))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        return Service::query()
+            ->whereIn('id', $serviceIds)
+            ->get()
+            ->keyBy('id');
+    }
+
+    private function normalizeItemizedTransactionPayload(array $validatedData): array
+    {
+        return TransactionItemPayload::normalizeItemizedTransactionPayload($validatedData);
+    }
+
+    private function normalizeDailyBatchPayload(array $validatedData): array
+    {
+        return [
+            ...$validatedData,
+            'entries' => collect($validatedData['entries'] ?? [])
+                ->filter(fn ($entry) => is_array($entry))
+                ->map(function (array $entry) use ($validatedData): array {
+                    return $this->normalizeItemizedTransactionPayload([
+                        ...$entry,
+                        'employee_id' => $entry['employee_id'] ?? ($validatedData['employee_id'] ?? null),
+                    ]);
+                })
+                ->values()
+                ->all(),
+        ];
+    }
+
+    private function mergeBatchEntryPayload(array $validatedData, array $entry): array
+    {
+        return $this->normalizeItemizedTransactionPayload([
+            ...$entry,
+            'transaction_date' => $validatedData['transaction_date'],
+            'employee_id' => $entry['employee_id'] ?? ($validatedData['employee_id'] ?? null),
+        ]);
+    }
+
+    private function extractItems(array $validatedData): array
+    {
+        return collect($validatedData['items'] ?? [])
+            ->filter(fn ($item) => is_array($item))
+            ->values()
+            ->all();
+    }
+
+    private function assertHasMinimumItems(array $items): void
+    {
+        if ($items === []) {
+            throw new DomainException(self::MINIMUM_ITEM_MESSAGE);
+        }
+    }
+
+    private function extractCommissionOverride(array $item): ?array
+    {
+        $commissionType = $item['commission_type'] ?? null;
+        $commissionValue = $item['commission_value'] ?? null;
+
+        if (! filled($commissionType) && ! filled($commissionValue)) {
+            return null;
         }
 
-        $existingProductDetails = $existingItems
+        if (! filled($commissionType) || ! filled($commissionValue)) {
+            throw new DomainException('Override komisi item tidak lengkap.');
+        }
+
+        if ($commissionType === 'percent' && Money::parsePercentageToBasisPoints($commissionValue) > 10000) {
+            throw new DomainException('Nilai komisi persen item harus berada di antara 0 sampai 100.');
+        }
+
+        if (Money::fromInput($commissionValue)->minorUnits() < 0) {
+            throw new DomainException('Nilai komisi item tidak boleh negatif.');
+        }
+
+        return [
+            'commission_type' => $commissionType,
+            'commission_value' => Money::fromInput($commissionValue)->toDecimal(),
+        ];
+    }
+
+    private function extractProductQuantitiesFromItems(array $items): array
+    {
+        return collect($items)
             ->where('item_type', 'product')
-            ->filter(fn (TransactionItem $detail) => $detail->product_id !== null)
-            ->keyBy('product_id');
+            ->map(fn (array $item) => [
+                'product_id' => (int) ($item['product_id'] ?? 0),
+                'qty' => (int) ($item['qty'] ?? 0),
+            ])
+            ->filter(fn (array $row) => $row['product_id'] > 0 && $row['qty'] > 0)
+            ->reduce(function (array $carry, array $row): array {
+                $carry[$row['product_id']] = ($carry[$row['product_id']] ?? 0) + $row['qty'];
 
-        $totalMinorUnits = 0;
-
-        foreach ($productQtyById as $productId => $qty) {
-            $product = $lockedProducts->get($productId);
-
-            if (! $product) {
-                throw new DomainException("Produk dengan ID {$productId} tidak ditemukan.");
-            }
-
-            $this->assertStockAvailable($product, $qty);
-            $existingDetail = $existingProductDetails->get($productId);
-            $detailAttributes = $existingDetail !== null && (int) $existingDetail->qty === $qty
-                ? $this->buildProductDetailAttributes($product, $qty, $existingDetail)
-                : $this->buildProductDetailAttributes($product, $qty);
-
-            $currentStock = (int) $product->stock;
-            $product->decrement('stock', $qty);
-            $product->stock = max(0, $currentStock - $qty);
-
-            $transaction->transactionItems()->create($detailAttributes);
-            $totalMinorUnits += $this->moneyToMinorUnits($detailAttributes['subtotal']);
-        }
-
-        return $totalMinorUnits;
+                return $carry;
+            }, []);
     }
 
-    private function buildServiceDetailAttributes(
-        ?Service $service,
-        int $serviceId,
-        ?TransactionItem $existingDetail = null
-    ): array
+    private function extractBatchProductQuantities(array $entries): array
     {
-        if (! $service) {
-            throw new DomainException("Layanan dengan ID {$serviceId} tidak ditemukan.");
-        }
-
-        $unitPrice = $existingDetail instanceof TransactionItem
-            ? $this->formatMoneyValue($existingDetail->unit_price)
-            : $this->formatMoneyValue($service->price);
-        $unitPriceMinorUnits = $this->moneyToMinorUnits($unitPrice);
-        $subtotalMinorUnits = $unitPriceMinorUnits;
-        $commissionSnapshot = $this->commissionRuleResolver->resolveForService($service, $subtotalMinorUnits);
-
-        return [
-            'item_type' => 'service',
-            'service_id' => $service->id,
-            'product_id' => null,
-            'item_name' => $existingDetail?->item_name ?? $service->name,
-            'unit_price' => $this->formatMoneyFromMinorUnits($unitPriceMinorUnits),
-            'qty' => 1,
-            'subtotal' => $this->formatMoneyFromMinorUnits($subtotalMinorUnits),
-            'commission_source' => $commissionSnapshot['commission_source'],
-            'commission_type' => $commissionSnapshot['commission_type'],
-            'commission_value' => $commissionSnapshot['commission_value'],
-            'commission_amount' => $commissionSnapshot['commission_amount'],
-        ];
+        return collect($entries)
+            ->flatMap(fn (array $entry) => $this->extractItems($entry))
+            ->pipe(fn (Collection $items) => $this->extractProductQuantitiesFromItems($items->all()));
     }
 
-    private function buildProductDetailAttributes(
-        Product $product,
-        int $qty,
-        ?TransactionItem $existingDetail = null
-    ): array
+    private function getExistingItems(Transaction $transaction): Collection
     {
-        $unitPrice = $existingDetail instanceof TransactionItem
-            ? $this->formatMoneyValue($existingDetail->unit_price)
-            : $this->formatMoneyValue($product->price);
-        $unitPriceMinorUnits = $this->moneyToMinorUnits($unitPrice);
-        $subtotalMinorUnits = $unitPriceMinorUnits * $qty;
-        $commissionSnapshot = $this->commissionRuleResolver->resolveForProduct($product, $subtotalMinorUnits, $qty);
-
-        return [
-            'item_type' => 'product',
-            'service_id' => null,
-            'product_id' => $product->id,
-            'item_name' => $existingDetail?->item_name ?? $product->name,
-            'unit_price' => $this->formatMoneyFromMinorUnits($unitPriceMinorUnits),
-            'qty' => $qty,
-            'subtotal' => $this->formatMoneyFromMinorUnits($subtotalMinorUnits),
-            'commission_source' => $commissionSnapshot['commission_source'],
-            'commission_type' => $commissionSnapshot['commission_type'],
-            'commission_value' => $commissionSnapshot['commission_value'],
-            'commission_amount' => $commissionSnapshot['commission_amount'],
-        ];
+        return $transaction->transactionItems()
+            ->select('id', 'item_type', 'product_id', 'qty')
+            ->orderBy('id')
+            ->get();
     }
 
     private function restoreOldProductStocks(Collection $existingItems, Collection $lockedProducts): void
     {
         $restoreQtyByProductId = $existingItems
             ->where('item_type', 'product')
-            ->filter(fn (TransactionItem $detail) => $detail->product_id !== null && (int) $detail->qty > 0)
+            ->filter(fn (TransactionItem $item) => $item->product_id !== null && (int) $item->qty > 0)
             ->groupBy('product_id')
             ->map(fn (Collection $rows) => (int) $rows->sum('qty'));
 
         foreach ($restoreQtyByProductId as $productId => $qtyToRestore) {
             $product = $lockedProducts->get((int) $productId);
 
-            if (! $product) {
-                continue;
+            if ($product instanceof Product) {
+                $this->adjustProductStock($product, $qtyToRestore);
             }
-
-            $currentStock = (int) $product->stock;
-            $product->increment('stock', $qtyToRestore);
-            $product->stock = $currentStock + $qtyToRestore;
         }
-    }
-
-    private function assertHasMinimumItems(array $serviceIds, array $productQtyById): void
-    {
-        if ($serviceIds === [] && $productQtyById === []) {
-            throw new DomainException(self::MINIMUM_ITEM_MESSAGE);
-        }
-    }
-
-    private function extractTransactionItems(array $validatedData): array
-    {
-        $serviceIds = $this->extractServiceIds($validatedData);
-        $productQtyById = $this->extractProductQuantities($validatedData);
-
-        return [$serviceIds, $productQtyById];
-    }
-
-    private function finalizeTransactionTotals(Transaction $transaction, int $totalMinorUnits): void
-    {
-        $transaction->update([
-            'subtotal_amount' => $this->formatMoneyFromMinorUnits($totalMinorUnits),
-            'discount_amount' => $this->formatMoneyFromMinorUnits(0),
-            'total_amount' => $this->formatMoneyFromMinorUnits($totalMinorUnits),
-        ]);
-    }
-
-    private function extractServiceIds(array $validatedData): array
-    {
-        $services = $validatedData['services'] ?? [];
-
-        if (! is_array($services)) {
-            return [];
-        }
-
-        return collect($services)
-            ->map(function ($row) {
-                if (is_array($row)) {
-                    return (int) ($row['service_id'] ?? 0);
-                }
-
-                return (int) $row;
-            })
-            ->filter(fn ($serviceId) => $serviceId > 0)
-            ->values()
-            ->all();
-    }
-
-    private function extractProductQuantities(array $validatedData): array
-    {
-        $products = $validatedData['products'] ?? [];
-
-        if (! is_array($products)) {
-            return [];
-        }
-
-        return collect($products)
-            ->map(function ($row, $productId) {
-                if (is_array($row)) {
-                    return [
-                        'product_id' => (int) ($row['product_id'] ?? 0),
-                        'qty' => (int) ($row['qty'] ?? 0),
-                    ];
-                }
-
-                return [
-                    'product_id' => (int) $productId,
-                    'qty' => (int) $row,
-                ];
-            })
-            ->filter(fn (array $row) => $row['product_id'] > 0 && $row['qty'] > 0)
-            ->reduce(function (array $carry, array $row): array {
-                $carry[$row['product_id']] = ($carry[$row['product_id']] ?? 0) + $row['qty'];
-
-                return $carry;
-            }, []);
-    }
-
-    private function mergeBatchEntryPayload(array $validatedData, array $entry): array
-    {
-        return [
-            'transaction_date' => $validatedData['transaction_date'],
-            'employee_id' => $validatedData['employee_id'],
-            'payment_method' => $entry['payment_method'],
-            'notes' => $entry['notes'] ?? null,
-            'services' => $entry['services'] ?? [],
-            'products' => $entry['products'] ?? [],
-        ];
-    }
-
-    private function extractBatchProductQuantities(array $entries): array
-    {
-        return collect($entries)
-            ->filter(fn ($entry) => is_array($entry))
-            ->flatMap(function (array $entry) {
-                $products = $entry['products'] ?? [];
-
-                if (! is_array($products)) {
-                    return [];
-                }
-
-                return collect($products)
-                    ->map(fn ($row) => [
-                        'product_id' => (int) ($row['product_id'] ?? 0),
-                        'qty' => (int) ($row['qty'] ?? 0),
-                    ]);
-            })
-            ->filter(fn (array $row) => $row['product_id'] > 0 && $row['qty'] > 0)
-            ->reduce(function (array $carry, array $row): array {
-                $carry[$row['product_id']] = ($carry[$row['product_id']] ?? 0) + $row['qty'];
-
-                return $carry;
-            }, []);
-    }
-
-    private function normalizeOptionalText(mixed $value): ?string
-    {
-        $normalized = trim((string) ($value ?? ''));
-
-        return $normalized === '' ? null : $normalized;
-    }
-
-    private function getExistingItems(Transaction $transaction): Collection
-    {
-        return $transaction->transactionItems()
-            ->select('id', 'item_type', 'service_id', 'product_id', 'item_name', 'unit_price', 'qty', 'subtotal', 'commission_amount')
-            ->orderBy('id')
-            ->get();
     }
 
     private function mergeProductIdsForLock(Collection $existingItems, array $productQtyById): array
@@ -485,26 +517,42 @@ class TransactionService
             ->keyBy('id');
     }
 
-    private function assertStockAvailable(Product $product, int $qty): void
+    private function assertProductsExist(Collection $lockedProducts, array $productIds): void
     {
-        if ((int) $product->stock < $qty) {
-            throw new DomainException(
-                "Stok produk {$product->name} tidak cukup. Tersedia {$product->stock}, diminta {$qty}."
-            );
+        foreach ($productIds as $productId) {
+            if (! $lockedProducts->has((int) $productId)) {
+                throw new DomainException("Produk dengan ID {$productId} tidak ditemukan.");
+            }
         }
     }
 
-    private function assertBatchStockAvailable(Collection $lockedProducts, array $productQtyById): void
+    private function assertStockAvailableForQuantities(Collection $lockedProducts, array $productQtyById): void
     {
         foreach ($productQtyById as $productId => $qty) {
             $product = $lockedProducts->get((int) $productId);
 
-            if (! $product) {
+            if (! $product instanceof Product) {
                 throw new DomainException("Produk dengan ID {$productId} tidak ditemukan.");
             }
 
-            $this->assertStockAvailable($product, $qty);
+            if ((int) $product->stock < $qty) {
+                throw new DomainException(
+                    "Stok produk {$product->name} tidak cukup. Tersedia {$product->stock}, diminta {$qty}."
+                );
+            }
         }
+    }
+
+    private function adjustProductStock(Product $product, int $deltaQty): void
+    {
+        $newStock = (int) $product->stock + $deltaQty;
+
+        if ($newStock < 0) {
+            throw new DomainException("Stok produk {$product->name} tidak cukup.");
+        }
+
+        $product->stock = $newStock;
+        $product->save();
     }
 
     private function assertTransactionCanBeMutated(Transaction $transaction): void
@@ -517,54 +565,18 @@ class TransactionService
             ? $transaction->payrollPeriod
             : $transaction->payrollPeriod()->first(['id', 'status']);
 
-        if ($payrollPeriod instanceof PayrollPeriod && $payrollPeriod->status === 'closed') {
+        if ($payrollPeriod instanceof PayrollPeriod && $payrollPeriod->status === PayrollPeriod::STATUS_CLOSED) {
             throw new DomainException(self::CLOSED_PAYROLL_MESSAGE);
         }
     }
 
-    private function moneyToMinorUnits(string|int|null $amount): int
+    private function resolveEmployeeEmploymentType(Employee $employee): ?string
     {
-        $normalized = trim((string) ($amount ?? '0'));
-
-        if ($normalized === '') {
-            return 0;
-        }
-
-        $isNegative = str_starts_with($normalized, '-');
-
-        if ($isNegative) {
-            $normalized = substr($normalized, 1);
-        }
-
-        if (! preg_match('/^\d+(?:\.\d{1,2})?$/', $normalized)) {
-            throw new RuntimeException("Nilai uang tidak valid: {$amount}");
-        }
-
-        [$wholePart, $fractionPart] = array_pad(explode('.', $normalized, 2), 2, '0');
-        $fractionPart = str_pad(substr($fractionPart, 0, self::MONEY_SCALE), self::MONEY_SCALE, '0');
-        $minorUnits = ((int) $wholePart * self::MINOR_UNIT_MULTIPLIER) + (int) $fractionPart;
-
-        return $isNegative ? -$minorUnits : $minorUnits;
-    }
-
-    private function formatMoneyFromMinorUnits(int $amount): string
-    {
-        $isNegative = $amount < 0;
-        $absoluteAmount = abs($amount);
-        $wholePart = intdiv($absoluteAmount, self::MINOR_UNIT_MULTIPLIER);
-        $fractionPart = str_pad((string) ($absoluteAmount % self::MINOR_UNIT_MULTIPLIER), self::MONEY_SCALE, '0', STR_PAD_LEFT);
-
-        return ($isNegative ? '-' : '').$wholePart.'.'.$fractionPart;
-    }
-
-    private function formatMoneyValue(string|int|null $amount): string
-    {
-        return $this->formatMoneyFromMinorUnits($this->moneyToMinorUnits($amount));
-    }
-
-    private function calculatePercentageMinorUnits(int $amount, int $basisPoints): int
-    {
-        return intdiv(($amount * $basisPoints) + 5000, 10000);
+        return $employee->employment_type ?: match ($employee->status) {
+            'tetap' => Employee::EMPLOYMENT_TYPE_PERMANENT,
+            'freelance' => Employee::EMPLOYMENT_TYPE_FREELANCE,
+            default => null,
+        };
     }
 
     private function generateTransactionCode(string $transactionDate): string

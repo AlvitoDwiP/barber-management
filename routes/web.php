@@ -33,10 +33,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/employees/export/csv', [ReportController::class, 'exportEmployeesCsv'])->name('employees.export.csv');
     });
 
-    Route::get('/transactions/create', fn () => redirect()->route('transactions.daily-batch.create'))->name('transactions.create');
-    Route::get('/transactions/daily-batch', [TransactionController::class, 'createDailyBatch'])->name('transactions.daily-batch.create');
-    Route::post('/transactions/daily-batch', [TransactionController::class, 'storeDailyBatch'])->name('transactions.daily-batch.store');
-    Route::resource('transactions', TransactionController::class)->except(['create', 'store']);
+    Route::prefix('transactions')->name('transactions.')->group(function () {
+        Route::get('/', [TransactionController::class, 'index'])->name('index');
+        Route::get('/daily-batch', [TransactionController::class, 'createDailyBatch'])->name('daily-batch.create');
+        Route::post('/daily-batch', [TransactionController::class, 'storeDailyBatch'])->name('daily-batch.store');
+        Route::get('/{transaction}', [TransactionController::class, 'show'])->name('show');
+        Route::delete('/{transaction}', [TransactionController::class, 'destroy'])->name('destroy');
+    });
     Route::get('/payroll/freelance', [FreelancePayrollController::class, 'index'])->name('payroll.freelance.index');
     Route::post('/payroll/freelance/payments/prepare', [FreelancePayrollController::class, 'preparePayment'])->name('payroll.freelance.prepare-payment');
     Route::resource('payroll', PayrollController::class)->only(['index', 'show']);

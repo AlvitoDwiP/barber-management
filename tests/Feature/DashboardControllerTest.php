@@ -105,28 +105,25 @@ class DashboardControllerTest extends TestCase
             'stock' => 20,
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-15',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [$haircut->id],
-            'products' => [$pomade->id => 2],
+            'items' => $this->transactionItems($employee->id, [$haircut->id], [$pomade->id => 2]),
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-01',
             'employee_id' => $employee->id,
             'payment_method' => 'qr',
-            'services' => [$wash->id],
-            'products' => [$gel->id => 1],
+            'items' => $this->transactionItems($employee->id, [$wash->id], [$gel->id => 1]),
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-02-28',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [$haircut->id],
-            'products' => [],
+            'items' => $this->transactionItems($employee->id, [$haircut->id]),
         ]);
 
         Expense::query()->create([
@@ -202,12 +199,11 @@ class DashboardControllerTest extends TestCase
             'stock' => 20,
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-15',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [$service->id],
-            'products' => [$product->id => 2],
+            'items' => $this->transactionItems($employee->id, [$service->id], [$product->id => 2]),
         ]);
 
         Expense::query()->create([
@@ -272,20 +268,18 @@ class DashboardControllerTest extends TestCase
             'commission_value' => '0.01',
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-18',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [$service->id],
-            'products' => [$product->id => 1],
+            'items' => $this->transactionItems($employee->id, [$service->id], [$product->id => 1]),
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-18',
             'employee_id' => $employee->id,
             'payment_method' => 'qr',
-            'services' => [],
-            'products' => [$product->id => 2],
+            'items' => $this->transactionItems($employee->id, [], [$product->id => 2]),
         ]);
 
         Expense::query()->create([

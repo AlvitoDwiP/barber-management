@@ -20,8 +20,8 @@ class DailyBatchTransactionControllerTest extends TestCase
         $response = $this->actingAs($user)->get(route('transactions.daily-batch.create'));
 
         $response->assertOk();
-        $response->assertSee('Tambah Transaksi');
-        $response->assertSee('Gunakan halaman ini untuk membuat satu atau beberapa transaksi sekaligus');
+        $response->assertSee('Input harian beberapa transaksi sekaligus');
+        $response->assertSee('Tambah Blok Transaksi');
     }
 
     public function test_authenticated_user_can_store_daily_batch_transactions(): void
@@ -40,26 +40,32 @@ class DailyBatchTransactionControllerTest extends TestCase
 
         $response = $this->actingAs($user)->post(route('transactions.daily-batch.store'), [
             'transaction_date' => '2026-03-15',
-            'employee_id' => $employee->id,
             'entries' => [
                 [
+                    'employee_id' => $employee->id,
                     'payment_method' => 'cash',
                     'notes' => 'Walk in',
-                    'services' => [
-                        ['service_id' => $service->id],
-                    ],
-                    'products' => [
-                        ['product_id' => $product->id, 'qty' => 2],
-                    ],
+                    'items' => $this->withoutItemEmployees($this->transactionItems(
+                        $employee->id,
+                        [
+                            ['service_id' => $service->id],
+                        ],
+                        [
+                            ['product_id' => $product->id, 'qty' => 2],
+                        ],
+                    )),
                 ],
                 [
+                    'employee_id' => $employee->id,
                     'payment_method' => 'qr',
                     'notes' => '',
-                    'services' => [
-                        ['service_id' => $service->id],
-                        ['service_id' => $service->id],
-                    ],
-                    'products' => [],
+                    'items' => $this->withoutItemEmployees($this->transactionItems(
+                        $employee->id,
+                        [
+                            ['service_id' => $service->id],
+                            ['service_id' => $service->id],
+                        ],
+                    )),
                 ],
             ],
         ]);
@@ -75,6 +81,58 @@ class DailyBatchTransactionControllerTest extends TestCase
         $this->assertSame(3, $product->fresh()->stock);
     }
 
+    public function test_daily_batch_request_ignores_commission_override_fields_from_payload(): void
+    {
+        $user = User::factory()->create();
+        $employee = $this->createEmployee();
+        $service = Service::query()->create([
+            'name' => 'Hair Spa',
+            'price' => '100000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '40.00',
+        ]);
+        $product = Product::query()->create([
+            'name' => 'Vitamin',
+            'price' => '50000.00',
+            'stock' => 5,
+            'commission_type' => 'fixed',
+            'commission_value' => '5000.00',
+        ]);
+
+        $response = $this->actingAs($user)->post(route('transactions.daily-batch.store'), [
+            'transaction_date' => '2026-03-15',
+            'entries' => [
+                [
+                    'employee_id' => $employee->id,
+                    'payment_method' => 'cash',
+                    'notes' => 'No override from transaction form',
+                    'items' => [
+                        ...$this->withoutItemEmployees([
+                            $this->serviceItem($service->id, $employee->id, 'fixed', 9999),
+                            $this->productItem($product->id, $employee->id, 2, 'percent', 99),
+                        ]),
+                    ],
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect(route('transactions.index'));
+        $this->assertDatabaseHas('transaction_items', [
+            'item_type' => 'service',
+            'item_name' => 'Hair Spa',
+            'commission_type' => 'percent',
+            'commission_value' => '40.00',
+            'commission_amount' => '40000.00',
+        ]);
+        $this->assertDatabaseHas('transaction_items', [
+            'item_type' => 'product',
+            'item_name' => 'Vitamin',
+            'commission_type' => 'fixed',
+            'commission_value' => '5000.00',
+            'commission_amount' => '10000.00',
+        ]);
+    }
+
     public function test_daily_batch_request_rejects_empty_entry(): void
     {
         $user = User::factory()->create();
@@ -84,17 +142,12 @@ class DailyBatchTransactionControllerTest extends TestCase
             ->from(route('transactions.daily-batch.create'))
             ->post(route('transactions.daily-batch.store'), [
                 'transaction_date' => '2026-03-15',
-                'employee_id' => $employee->id,
                 'entries' => [
                     [
+                        'employee_id' => $employee->id,
                         'payment_method' => 'cash',
                         'notes' => '',
-                        'services' => [
-                            ['service_id' => ''],
-                        ],
-                        'products' => [
-                            ['product_id' => '', 'qty' => 1],
-                        ],
+                        'items' => [],
                     ],
                 ],
             ]);
@@ -120,23 +173,29 @@ class DailyBatchTransactionControllerTest extends TestCase
 
         $response = $this->actingAs($user)->post(route('transactions.daily-batch.store'), [
             'transaction_date' => '2026-03-15',
-            'employee_id' => $employee->id,
             'entries' => [
                 [
+                    'employee_id' => $employee->id,
                     'payment_method' => 'cash',
                     'notes' => null,
-                    'services' => [
-                        ['service_id' => $service->id],
-                    ],
-                    'products' => [],
+                    'items' => $this->withoutItemEmployees($this->transactionItems(
+                        $employee->id,
+                        [
+                            ['service_id' => $service->id],
+                        ],
+                    )),
                 ],
                 [
+                    'employee_id' => $employee->id,
                     'payment_method' => 'qr',
                     'notes' => null,
-                    'services' => [],
-                    'products' => [
-                        ['product_id' => $product->id, 'qty' => 2],
-                    ],
+                    'items' => $this->withoutItemEmployees($this->transactionItems(
+                        $employee->id,
+                        [],
+                        [
+                            ['product_id' => $product->id, 'qty' => 2],
+                        ],
+                    )),
                 ],
             ],
         ]);
@@ -159,21 +218,23 @@ class DailyBatchTransactionControllerTest extends TestCase
             ->from(route('transactions.daily-batch.create'))
             ->post(route('transactions.daily-batch.store'), [
                 'transaction_date' => '2026-03-15',
-                'employee_id' => $employee->id,
                 'entries' => [
                     [
+                        'employee_id' => $employee->id,
                         'payment_method' => 'cash',
                         'notes' => null,
-                        'services' => [
-                            ['service_id' => $service->id],
-                        ],
-                        'products' => [],
+                        'items' => $this->withoutItemEmployees($this->transactionItems(
+                            $employee->id,
+                            [
+                                ['service_id' => $service->id],
+                            ],
+                        )),
                     ],
                     [
+                        'employee_id' => $employee->id,
                         'payment_method' => 'qr',
                         'notes' => null,
-                        'services' => [],
-                        'products' => [],
+                        'items' => [],
                     ],
                 ],
             ]);
@@ -192,26 +253,24 @@ class DailyBatchTransactionControllerTest extends TestCase
             ->from(route('transactions.daily-batch.create'))
             ->post(route('transactions.daily-batch.store'), [
                 'transaction_date' => '2026-03-15',
-                'employee_id' => $employee->id,
                 'entries' => [
                     [
+                        'employee_id' => $employee->id,
                         'payment_method' => 'cash',
                         'notes' => null,
-                        'services' => [
-                            ['service_id' => 9999],
-                        ],
-                        'products' => [
-                            ['product_id' => 9999, 'qty' => -1],
-                        ],
+                        'items' => $this->withoutItemEmployees([
+                            $this->serviceItem(9999, $employee->id),
+                            $this->productItem(9999, $employee->id, -1),
+                        ]),
                     ],
                 ],
             ]);
 
         $response->assertRedirect(route('transactions.daily-batch.create'));
         $response->assertSessionHasErrors([
-            'entries.0.services.0.service_id',
-            'entries.0.products.0.product_id',
-            'entries.0.products.0.qty',
+            'entries.0.items.0.service_id',
+            'entries.0.items.1.product_id',
+            'entries.0.items.1.qty',
         ]);
         $this->assertDatabaseCount('transactions', 0);
     }
@@ -233,24 +292,87 @@ class DailyBatchTransactionControllerTest extends TestCase
             ->from(route('transactions.daily-batch.create'))
             ->post(route('transactions.daily-batch.store'), [
                 'transaction_date' => '2026-03-15',
-                'employee_id' => $employee->id,
                 'entries' => [
                     [
+                        'employee_id' => $employee->id,
                         'payment_method' => 'cash',
                         'notes' => null,
-                        'services' => [
-                            ['service_id' => $service->id],
-                        ],
-                        'products' => [],
+                        'items' => $this->withoutItemEmployees([
+                            $this->serviceItem($service->id, $employee->id),
+                        ]),
                     ],
                 ],
             ]);
 
         $response->assertRedirect(route('transactions.daily-batch.create'));
         $response->assertSessionHasErrors([
-            'employee_id' => 'Pegawai nonaktif atau tidak valid untuk transaksi baru.',
+            'entries.0.employee_id' => 'Pegawai transaksi nonaktif atau tidak valid.',
         ]);
         $this->assertDatabaseCount('transactions', 0);
+    }
+
+    public function test_daily_batch_request_accepts_two_blocks_with_different_employees(): void
+    {
+        $user = User::factory()->create();
+        $employeeOne = $this->createEmployee();
+        $employeeTwo = Employee::query()->create([
+            'name' => 'Sari',
+            'status' => 'tetap',
+            'is_active' => true,
+        ]);
+        $service = Service::query()->create([
+            'name' => 'Hair Spa',
+            'price' => '100000.00',
+        ]);
+        $product = Product::query()->create([
+            'name' => 'Vitamin',
+            'price' => '50000.00',
+            'stock' => 5,
+        ]);
+
+        $response = $this->actingAs($user)->post(route('transactions.daily-batch.store'), [
+            'transaction_date' => '2026-03-15',
+            'entries' => [
+                [
+                    'employee_id' => $employeeOne->id,
+                    'payment_method' => 'cash',
+                    'notes' => 'Blok pertama',
+                    'items' => $this->withoutItemEmployees([
+                        $this->serviceItem($service->id, $employeeOne->id),
+                    ]),
+                ],
+                [
+                    'employee_id' => $employeeTwo->id,
+                    'payment_method' => 'qr',
+                    'notes' => 'Blok kedua',
+                    'items' => $this->withoutItemEmployees([
+                        $this->productItem($product->id, $employeeTwo->id, 2),
+                    ]),
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect(route('transactions.index'));
+        $this->assertDatabaseHas('transactions', [
+            'employee_id' => $employeeOne->id,
+            'payment_method' => 'cash',
+            'notes' => 'Blok pertama',
+        ]);
+        $this->assertDatabaseHas('transactions', [
+            'employee_id' => $employeeTwo->id,
+            'payment_method' => 'qr',
+            'notes' => 'Blok kedua',
+        ]);
+        $this->assertDatabaseHas('transaction_items', [
+            'item_type' => 'service',
+            'employee_id' => $employeeOne->id,
+            'employee_name' => $employeeOne->name,
+        ]);
+        $this->assertDatabaseHas('transaction_items', [
+            'item_type' => 'product',
+            'employee_id' => $employeeTwo->id,
+            'employee_name' => $employeeTwo->name,
+        ]);
     }
 
     private function createEmployee(): Employee
@@ -260,5 +382,17 @@ class DailyBatchTransactionControllerTest extends TestCase
             'status' => 'tetap',
             'is_active' => true,
         ]);
+    }
+
+    private function withoutItemEmployees(array $items): array
+    {
+        return collect($items)
+            ->map(function (array $item): array {
+                unset($item['employee_id']);
+
+                return $item;
+            })
+            ->values()
+            ->all();
     }
 }

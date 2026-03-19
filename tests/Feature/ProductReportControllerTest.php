@@ -33,28 +33,25 @@ class ProductReportControllerTest extends TestCase
             'stock' => 20,
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-10',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [$service->id],
-            'products' => [$pomade->id => 2, $gel->id => 1],
+            'items' => $this->transactionItems($employee->id, [$service->id], [$pomade->id => 2, $gel->id => 1]),
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-11',
             'employee_id' => $employee->id,
             'payment_method' => 'qr',
-            'services' => [],
-            'products' => [$pomade->id => 1],
+            'items' => $this->transactionItems($employee->id, [], [$pomade->id => 1]),
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-02-20',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [],
-            'products' => [$gel->id => 2],
+            'items' => $this->transactionItems($employee->id, [], [$gel->id => 2]),
         ]);
 
         $rows = app(ProductReportService::class)
@@ -112,12 +109,11 @@ class ProductReportControllerTest extends TestCase
             'stock' => 20,
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-10',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [],
-            'products' => [$pomade->id => 2, $gel->id => 1],
+            'items' => $this->transactionItems($employee->id, [], [$pomade->id => 2, $gel->id => 1]),
         ]);
 
         $rows = app(ProductReportService::class)
@@ -149,24 +145,22 @@ class ProductReportControllerTest extends TestCase
             'stock' => 20,
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-10',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [],
-            'products' => [$pomade->id => 1],
+            'items' => $this->transactionItems($employee->id, [], [$pomade->id => 1]),
         ]);
 
         $pomade->update([
             'price' => '50.01',
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-11',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [],
-            'products' => [$pomade->id => 2],
+            'items' => $this->transactionItems($employee->id, [], [$pomade->id => 2]),
         ]);
 
         $row = app(ProductReportService::class)
@@ -224,12 +218,11 @@ class ProductReportControllerTest extends TestCase
             'stock' => 20,
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-10',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [],
-            'products' => [$pomade->id => 2, $gel->id => 1],
+            'items' => $this->transactionItems($employee->id, [], [$pomade->id => 2, $gel->id => 1]),
         ]);
 
         $response = $this->actingAs(User::factory()->create())

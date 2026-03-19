@@ -21,36 +21,32 @@ class EmployeePerformanceReportControllerTest extends TestCase
         [$employeeOne, $employeeTwo] = $this->createEmployees();
         [$haircut, $wash, $pomade, $gel] = $this->createItems();
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-10',
             'employee_id' => $employeeOne->id,
             'payment_method' => 'cash',
-            'services' => [$haircut->id, $wash->id],
-            'products' => [$pomade->id => 2],
+            'items' => $this->transactionItems($employeeOne->id, [$haircut->id, $wash->id], [$pomade->id => 2]),
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-11',
             'employee_id' => $employeeOne->id,
             'payment_method' => 'qr',
-            'services' => [],
-            'products' => [$gel->id => 1],
+            'items' => $this->transactionItems($employeeOne->id, [], [$gel->id => 1]),
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-12',
             'employee_id' => $employeeTwo->id,
             'payment_method' => 'cash',
-            'services' => [$wash->id],
-            'products' => [],
+            'items' => $this->transactionItems($employeeTwo->id, [$wash->id]),
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-02-20',
             'employee_id' => $employeeTwo->id,
             'payment_method' => 'cash',
-            'services' => [$haircut->id],
-            'products' => [],
+            'items' => $this->transactionItems($employeeTwo->id, [$haircut->id]),
         ]);
 
         $rows = app(EmployeePerformanceReportService::class)
@@ -106,20 +102,18 @@ class EmployeePerformanceReportControllerTest extends TestCase
         [$employeeOne, $employeeTwo] = $this->createEmployees();
         [$haircut, $wash] = array_slice($this->createItems(), 0, 2);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-10',
             'employee_id' => $employeeOne->id,
             'payment_method' => 'cash',
-            'services' => [$haircut->id],
-            'products' => [],
+            'items' => $this->transactionItems($employeeOne->id, [$haircut->id]),
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-10',
             'employee_id' => $employeeTwo->id,
             'payment_method' => 'qr',
-            'services' => [$wash->id],
-            'products' => [],
+            'items' => $this->transactionItems($employeeTwo->id, [$wash->id]),
         ]);
 
         $rows = app(EmployeePerformanceReportService::class)
@@ -178,20 +172,18 @@ class EmployeePerformanceReportControllerTest extends TestCase
         [$employeeOne, $employeeTwo] = $this->createEmployees();
         [$haircut, $wash] = array_slice($this->createItems(), 0, 2);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-10',
             'employee_id' => $employeeOne->id,
             'payment_method' => 'cash',
-            'services' => [$haircut->id],
-            'products' => [],
+            'items' => $this->transactionItems($employeeOne->id, [$haircut->id]),
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-10',
             'employee_id' => $employeeTwo->id,
             'payment_method' => 'qr',
-            'services' => [$wash->id],
-            'products' => [],
+            'items' => $this->transactionItems($employeeTwo->id, [$wash->id]),
         ]);
 
         $response = $this->actingAs(User::factory()->create())
@@ -221,12 +213,11 @@ class EmployeePerformanceReportControllerTest extends TestCase
         [$employee] = $this->createEmployees();
         [$haircut, , $pomade] = array_slice($this->createItems(), 0, 3);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-10',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [$haircut->id],
-            'products' => [$pomade->id => 2],
+            'items' => $this->transactionItems($employee->id, [$haircut->id], [$pomade->id => 2]),
         ]);
 
         $haircut->update([

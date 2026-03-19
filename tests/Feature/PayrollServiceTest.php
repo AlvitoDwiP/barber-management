@@ -102,12 +102,11 @@ class PayrollServiceTest extends TestCase
             'stock' => 10,
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-10',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [$service->id],
-            'products' => [$product->id => 2],
+            'items' => $this->transactionItems($employee->id, [$service->id], [$product->id => 2]),
         ]);
 
         $service->update([
@@ -159,12 +158,11 @@ class PayrollServiceTest extends TestCase
             'commission_value' => '0.01',
         ]);
 
-        app(TransactionService::class)->storeTransaction([
+        app(TransactionService::class)->recordTransaction([
             'transaction_date' => '2026-03-18',
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [$trim->id, $color->id],
-            'products' => [$sample->id => 3],
+            'items' => $this->transactionItems($employee->id, [$trim->id, $color->id], [$sample->id => 3]),
         ]);
 
         $payrollPeriod = app(PayrollService::class)->openPayroll('2026-03-01', '2026-03-31');
@@ -193,12 +191,11 @@ class PayrollServiceTest extends TestCase
         $transactionService = app(TransactionService::class);
 
         try {
-            $transactionService->updateTransaction($transaction, [
+            $transactionService->replaceTransaction($transaction, [
                 'transaction_date' => '2026-03-11',
                 'employee_id' => $employee->id,
                 'payment_method' => 'qr',
-                'services' => [$service->id],
-                'products' => [],
+                'items' => $this->transactionItems($employee->id, [$service->id]),
             ]);
 
             $this->fail('Expected update to be blocked for closed payroll transaction.');
@@ -330,12 +327,11 @@ class PayrollServiceTest extends TestCase
 
     private function createServiceTransaction(Employee $employee, Service $service, string $transactionDate): Transaction
     {
-        return app(TransactionService::class)->storeTransaction([
+        return app(TransactionService::class)->recordTransaction([
             'transaction_date' => $transactionDate,
             'employee_id' => $employee->id,
             'payment_method' => 'cash',
-            'services' => [$service->id],
-            'products' => [],
+            'items' => $this->transactionItems($employee->id, [$service->id]),
         ]);
     }
 }

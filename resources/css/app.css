@@ -111,6 +111,105 @@
         color: #7a462f;
     }
 
+    .transaction-alert {
+        border-color: #e1c5b8;
+        background-color: var(--cream-50);
+        @apply rounded-2xl border px-4 py-4;
+    }
+
+    .transaction-alert-lock {
+        border-color: #edc48a;
+        background-color: #fff8eb;
+    }
+
+    .transaction-status-badge {
+        @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide;
+    }
+
+    .transaction-status-badge-draft {
+        border: 1px solid #d7dde4;
+        background-color: #f8fafc;
+        color: #475569;
+    }
+
+    .transaction-status-badge-open {
+        border: 1px solid #bfd9cf;
+        background-color: #ecfdf5;
+        color: #0f766e;
+    }
+
+    .transaction-status-badge-closed {
+        border: 1px solid #edc48a;
+        background-color: #fff8eb;
+        color: #9a5a07;
+    }
+
+    .transaction-item-card {
+        border-color: var(--warm-200);
+        background-color: #ffffff;
+        @apply rounded-2xl border p-4 sm:p-5;
+    }
+
+    .transaction-preview-card {
+        border-color: #e6ded7;
+        background-color: #f8fafc;
+        @apply rounded-2xl border px-3.5 py-3;
+    }
+
+    .transaction-preview-card-feature {
+        background-color: #fcfcfb;
+    }
+
+    .transaction-preview-label {
+        @apply text-[11px] font-semibold uppercase tracking-wide text-slate-500;
+    }
+
+    .transaction-preview-value {
+        @apply mt-1 text-sm font-semibold leading-5 text-slate-900;
+    }
+
+    .transaction-preview-note {
+        @apply mt-1 text-xs leading-5 text-slate-500;
+    }
+
+    .transaction-preview-note-compact {
+        @apply leading-4;
+    }
+
+    @screen xl {
+        .transaction-item-card {
+            @apply p-5;
+        }
+
+        .transaction-preview-card {
+            min-height: 88px;
+        }
+
+        .transaction-preview-card-feature {
+            min-height: 88px;
+        }
+    }
+
+    .transaction-metric-card {
+        border-color: var(--warm-200);
+        background-color: #ffffff;
+        @apply rounded-2xl border px-5 py-4 shadow-sm;
+    }
+
+    .transaction-metric-label {
+        @apply text-xs font-semibold uppercase tracking-wide text-slate-500;
+    }
+
+    .transaction-metric-value {
+        @apply mt-2 text-sm font-semibold leading-6 text-slate-900;
+    }
+
+    .transaction-empty-state {
+        border-color: #e6ded7;
+        background-color: #fcfcfb;
+        @apply rounded-2xl border border-dashed px-5 py-10 text-center;
+    }
+
     .form-brand-control {
         border-color: var(--warm-200);
         @apply mt-1 block w-full rounded-md shadow-sm;
@@ -124,6 +223,12 @@
         border-color: var(--brand-600);
         outline: 0;
         box-shadow: 0 0 0 3px var(--brand-ring);
+    }
+
+    .transaction-readonly-field,
+    .form-brand-control:read-only {
+        background-color: #f8fafc;
+        color: #64748b;
     }
 
     .btn-brand-primary {

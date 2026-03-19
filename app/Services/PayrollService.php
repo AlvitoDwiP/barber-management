@@ -11,6 +11,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class PayrollService
 {
@@ -98,13 +99,9 @@ class PayrollService
     {
         [$startDate, $endDate] = $this->resolvePayrollDateRange($payrollPeriod);
 
-        return Transaction::query()
-            ->join('employees', 'employees.id', '=', 'transactions.employee_id')
-            ->whereNull('payroll_id')
-            ->where('employees.employment_type', Employee::EMPLOYMENT_TYPE_PERMANENT)
-            ->whereDate('transaction_date', '>=', $startDate)
-            ->whereDate('transaction_date', '<=', $endDate)
-            ->count();
+        return $this->pendingTransactionsBaseQuery($startDate, $endDate)
+            ->distinct('transactions.id')
+            ->count('transactions.id');
     }
 
     public function getPayrollDisplayRows(PayrollPeriod $payrollPeriod): Collection
@@ -158,19 +155,37 @@ class PayrollService
 
     private function getPendingTransactionIdsForPeriod(string $startDate, string $endDate, bool $lockForUpdate = false): Collection
     {
-        $query = Transaction::query()
-            ->select('transactions.id')
-            ->join('employees', 'employees.id', '=', 'transactions.employee_id')
-            ->whereNull('payroll_id')
-            ->where('employees.employment_type', Employee::EMPLOYMENT_TYPE_PERMANENT)
-            ->whereDate('transaction_date', '>=', $startDate)
-            ->whereDate('transaction_date', '<=', $endDate);
+        $query = $this->pendingTransactionsBaseQuery($startDate, $endDate)
+            ->select('transactions.id');
 
         if ($lockForUpdate) {
             $query->lockForUpdate();
         }
 
-        return $query->pluck('transactions.id');
+        return $query->distinct()->pluck('transactions.id');
+    }
+
+    private function pendingTransactionsBaseQuery(string $startDate, string $endDate)
+    {
+        $query = Transaction::query()
+            ->whereNull('payroll_id')
+            ->whereDate('transaction_date', '>=', $startDate)
+            ->whereDate('transaction_date', '<=', $endDate);
+
+        if ($this->usesItemEmployeeSnapshots()) {
+            return $query
+                ->join('transaction_items', 'transaction_items.transaction_id', '=', 'transactions.id')
+                ->where('transaction_items.employee_employment_type', Employee::EMPLOYMENT_TYPE_PERMANENT);
+        }
+
+        return $query
+            ->join('employees', 'employees.id', '=', 'transactions.employee_id')
+            ->where('employees.employment_type', Employee::EMPLOYMENT_TYPE_PERMANENT);
+    }
+
+    private function usesItemEmployeeSnapshots(): bool
+    {
+        return Schema::hasColumn('transaction_items', 'employee_employment_type');
     }
 
     private function buildSnapshotRowsFromTransactionIds(Collection $transactionIds): Collection

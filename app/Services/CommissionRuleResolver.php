@@ -5,53 +5,67 @@ namespace App\Services;
 use App\Models\CommissionSetting;
 use App\Models\Product;
 use App\Models\Service;
+use App\Support\Money;
 use DomainException;
 
 class CommissionRuleResolver
 {
     private const SOURCE_DEFAULT = 'default';
     private const SOURCE_OVERRIDE = 'override';
-    private const MONEY_SCALE = 2;
-    private const MINOR_UNIT_MULTIPLIER = 100;
 
     public function __construct(
         private readonly CommissionSettingsService $commissionSettingsService,
     ) {
     }
 
-    public function resolveForService(Service $service, int $finalItemMinorUnits): array
+    public function resolveForService(
+        Service $service,
+        int $finalItemMinorUnits,
+        ?array $customOverride = null
+    ): array
     {
-        $rule = $this->resolveServiceRule($service);
-
-        return $this->buildSnapshot(
-            $rule['commission_source'],
-            $rule['commission_type'],
-            $rule['commission_value'],
-            $this->calculatePercentageMinorUnits(
-                $finalItemMinorUnits,
-                $this->percentageValueToBasisPoints($rule['commission_value'])
+        $rule = $customOverride !== null
+            ? $this->resolveCustomRule(
+                $customOverride,
+                [
+                    CommissionSetting::TYPE_PERCENT,
+                    CommissionSetting::TYPE_FIXED,
+                ],
+                "item layanan {$service->name}",
             )
+            : $this->resolveServiceRule($service);
+
+        return $this->buildSnapshotFromRule(
+            $rule,
+            $finalItemMinorUnits,
+            1,
+            "layanan {$service->name}",
         );
     }
 
-    public function resolveForProduct(Product $product, int $subtotalMinorUnits, int $qty): array
+    public function resolveForProduct(
+        Product $product,
+        int $subtotalMinorUnits,
+        int $qty,
+        ?array $customOverride = null
+    ): array
     {
-        $rule = $this->resolveProductRule($product);
+        $rule = $customOverride !== null
+            ? $this->resolveCustomRule(
+                $customOverride,
+                [
+                    CommissionSetting::TYPE_PERCENT,
+                    CommissionSetting::TYPE_FIXED,
+                ],
+                "item produk {$product->name}",
+            )
+            : $this->resolveProductRule($product);
 
-        $commissionMinorUnits = match ($rule['commission_type']) {
-            CommissionSetting::TYPE_PERCENT => $this->calculatePercentageMinorUnits(
-                $subtotalMinorUnits,
-                $this->percentageValueToBasisPoints($rule['commission_value'])
-            ),
-            CommissionSetting::TYPE_FIXED => $this->moneyToMinorUnits($rule['commission_value']) * $qty,
-            default => throw new DomainException("Tipe komisi produk {$product->name} tidak valid."),
-        };
-
-        return $this->buildSnapshot(
-            $rule['commission_source'],
-            $rule['commission_type'],
-            $rule['commission_value'],
-            $commissionMinorUnits
+        return $this->buildSnapshotFromRule(
+            $rule,
+            $subtotalMinorUnits,
+            $qty,
+            "produk {$product->name}",
         );
     }
 
@@ -77,6 +91,17 @@ class CommissionRuleResolver
                 CommissionSetting::TYPE_FIXED,
             ],
             context: "produk {$product->name}",
+        );
+    }
+
+    private function resolveCustomRule(array $customOverride, array $allowedTypes, string $context): array
+    {
+        return $this->resolveRule(
+            overrideType: $customOverride['commission_type'] ?? null,
+            overrideValue: $customOverride['commission_value'] ?? null,
+            defaultRule: [],
+            allowedTypes: $allowedTypes,
+            context: $context,
         );
     }
 
@@ -117,21 +142,32 @@ class CommissionRuleResolver
         return [
             'commission_source' => $rule['commission_source'],
             'commission_type' => $rule['commission_type'],
-            'commission_value' => $this->formatMoneyValue($rule['commission_value']),
+            'commission_value' => Money::fromInput($rule['commission_value'])->toDecimal(),
         ];
     }
 
-    private function buildSnapshot(
-        string $commissionSource,
-        string $commissionType,
-        string $commissionValue,
-        int $commissionMinorUnits
+    private function buildSnapshotFromRule(
+        array $rule,
+        int $subtotalMinorUnits,
+        int $qty,
+        string $context
     ): array {
+        $commissionMinorUnits = match ($rule['commission_type']) {
+            CommissionSetting::TYPE_PERCENT => Money::applyPercentageToMinorUnits(
+                $subtotalMinorUnits,
+                Money::parsePercentageToBasisPoints($rule['commission_value']),
+            ),
+            CommissionSetting::TYPE_FIXED => Money::parse($rule['commission_value'])
+                ->multiplyByInteger($qty)
+                ->minorUnits(),
+            default => throw new DomainException("Tipe komisi {$context} tidak valid."),
+        };
+
         return [
-            'commission_source' => $commissionSource,
-            'commission_type' => $commissionType,
-            'commission_value' => $commissionValue,
-            'commission_amount' => $this->formatMoneyFromMinorUnits($commissionMinorUnits),
+            'commission_source' => $rule['commission_source'],
+            'commission_type' => $rule['commission_type'],
+            'commission_value' => $rule['commission_value'],
+            'commission_amount' => Money::fromMinorUnits($commissionMinorUnits)->toDecimal(),
         ];
     }
 
@@ -142,55 +178,5 @@ class CommissionRuleResolver
         }
 
         return trim((string) $value) !== '';
-    }
-
-    private function percentageValueToBasisPoints(string $value): int
-    {
-        return $this->moneyToMinorUnits($value);
-    }
-
-    private function moneyToMinorUnits(string|int|null $amount): int
-    {
-        $normalized = trim((string) ($amount ?? '0'));
-
-        if ($normalized === '') {
-            return 0;
-        }
-
-        $isNegative = str_starts_with($normalized, '-');
-
-        if ($isNegative) {
-            $normalized = substr($normalized, 1);
-        }
-
-        if (! preg_match('/^\d+(?:\.\d{1,2})?$/', $normalized)) {
-            throw new DomainException("Nilai komisi tidak valid: {$amount}");
-        }
-
-        [$wholePart, $fractionPart] = array_pad(explode('.', $normalized, 2), 2, '0');
-        $fractionPart = str_pad(substr($fractionPart, 0, self::MONEY_SCALE), self::MONEY_SCALE, '0');
-        $minorUnits = ((int) $wholePart * self::MINOR_UNIT_MULTIPLIER) + (int) $fractionPart;
-
-        return $isNegative ? -$minorUnits : $minorUnits;
-    }
-
-    private function formatMoneyValue(string|int|null $amount): string
-    {
-        return $this->formatMoneyFromMinorUnits($this->moneyToMinorUnits($amount));
-    }
-
-    private function formatMoneyFromMinorUnits(int $amount): string
-    {
-        $isNegative = $amount < 0;
-        $absoluteAmount = abs($amount);
-        $wholePart = intdiv($absoluteAmount, self::MINOR_UNIT_MULTIPLIER);
-        $fractionPart = str_pad((string) ($absoluteAmount % self::MINOR_UNIT_MULTIPLIER), self::MONEY_SCALE, '0', STR_PAD_LEFT);
-
-        return ($isNegative ? '-' : '').$wholePart.'.'.$fractionPart;
-    }
-
-    private function calculatePercentageMinorUnits(int $amount, int $basisPoints): int
-    {
-        return intdiv(($amount * $basisPoints) + 5000, 10000);
     }
 }

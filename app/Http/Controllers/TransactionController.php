@@ -3,12 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreDailyBatchTransactionRequest;
-use App\Http\Requests\UpdateTransactionRequest;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\Product;
 use App\Models\Service;
 use App\Models\Transaction;
+use App\Services\CommissionSettingsService;
 use App\Services\TransactionService;
 use DomainException;
 use Illuminate\Http\RedirectResponse;
@@ -23,17 +23,40 @@ class TransactionController extends Controller
             'start_date' => $request->query('start_date'),
             'end_date' => $request->query('end_date'),
             'employee_id' => $request->query('employee_id'),
-            'payment_method' => $request->query('payment_method'),
+            'payroll_status' => $request->query('payroll_status'),
         ];
 
         $transactions = Transaction::query()
-            ->with(['employee:id,name'])
-            ->withSum(['transactionItems as total_services' => fn ($query) => $query->where('item_type', 'service')], 'qty')
-            ->withSum(['transactionItems as total_products' => fn ($query) => $query->where('item_type', 'product')], 'qty')
+            ->with([
+                'employee:id,name',
+                'payrollPeriod:id,status,start_date,end_date,closed_at',
+                'transactionItems:id,transaction_id,item_name,item_type,qty,employee_name',
+            ])
+            ->withSum(
+                ['transactionItems as total_services' => fn ($query) => $query->where('item_type', 'service')],
+                'qty'
+            )
+            ->withSum(
+                ['transactionItems as total_products' => fn ($query) => $query->where('item_type', 'product')],
+                'qty'
+            )
             ->when($filters['start_date'], fn ($query, $startDate) => $query->whereDate('transaction_date', '>=', $startDate))
             ->when($filters['end_date'], fn ($query, $endDate) => $query->whereDate('transaction_date', '<=', $endDate))
-            ->when($filters['employee_id'], fn ($query, $employeeId) => $query->where('employee_id', $employeeId))
-            ->when($filters['payment_method'], fn ($query, $paymentMethod) => $query->where('payment_method', $paymentMethod))
+            ->when($filters['employee_id'], function ($query, $employeeId) {
+                $query->where(function ($transactionQuery) use ($employeeId): void {
+                    $transactionQuery
+                        ->where('employee_id', $employeeId)
+                        ->orWhereHas('transactionItems', fn ($itemQuery) => $itemQuery->where('employee_id', $employeeId));
+                });
+            })
+            ->when($filters['payroll_status'], function ($query, $payrollStatus): void {
+                match ($payrollStatus) {
+                    'open' => $query->whereHas('payrollPeriod', fn ($payrollQuery) => $payrollQuery->where('status', PayrollPeriod::STATUS_OPEN)),
+                    'closed' => $query->whereHas('payrollPeriod', fn ($payrollQuery) => $payrollQuery->where('status', PayrollPeriod::STATUS_CLOSED)),
+                    'unassigned' => $query->whereNull('payroll_id'),
+                    default => null,
+                };
+            })
             ->orderByDesc('transaction_date')
             ->orderByDesc('id')
             ->paginate(10)
@@ -46,15 +69,25 @@ class TransactionController extends Controller
         return view('transactions.index', compact('transactions', 'employees', 'filters'));
     }
 
-    public function createDailyBatch(): View
+    public function createDailyBatch(CommissionSettingsService $commissionSettingsService): View
     {
-        ['employees' => $employees, 'services' => $services, 'products' => $products] = $this->getTransactionFormOptions();
+        ['employees' => $employees, 'services' => $services, 'products' => $products] = $this->getDailyBatchOptions();
         $activePayroll = PayrollPeriod::query()
             ->where('status', PayrollPeriod::STATUS_OPEN)
             ->latest('id')
             ->first();
+        $commissionDefaults = [
+            'service' => $commissionSettingsService->getDefaultServiceCommission(),
+            'product' => $commissionSettingsService->getDefaultProductCommission(),
+        ];
 
-        return view('transactions.daily-batch', compact('employees', 'services', 'products', 'activePayroll'));
+        return view('transactions.daily-batch', compact(
+            'employees',
+            'services',
+            'products',
+            'activePayroll',
+            'commissionDefaults',
+        ));
     }
 
     public function storeDailyBatch(
@@ -95,61 +128,12 @@ class TransactionController extends Controller
         $transaction = Transaction::query()
             ->with([
                 'employee:id,name',
+                'payrollPeriod:id,status,start_date,end_date,closed_at',
                 'transactionItems' => fn ($query) => $query->orderBy('id'),
             ])
             ->findOrFail($id);
 
         return view('transactions.show', compact('transaction'));
-    }
-
-    public function edit(string $id): View
-    {
-        $transaction = Transaction::query()
-            ->with([
-                'transactionItems' => fn ($query) => $query
-                    ->select('id', 'transaction_id', 'item_type', 'service_id', 'product_id', 'qty')
-                    ->orderBy('id'),
-            ])
-            ->findOrFail($id);
-
-        ['employees' => $employees, 'services' => $services, 'products' => $products] = $this->getTransactionFormOptions($transaction);
-        ['selectedServices' => $selectedServices, 'selectedProducts' => $selectedProducts] = $this->mapTransactionSelections($transaction);
-
-        return view('transactions.edit', compact(
-            'transaction',
-            'employees',
-            'services',
-            'products',
-            'selectedServices',
-            'selectedProducts',
-        ));
-    }
-
-    public function update(
-        UpdateTransactionRequest $request,
-        Transaction $transaction,
-        TransactionService $transactionService
-    ): RedirectResponse
-    {
-        try {
-            $transaction = $transactionService->updateTransaction($transaction, $request->validated());
-
-            return redirect()
-                ->route('transactions.show', $transaction)
-                ->with('success', 'Transaksi berhasil diperbarui.');
-        } catch (DomainException $exception) {
-            return redirect()
-                ->back()
-                ->withInput()
-                ->with('error', $exception->getMessage());
-        } catch (\Throwable $exception) {
-            report($exception);
-
-            return redirect()
-                ->back()
-                ->withInput()
-                ->with('error', 'Terjadi kesalahan saat memperbarui transaksi. Silakan coba lagi.');
-        }
     }
 
     public function destroy(Transaction $transaction, TransactionService $transactionService): RedirectResponse
@@ -173,54 +157,22 @@ class TransactionController extends Controller
         }
     }
 
-    private function getTransactionFormOptions(?Transaction $transaction = null): array
+    private function getDailyBatchOptions(): array
     {
-        $selectedEmployeeId = $transaction?->employee_id;
         $employees = Employee::query()
-            ->when(
-                $selectedEmployeeId !== null,
-                fn ($query) => $query->where(function ($employeeQuery) use ($selectedEmployeeId): void {
-                    $employeeQuery
-                        ->active()
-                        ->orWhere('id', $selectedEmployeeId);
-                }),
-                fn ($query) => $query->active(),
-            )
+            ->active()
             ->orderBy('name')
-            ->get(['id', 'name', 'is_active']);
+            ->get(['id', 'name', 'is_active', 'employment_type']);
 
         $services = Service::query()
             ->orderBy('name')
-            ->get(['id', 'name', 'price']);
+            ->get(['id', 'name', 'price', 'commission_type', 'commission_value']);
 
         $products = Product::query()
             ->orderBy('name')
-            ->get(['id', 'name', 'price', 'stock']);
+            ->get(['id', 'name', 'price', 'stock', 'commission_type', 'commission_value']);
 
         return compact('employees', 'services', 'products');
-    }
-
-    private function mapTransactionSelections(Transaction $transaction): array
-    {
-        $selectedServices = $transaction->transactionItems
-            ->where('item_type', 'service')
-            ->filter(fn ($detail) => $detail->service_id !== null && (int) $detail->qty > 0)
-            ->flatMap(fn ($detail) => array_fill(0, max(1, (int) $detail->qty), [
-                'service_id' => (int) $detail->service_id,
-            ]))
-            ->values()
-            ->all();
-
-        $selectedProducts = $transaction->transactionItems
-            ->where('item_type', 'product')
-            ->filter(fn ($detail) => $detail->product_id !== null && (int) $detail->qty > 0)
-            ->map(fn ($detail) => [
-                'product_id' => (int) $detail->product_id,
-                'qty' => (int) $detail->qty,
-            ])
-            ->all();
-
-        return compact('selectedServices', 'selectedProducts');
     }
 
     private function findClosedPayrollForDate(?string $transactionDate): ?PayrollPeriod

@@ -2,12 +2,56 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-    compareDailyBatchSummaryWithManualRecap,
+    buildAutofillEntrySeed,
+    buildDuplicatedEntrySeed,
     summarizeDailyBatchEntries,
 } from '../../resources/js/transactions/daily-batch-reconciliation.js';
 
 const buildSummary = (entries) => summarizeDailyBatchEntries(entries, {
     lineSubtotal: (item) => item.subtotal_minor_units ?? 0,
+});
+
+test('autofill blok baru mewarisi pegawai utama dan metode bayar terakhir tanpa menyalin catatan', () => {
+    const seed = buildAutofillEntrySeed({
+        employee_id: '7',
+        payment_method: 'qr',
+        notes: 'Jangan ikut',
+        items: [
+            { item_type: 'service', service_id: '10', qty: 1 },
+        ],
+    });
+
+    assert.deepEqual(seed, {
+        employee_id: '7',
+        payment_method: 'qr',
+        notes: '',
+    });
+});
+
+test('duplikat blok menyalin field penting dan membuat nested item yang independen', () => {
+    const sourceEntry = {
+        employee_id: '4',
+        payment_method: 'cash',
+        notes: 'Catatan lama',
+        items: [
+            { item_type: 'service', service_id: '10', product_id: '', employee_id: '4', qty: 1 },
+            { item_type: 'product', service_id: '', product_id: '20', employee_id: '4', qty: 3 },
+        ],
+    };
+    const duplicatedSeed = buildDuplicatedEntrySeed(sourceEntry);
+
+    assert.deepEqual(duplicatedSeed, {
+        employee_id: '4',
+        payment_method: 'cash',
+        notes: '',
+        items: [
+            { item_type: 'service', service_id: '10', product_id: '', employee_id: '4', qty: 1 },
+            { item_type: 'product', service_id: '', product_id: '20', employee_id: '4', qty: 3 },
+        ],
+    });
+    assert.notStrictEqual(duplicatedSeed.items, sourceEntry.items);
+    assert.notStrictEqual(duplicatedSeed.items[0], sourceEntry.items[0]);
+    assert.notStrictEqual(duplicatedSeed.items[1], sourceEntry.items[1]);
 });
 
 test('summary menghitung metrik dasar batch harian', () => {
@@ -85,46 +129,28 @@ test('perubahan komposisi service dan product memengaruhi ringkasan yang sesuai'
     assert.equal(summary.productItemCount, 3);
 });
 
-test('rekap manual yang cocok menghasilkan status match', () => {
-    const comparison = compareDailyBatchSummaryWithManualRecap(
+test('blok yang belum lengkap tetap terhitung sebagai perlu dicek tanpa mengganggu total terisi', () => {
+    const summary = buildSummary([
         {
-            filledEntries: 2,
-            cash: 25000000,
-            qr: 12000000,
+            employee_id: '1',
+            payment_method: 'cash',
+            items: [
+                { item_type: 'service', service_id: '10', qty: 1, subtotal_minor_units: 10000000 },
+            ],
         },
         {
-            transaction_count: '2',
-            cash: '250000',
-            qr: '120000',
+            employee_id: '',
+            payment_method: 'cash',
+            notes: 'Masih draft',
+            items: [
+                { item_type: 'product', product_id: '20', qty: 2, subtotal_minor_units: 7000000 },
+            ],
         },
-    );
+    ]);
 
-    assert.equal(comparison.status, 'match');
-    assert.equal(comparison.label, 'Sudah cocok');
-    assert.equal(comparison.mismatches.length, 0);
-});
-
-test('rekap manual yang berbeda menghasilkan status mismatch dan delta yang jelas', () => {
-    const comparison = compareDailyBatchSummaryWithManualRecap(
-        {
-            filledEntries: 3,
-            cash: 30000000,
-            qr: 10000000,
-        },
-        {
-            transaction_count: '2',
-            cash: '250000',
-            qr: '100000',
-        },
-    );
-
-    assert.equal(comparison.status, 'mismatch');
-    assert.equal(comparison.label, 'Ada selisih');
-    assert.deepEqual(
-        comparison.mismatches.map((item) => [item.key, item.delta]),
-        [
-            ['transaction_count', 1],
-            ['cash', 5000000],
-        ],
-    );
+    assert.equal(summary.totalBlocks, 2);
+    assert.equal(summary.filledEntries, 2);
+    assert.equal(summary.readyEntries, 1);
+    assert.equal(summary.attentionEntries, 1);
+    assert.equal(summary.grossCashIn, 17000000);
 });

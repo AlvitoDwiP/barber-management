@@ -10,11 +10,6 @@
             'qty' => 1,
         ]],
     ]]);
-    $initialManualRecap = [
-        'transaction_count' => old('manual_recap.transaction_count', ''),
-        'cash' => old('manual_recap.cash', ''),
-        'qr' => old('manual_recap.qr', ''),
-    ];
     $employeeOptions = $employees->map(fn ($employee) => [
         'id' => $employee->id,
         'name' => $employee->name,
@@ -52,7 +47,6 @@
             productOptions: @js($productOptions),
             commissionDefaults: @js($commissionDefaults),
             initialEntries: @js($initialEntries),
-            initialManualRecap: @js($initialManualRecap),
             errors: @js($errors->getMessages()),
         })"
         x-init="init()"
@@ -121,6 +115,7 @@
                 <template x-for="(entry, entryIndex) in entries" :key="entry.key">
                     <section
                         class="admin-card"
+                        :data-entry-key="entry.key"
                         :class="entryHasErrors(entryIndex)
                             ? 'ring-1 ring-rose-200'
                             : entryNeedsAttention(entryIndex)
@@ -130,7 +125,7 @@
                         <div class="flex flex-col gap-4 border-b border-slate-200 pb-5 lg:flex-row lg:items-start lg:justify-between">
                             <div>
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <h3 class="text-base font-semibold text-slate-900" x-text="`Blok Transaksi ${entryIndex + 1}`"></h3>
+                                    <h3 class="text-base font-semibold text-slate-900" x-text="`Transaksi ${entryIndex + 1}`"></h3>
                                     <span
                                         class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide"
                                         :class="entryStatus(entryIndex).badgeClass"
@@ -140,9 +135,14 @@
                                 <p class="mt-1 text-sm text-slate-500">Setiap blok adalah 1 transaksi terpisah. Item di dalamnya tetap memakai aturan layanan, produk, komisi, dan payroll yang sama di seluruh modul transaksi.</p>
                             </div>
 
-                            <button type="button" class="btn-neutral-warm self-start" @click="removeTransaction(entryIndex)">
-                                Hapus Blok
-                            </button>
+                            <div class="flex flex-wrap items-center gap-2 self-start">
+                                <button type="button" class="btn-brand-soft" @click="duplicateTransaction(entryIndex)">
+                                    Duplikat
+                                </button>
+                                <button type="button" class="btn-neutral-warm" @click="removeTransaction(entryIndex)">
+                                    Hapus
+                                </button>
+                            </div>
                         </div>
 
                         <div class="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
@@ -151,6 +151,7 @@
                                 <select
                                     class="form-brand-control"
                                     :name="`entries[${entryIndex}][employee_id]`"
+                                    data-entry-employee-select="true"
                                     x-model="entry.employee_id"
                                     required
                                 >
@@ -247,6 +248,7 @@
                                                 <select
                                                     class="form-brand-control"
                                                     :name="`entries[${entryIndex}][items][${rowIndex}][service_id]`"
+                                                    :data-entry-item-select="rowIndex === 0 ? 'true' : null"
                                                     x-model="item.service_id"
                                                 >
                                                     <option value="">Pilih layanan</option>
@@ -260,6 +262,7 @@
                                                 <select
                                                     class="form-brand-control"
                                                     :name="`entries[${entryIndex}][items][${rowIndex}][product_id]`"
+                                                    :data-entry-item-select="rowIndex === 0 ? 'true' : null"
                                                     x-model="item.product_id"
                                                 >
                                                     <option value="">Pilih produk</option>
@@ -370,15 +373,15 @@
 
             <div class="flex">
                 <button type="button" class="btn-brand-soft w-full justify-center sm:w-auto" @click="addTransaction()">
-                    Tambah Blok Transaksi
+                    Tambah Transaksi
                 </button>
             </div>
 
             <section class="admin-card">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div class="space-y-2">
-                        <h4 class="text-base font-semibold text-slate-900">Ringkasan & Rekonsiliasi Harian</h4>
-                        <p class="text-sm text-slate-500">Panel ini membantu owner memeriksa apakah input batch hari ini sudah mendekati catatan buku sebelum semua transaksi disimpan.</p>
+                        <h4 class="text-base font-semibold text-slate-900">Ringkasan Input Harian</h4>
+                        <p class="text-sm text-slate-500">Cek total input hari ini sebelum semua blok disimpan. Ringkas, cepat dibaca, dan tetap nyaman di mobile.</p>
                     </div>
 
                     <div
@@ -393,142 +396,47 @@
                     </div>
                 </div>
 
-                <div class="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,1fr)]">
-                    <div class="space-y-5">
-                        <div>
-                            <h5 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Ringkasan realtime</h5>
-                            <dl class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                                <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                                    <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Transaksi terisi</dt>
-                                    <dd class="mt-1 text-base font-semibold text-slate-900" x-text="formatWholeNumber(batchSummary().filledEntries)"></dd>
-                                </div>
-                                <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                                    <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Kas Masuk</dt>
-                                    <dd class="mt-1 text-base font-semibold text-slate-900" x-text="formatCurrency(batchSummary().grossCashIn)"></dd>
-                                </div>
-                                <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                                    <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Cash</dt>
-                                    <dd class="mt-1 text-base font-semibold text-slate-900" x-text="formatCurrency(batchSummary().cash)"></dd>
-                                </div>
-                                <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                                    <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">QR</dt>
-                                    <dd class="mt-1 text-base font-semibold text-slate-900" x-text="formatCurrency(batchSummary().qr)"></dd>
-                                </div>
-                                <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                                    <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pendapatan Layanan</dt>
-                                    <dd class="mt-1 text-base font-semibold text-slate-900" x-text="formatCurrency(batchSummary().serviceRevenue)"></dd>
-                                </div>
-                                <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                                    <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pendapatan Produk</dt>
-                                    <dd class="mt-1 text-base font-semibold text-slate-900" x-text="formatCurrency(batchSummary().productRevenue)"></dd>
-                                </div>
-                            </dl>
+                <div class="mt-5 space-y-4">
+                    <dl class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Transaksi terisi</dt>
+                            <dd class="mt-1 text-base font-semibold text-slate-900" x-text="formatWholeNumber(batchSummary().filledEntries)"></dd>
                         </div>
-
-                        <div class="rounded-2xl border border-[#E1C5B8] bg-[#FAF3EF] px-4 py-4">
-                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                <div>
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-[#8B533B]">Blok total</p>
-                                    <p class="mt-1 text-sm font-semibold text-[#6B3721]" x-text="formatWholeNumber(batchSummary().totalBlocks)"></p>
-                                </div>
-                                <div>
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-[#8B533B]">Siap simpan</p>
-                                    <p class="mt-1 text-sm font-semibold text-[#6B3721]" x-text="formatWholeNumber(batchSummary().readyEntries)"></p>
-                                </div>
-                                <div>
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-[#8B533B]">Blok perlu dicek</p>
-                                    <p class="mt-1 text-sm font-semibold text-[#6B3721]" x-text="formatWholeNumber(batchSummary().attentionEntries)"></p>
-                                </div>
-                            </div>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Kas Masuk</dt>
+                            <dd class="mt-1 text-base font-semibold text-slate-900" x-text="formatCurrency(batchSummary().grossCashIn)"></dd>
                         </div>
-                    </div>
-
-                    <div class="space-y-4">
-                        <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4">
-                            <h5 class="text-sm font-semibold text-slate-900">Rekap Manual</h5>
-                            <p class="mt-1 text-sm text-slate-500">Opsional. Isi sesuai catatan buku agar sistem bisa langsung menunjukkan apakah angka cash dan QR sudah cocok.</p>
-
-                            <div class="mt-4 space-y-4">
-                                <div>
-                                    <x-input-label :value="__('Jumlah transaksi menurut buku')" />
-                                    <input
-                                        type="text"
-                                        inputmode="numeric"
-                                        class="form-brand-control mt-1"
-                                        name="manual_recap[transaction_count]"
-                                        :value="manualRecap.transaction_count"
-                                        @input="updateManualRecapField('transaction_count', $event.target.value)"
-                                        placeholder="Contoh: 12"
-                                    />
-                                    <p class="mt-2 text-xs text-slate-500" x-show="manualRecapHint('transaction_count')" x-text="manualRecapHint('transaction_count')"></p>
-                                </div>
-
-                                <div>
-                                    <x-input-label :value="__('Total cash menurut buku')" />
-                                    <input
-                                        type="text"
-                                        inputmode="numeric"
-                                        class="form-brand-control mt-1"
-                                        name="manual_recap[cash]"
-                                        :value="manualRecap.cash"
-                                        @input="updateManualRecapField('cash', $event.target.value)"
-                                        placeholder="Contoh: 350000"
-                                    />
-                                    <p class="mt-2 text-xs text-slate-500" x-show="manualRecapHint('cash')" x-text="manualRecapHint('cash')"></p>
-                                </div>
-
-                                <div>
-                                    <x-input-label :value="__('Total QR menurut buku')" />
-                                    <input
-                                        type="text"
-                                        inputmode="numeric"
-                                        class="form-brand-control mt-1"
-                                        name="manual_recap[qr]"
-                                        :value="manualRecap.qr"
-                                        @input="updateManualRecapField('qr', $event.target.value)"
-                                        placeholder="Contoh: 275000"
-                                    />
-                                    <p class="mt-2 text-xs text-slate-500" x-show="manualRecapHint('qr')" x-text="manualRecapHint('qr')"></p>
-                                </div>
-                            </div>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Cash</dt>
+                            <dd class="mt-1 text-base font-semibold text-slate-900" x-text="formatCurrency(batchSummary().cash)"></dd>
                         </div>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">QR</dt>
+                            <dd class="mt-1 text-base font-semibold text-slate-900" x-text="formatCurrency(batchSummary().qr)"></dd>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pendapatan Layanan</dt>
+                            <dd class="mt-1 text-base font-semibold text-slate-900" x-text="formatCurrency(batchSummary().serviceRevenue)"></dd>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pendapatan Produk</dt>
+                            <dd class="mt-1 text-base font-semibold text-slate-900" x-text="formatCurrency(batchSummary().productRevenue)"></dd>
+                        </div>
+                    </dl>
 
-                        <div class="rounded-2xl border px-4 py-4" :class="reconciliationStatusClass()">
-                            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                <div>
-                                    <h5 class="text-sm font-semibold">Status Rekonsiliasi</h5>
-                                    <p class="mt-1 text-sm leading-6" x-text="reconciliationStatus().message"></p>
-                                </div>
-                                <span class="inline-flex items-center rounded-full border border-current/15 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-wide" x-text="reconciliationStatus().label"></span>
+                    <div class="rounded-2xl border border-[#E1C5B8] bg-[#FAF3EF] px-4 py-4">
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-wide text-[#8B533B]">Blok total</p>
+                                <p class="mt-1 text-sm font-semibold text-[#6B3721]" x-text="formatWholeNumber(batchSummary().totalBlocks)"></p>
                             </div>
-
-                            <div class="mt-4 space-y-3">
-                                <template x-for="comparison in reconciliationStatus().comparisons" :key="comparison.key">
-                                    <article class="rounded-2xl border px-4 py-3" :class="comparisonCardClass(comparison)">
-                                        <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                            <div>
-                                                <p class="text-sm font-semibold text-slate-900" x-text="comparison.label"></p>
-                                                <p class="mt-1 text-xs uppercase tracking-wide text-slate-500" x-text="comparisonStatusLabel(comparison)"></p>
-                                            </div>
-                                            <p class="text-sm font-semibold text-slate-900" x-text="comparison.provided ? `Selisih ${formatComparisonDelta(comparison)}` : 'Menunggu angka buku'"></p>
-                                        </div>
-
-                                        <div class="mt-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-                                            <div>
-                                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Sistem</p>
-                                                <p class="mt-1 font-semibold text-slate-900" x-text="formatComparisonValue(comparison, 'system')"></p>
-                                            </div>
-                                            <div>
-                                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Buku</p>
-                                                <p class="mt-1 font-semibold text-slate-900" x-text="formatComparisonValue(comparison, 'manual')"></p>
-                                            </div>
-                                            <div>
-                                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Selisih</p>
-                                                <p class="mt-1 font-semibold text-slate-900" x-text="formatComparisonDelta(comparison)"></p>
-                                            </div>
-                                        </div>
-                                    </article>
-                                </template>
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-wide text-[#8B533B]">Siap simpan</p>
+                                <p class="mt-1 text-sm font-semibold text-[#6B3721]" x-text="formatWholeNumber(batchSummary().readyEntries)"></p>
+                            </div>
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-wide text-[#8B533B]">Perlu dicek</p>
+                                <p class="mt-1 text-sm font-semibold text-[#6B3721]" x-text="formatWholeNumber(batchSummary().attentionEntries)"></p>
                             </div>
                         </div>
                     </div>

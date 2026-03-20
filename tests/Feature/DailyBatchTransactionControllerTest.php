@@ -21,13 +21,16 @@ class DailyBatchTransactionControllerTest extends TestCase
 
         $response->assertOk();
         $response->assertSeeText('Input harian beberapa transaksi sekaligus');
-        $response->assertSeeText('Tambah Blok Transaksi');
-        $response->assertSeeText('Rekonsiliasi Harian');
-        $response->assertSeeText('Rekap Manual');
-        $response->assertSeeText('Status Rekonsiliasi');
-        $response->assertSee('manual_recap[transaction_count]', false);
-        $response->assertSee('manual_recap[cash]', false);
-        $response->assertSee('manual_recap[qr]', false);
+        $response->assertSeeText('Tambah Transaksi');
+        $response->assertSeeText('Duplikat');
+        $response->assertSeeText('Ringkasan Input Harian');
+        $response->assertSeeText('Transaksi terisi');
+        $response->assertSeeText('Kas Masuk');
+        $response->assertDontSeeText('Rekap Manual');
+        $response->assertDontSeeText('Status Rekonsiliasi');
+        $response->assertDontSee('manual_recap[transaction_count]', false);
+        $response->assertDontSee('manual_recap[cash]', false);
+        $response->assertDontSee('manual_recap[qr]', false);
     }
 
     public function test_authenticated_user_can_store_daily_batch_transactions(): void
@@ -46,11 +49,6 @@ class DailyBatchTransactionControllerTest extends TestCase
 
         $response = $this->actingAs($user)->post(route('transactions.daily-batch.store'), [
             'transaction_date' => '2026-03-15',
-            'manual_recap' => [
-                'transaction_count' => '2',
-                'cash' => '200000',
-                'qr' => '200000',
-            ],
             'entries' => [
                 [
                     'employee_id' => $employee->id,

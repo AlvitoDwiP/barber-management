@@ -1,31 +1,49 @@
 const hasFilledValue = (value) => value !== null && value !== undefined && String(value).trim() !== '';
+const toPositiveInteger = (value, fallback = 1) => {
+    const parsed = Number.parseInt(value, 10);
 
-export const normalizeDigitInput = (value) => String(value ?? '').replace(/[^\d]/g, '');
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+const normalizeSelectValue = (value) => (hasFilledValue(value) ? String(value) : '');
+const normalizeCopiedItemType = (item) => (item?.item_type === 'product' ? 'product' : 'service');
 
-export const normalizeManualRecap = (manualRecap = {}) => ({
-    transaction_count: normalizeDigitInput(manualRecap?.transaction_count),
-    cash: normalizeDigitInput(manualRecap?.cash),
-    qr: normalizeDigitInput(manualRecap?.qr),
-});
+const cloneEntryItemSeed = (item = {}) => {
+    const itemType = normalizeCopiedItemType(item);
 
-export const parseOptionalIntegerInput = (value) => {
-    const normalized = normalizeDigitInput(value);
-
-    if (normalized === '') {
-        return null;
-    }
-
-    return Number.parseInt(normalized, 10);
+    return {
+        item_type: itemType,
+        service_id: itemType === 'service' ? normalizeSelectValue(item?.service_id) : '',
+        product_id: itemType === 'product' ? normalizeSelectValue(item?.product_id) : '',
+        employee_id: normalizeSelectValue(item?.employee_id),
+        qty: itemType === 'product' ? toPositiveInteger(item?.qty, 1) : 1,
+    };
 };
 
-export const parseOptionalCurrencyInputToMinorUnits = (value) => {
-    const wholeRupiah = parseOptionalIntegerInput(value);
-
-    if (wholeRupiah === null) {
-        return null;
+export const buildAutofillEntrySeed = (entry = null) => {
+    if (! entry) {
+        return {};
     }
 
-    return wholeRupiah * 100;
+    return {
+        employee_id: normalizeSelectValue(entry?.employee_id),
+        payment_method: ['cash', 'qr'].includes(entry?.payment_method) ? entry.payment_method : 'cash',
+        notes: '',
+    };
+};
+
+export const buildDuplicatedEntrySeed = (entry = null) => {
+    if (! entry) {
+        return {};
+    }
+
+    const items = Array.isArray(entry?.items) ? entry.items.map((item) => cloneEntryItemSeed(item)) : [];
+
+    return {
+        employee_id: normalizeSelectValue(entry?.employee_id),
+        payment_method: ['cash', 'qr'].includes(entry?.payment_method) ? entry.payment_method : 'cash',
+        notes: '',
+        items,
+    };
 };
 
 export const hasSelectedTransactionItem = (item) => {
@@ -120,68 +138,4 @@ export const summarizeDailyBatchEntries = (entries = [], { lineSubtotal } = {}) 
         productRevenue: 0,
         productItemCount: 0,
     });
-};
-
-const createComparison = ({ key, label, kind, system, manual }) => ({
-    key,
-    label,
-    kind,
-    system,
-    manual,
-    provided: manual !== null,
-    matches: manual !== null && system === manual,
-    delta: manual === null ? null : system - manual,
-});
-
-export const compareDailyBatchSummaryWithManualRecap = (summary = {}, manualRecap = {}) => {
-    const comparisons = [
-        createComparison({
-            key: 'transaction_count',
-            label: 'Jumlah transaksi',
-            kind: 'count',
-            system: summary.filledEntries ?? 0,
-            manual: parseOptionalIntegerInput(manualRecap?.transaction_count),
-        }),
-        createComparison({
-            key: 'cash',
-            label: 'Total cash',
-            kind: 'currency',
-            system: summary.cash ?? 0,
-            manual: parseOptionalCurrencyInputToMinorUnits(manualRecap?.cash),
-        }),
-        createComparison({
-            key: 'qr',
-            label: 'Total QR',
-            kind: 'currency',
-            system: summary.qr ?? 0,
-            manual: parseOptionalCurrencyInputToMinorUnits(manualRecap?.qr),
-        }),
-    ];
-
-    const providedComparisons = comparisons.filter((comparison) => comparison.provided);
-    const mismatches = providedComparisons.filter((comparison) => ! comparison.matches);
-    const hasAnyComparison = providedComparisons.length > 0;
-    const status = ! hasAnyComparison
-        ? 'idle'
-        : mismatches.length === 0
-            ? 'match'
-            : 'mismatch';
-
-    return {
-        status,
-        label: {
-            idle: 'Belum dibandingkan',
-            match: 'Sudah cocok',
-            mismatch: 'Ada selisih',
-        }[status],
-        message: {
-            idle: 'Isi angka buku yang ingin dicek. Sistem akan langsung membandingkan total transaksi, cash, dan QR.',
-            match: 'Angka buku yang sudah diisi saat ini sama dengan hitungan sistem.',
-            mismatch: 'Masih ada perbedaan antara input sistem dan catatan buku. Cek baris yang bertanda selisih.',
-        }[status],
-        hasAnyComparison,
-        providedComparisons,
-        mismatches,
-        comparisons,
-    };
 };

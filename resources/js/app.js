@@ -3,6 +3,15 @@ import flatpickr from 'flatpickr';
 import 'flatpickr/dist/flatpickr.min.css';
 
 import Alpine from 'alpinejs';
+import {
+    compareDailyBatchSummaryWithManualRecap,
+    entryHasMeaningfulInput,
+    isBatchEntryReady,
+    normalizeManualRecap,
+    parseOptionalCurrencyInputToMinorUnits,
+    parseOptionalIntegerInput,
+    summarizeDailyBatchEntries,
+} from './transactions/daily-batch-reconciliation';
 
 window.Alpine = Alpine;
 
@@ -94,6 +103,7 @@ const roundMinorUnitsToWholeRupiah = (minorUnits) => {
 };
 
 const formatCurrency = (minorUnits) => `Rp ${currencyFormatter.format(roundMinorUnitsToWholeRupiah(minorUnits))}`;
+const formatWholeNumber = (value) => currencyFormatter.format(value ?? 0);
 
 const normalizePricedOptions = (options) => (
     Array.isArray(options)
@@ -302,12 +312,14 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('dailyBatchTransactionForm', (config = {}) => ({
         ...transactionFormMixin(config),
         entries: [],
+        manualRecap: normalizeManualRecap(config.initialManualRecap ?? {}),
         init() {
             const initialEntries = Array.isArray(config.initialEntries) && config.initialEntries.length > 0
                 ? config.initialEntries
                 : [{}];
 
             this.entries = initialEntries.map((entry) => normalizeDailyBatchEntry(entry));
+            this.manualRecap = normalizeManualRecap(config.initialManualRecap ?? {});
         },
         addTransaction() {
             this.entries.push(normalizeDailyBatchEntry({}));
@@ -361,6 +373,118 @@ document.addEventListener('alpine:init', () => {
         batchGrandTotal() {
             return this.entries.reduce((total, entry) => total + this.entryGrandTotal(entry), 0);
         },
+        batchSummary() {
+            return summarizeDailyBatchEntries(this.entries, {
+                lineSubtotal: (item) => this.lineSubtotal(item),
+            });
+        },
+        entryNeedsAttention(entryIndex) {
+            const entry = this.entries[entryIndex] ?? {};
+
+            return entryHasMeaningfulInput(entry) && ! isBatchEntryReady(entry);
+        },
+        entryStatus(entryIndex) {
+            if (this.entryHasErrors(entryIndex)) {
+                return {
+                    label: 'Perlu cek',
+                    badgeClass: 'bg-rose-100 text-rose-700',
+                };
+            }
+
+            if (this.entryNeedsAttention(entryIndex)) {
+                return {
+                    label: 'Belum lengkap',
+                    badgeClass: 'bg-amber-100 text-amber-700',
+                };
+            }
+
+            if (isBatchEntryReady(this.entries[entryIndex] ?? {})) {
+                return {
+                    label: 'Siap input',
+                    badgeClass: 'bg-[#FAF3EF] text-[#7D4026]',
+                };
+            }
+
+            return {
+                label: 'Draft kosong',
+                badgeClass: 'bg-slate-100 text-slate-600',
+            };
+        },
+        updateManualRecapField(field, value) {
+            this.manualRecap = {
+                ...this.manualRecap,
+                ...normalizeManualRecap({ [field]: value }),
+            };
+        },
+        manualRecapHint(field) {
+            if (field === 'transaction_count') {
+                const parsed = parseOptionalIntegerInput(this.manualRecap[field]);
+
+                return parsed === null ? '' : `${formatWholeNumber(parsed)} transaksi`;
+            }
+
+            const parsed = parseOptionalCurrencyInputToMinorUnits(this.manualRecap[field]);
+
+            return parsed === null ? '' : formatCurrency(parsed);
+        },
+        reconciliationStatus() {
+            return compareDailyBatchSummaryWithManualRecap(this.batchSummary(), this.manualRecap);
+        },
+        reconciliationStatusClass() {
+            return {
+                idle: 'border-slate-200 bg-slate-50 text-slate-700',
+                match: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+                mismatch: 'border-amber-200 bg-amber-50 text-amber-800',
+            }[this.reconciliationStatus().status] ?? 'border-slate-200 bg-slate-50 text-slate-700';
+        },
+        comparisonCardClass(comparison) {
+            if (! comparison.provided) {
+                return 'border-slate-200 bg-slate-50';
+            }
+
+            return comparison.matches
+                ? 'border-emerald-200 bg-emerald-50'
+                : 'border-amber-200 bg-amber-50';
+        },
+        comparisonStatusLabel(comparison) {
+            if (! comparison.provided) {
+                return 'Belum diisi';
+            }
+
+            return comparison.matches ? 'Cocok' : 'Selisih';
+        },
+        formatComparisonValue(comparison, key = 'system') {
+            const value = comparison[key];
+
+            if (value === null) {
+                return 'Belum diisi';
+            }
+
+            if (comparison.kind === 'currency') {
+                return formatCurrency(value);
+            }
+
+            return formatWholeNumber(value);
+        },
+        formatComparisonDelta(comparison) {
+            if (comparison.delta === null) {
+                return '-';
+            }
+
+            if (comparison.kind === 'currency') {
+                if (comparison.delta === 0) {
+                    return formatCurrency(0);
+                }
+
+                return `${comparison.delta > 0 ? '+' : '-'}${formatCurrency(Math.abs(comparison.delta))}`;
+            }
+
+            if (comparison.delta === 0) {
+                return formatWholeNumber(0);
+            }
+
+            return `${comparison.delta > 0 ? '+' : '-'}${formatWholeNumber(Math.abs(comparison.delta))}`;
+        },
         entryHasErrors(entryIndex) {
             return Object.keys(this.errors).some((key) => key.startsWith(`entries.${entryIndex}.`));
         },
@@ -368,6 +492,7 @@ document.addEventListener('alpine:init', () => {
             return Object.keys(this.errors).some((key) => key.startsWith(`entries.${entryIndex}.items.${rowIndex}.`));
         },
         formatCurrency,
+        formatWholeNumber,
     }));
 
     Alpine.data('singleTransactionEditForm', (config = {}) => ({

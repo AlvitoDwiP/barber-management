@@ -18,6 +18,7 @@ class PaymentReportService
             'month' => ($month ?? now())->format('Y-m'),
             'cash' => '0.00',
             'qr' => '0.00',
+            'cash_in' => '0.00',
             'total_transactions' => 0,
         ];
     }
@@ -40,10 +41,14 @@ class PaymentReportService
             ->orderBy('month_number')
             ->get()
             ->map(function ($row) {
+                $cashMinorUnits = $this->moneyToMinorUnits($row->total_cash);
+                $qrMinorUnits = $this->moneyToMinorUnits($row->total_qr);
+
                 return [
                     'month_number' => (int) $row->month_number,
                     'total_cash' => $this->moneyToDecimal($row->total_cash),
                     'total_qr' => $this->moneyToDecimal($row->total_qr),
+                    'cash_in' => $this->moneyFromMinorUnits($cashMinorUnits + $qrMinorUnits),
                     'total_transactions' => (int) $row->total_transactions,
                 ];
             })
@@ -56,6 +61,7 @@ class PaymentReportService
                 'month_number' => $month,
                 'total_cash' => (string) ($row['total_cash'] ?? '0.00'),
                 'total_qr' => (string) ($row['total_qr'] ?? '0.00'),
+                'cash_in' => (string) ($row['cash_in'] ?? '0.00'),
                 'total_transactions' => (int) ($row['total_transactions'] ?? 0),
             ];
         });

@@ -14,12 +14,18 @@
         $yearOptions = collect(range(now()->year, now()->year - 9));
         $hasData = $rows->contains(fn (array $row): bool => collect([
             (float) ($row['total_revenue'] ?? 0),
-            (float) ($row['employee_commissions'] ?? 0),
-            (float) ($row['expenses'] ?? 0),
+            (float) ($row['barber_commissions'] ?? 0),
+            (float) ($row['operational_expenses'] ?? 0),
         ])->contains(fn (float $value): bool => abs($value) > 0.0));
     @endphp
 
     <div class="space-y-6">
+        <section class="admin-card space-y-2">
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-900">Definisi Metrik</h3>
+            <p class="text-sm text-slate-600">Komisi Barber dihitung sebagai beban operasional saat transaksi terjadi, bukan saat komisi dibayar.</p>
+            <p class="text-sm text-slate-600">Laba Operasional = Total Pendapatan - Komisi Barber - Pengeluaran Operasional.</p>
+        </section>
+
         <x-report-filter :action="route('reports.monthly')" :showDateRange="false" :showYear="false" :filterKeys="['year']">
             <x-slot name="actions">
                 <a href="{{ route('reports.monthly.export.csv', ['year' => $year]) }}" class="btn-neutral-warm shrink-0">

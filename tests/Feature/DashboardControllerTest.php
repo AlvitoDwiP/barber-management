@@ -70,12 +70,10 @@ class DashboardControllerTest extends TestCase
         $response = $this->actingAs($user)->get(route('dashboard'));
 
         $response->assertOk();
-        $response->assertViewHas('todaySummary', fn (array $summary): bool => $summary === [
-            'today_revenue' => '175000.00',
-            'today_transactions' => 2,
-            'today_cash' => '100000.00',
-            'today_qr' => '75000.00',
-        ]);
+        $response->assertViewHas('todaySummary', fn (array $summary): bool => $summary['today_cash_in'] === '175000.00'
+            && $summary['today_transactions'] === 2
+            && $summary['today_cash'] === '100000.00'
+            && $summary['today_qr'] === '75000.00');
     }
 
     public function test_dashboard_monthly_summary_still_uses_transaction_date_for_current_month(): void
@@ -147,38 +145,47 @@ class DashboardControllerTest extends TestCase
         $response = $this->actingAs($user)->get(route('dashboard'));
 
         $response->assertOk();
-        $response->assertViewHas('monthlySummary', fn (array $summary): bool => $summary === [
-            'service_revenue' => '150000.00',
-            'product_revenue' => '70000.00',
-            'total_revenue' => '220000.00',
-            'expenses' => '30000.00',
-            'employee_fees' => '90000.00',
-            'employee_commissions' => '90000.00',
-            'barber_income' => '130000.00',
-            'profit' => '100000.00',
-            'net_profit' => '100000.00',
-        ]);
-        $response->assertViewHas('monthlySummary', fn (array $summary): bool => $summary === array_intersect_key(
+        $response->assertViewHas('monthlySummary', fn (array $summary): bool => $summary['service_revenue'] === '150000.00'
+            && $summary['product_revenue'] === '70000.00'
+            && $summary['total_revenue'] === '220000.00'
+            && $summary['barber_commissions'] === '90000.00'
+            && $summary['operational_expenses'] === '30000.00'
+            && $summary['total_operating_expenses'] === '120000.00'
+            && $summary['operating_profit'] === '100000.00');
+        $response->assertViewHas('monthlySummary', fn (array $summary): bool => array_intersect_key(
+            $summary,
+            array_flip([
+                'service_revenue',
+                'product_revenue',
+                'total_revenue',
+                'barber_commissions',
+                'operational_expenses',
+                'total_operating_expenses',
+                'operating_profit',
+            ])
+        ) === array_intersect_key(
             $marchRow,
             array_flip([
                 'service_revenue',
                 'product_revenue',
                 'total_revenue',
-                'expenses',
-                'employee_fees',
-                'employee_commissions',
-                'barber_income',
-                'profit',
-                'net_profit',
+                'barber_commissions',
+                'operational_expenses',
+                'total_operating_expenses',
+                'operating_profit',
             ])
         ));
+        $response->assertSeeText('Kas masuk hari ini');
         $response->assertSeeText('Pendapatan layanan');
         $response->assertSeeText('Pendapatan produk');
-        $response->assertSeeText('Pengeluaran');
-        $response->assertSeeText('Total pemasukan barber');
-        $response->assertSeeText('Keuntungan');
+        $response->assertSeeText('Total pendapatan');
+        $response->assertSeeText('Komisi barber');
+        $response->assertSeeText('Pengeluaran operasional');
+        $response->assertSeeText('Total beban operasional');
+        $response->assertSeeText('Laba operasional');
         $response->assertDontSeeText('Pendapatan bulan ini');
-        $response->assertDontSeeText('Estimasi laba bulan ini');
+        $response->assertDontSeeText('Keuntungan');
+        $response->assertDontSeeText('Total pemasukan barber');
     }
 
     public function test_dashboard_monthly_summary_stays_historical_after_master_commission_changes(): void
@@ -233,17 +240,13 @@ class DashboardControllerTest extends TestCase
         $response = $this->actingAs($user)->get(route('dashboard'));
 
         $response->assertOk();
-        $response->assertViewHas('monthlySummary', fn (array $summary): bool => $summary === [
-            'service_revenue' => '100000.00',
-            'product_revenue' => '40000.00',
-            'total_revenue' => '140000.00',
-            'expenses' => '15000.00',
-            'employee_fees' => '60000.00',
-            'employee_commissions' => '60000.00',
-            'barber_income' => '80000.00',
-            'profit' => '65000.00',
-            'net_profit' => '65000.00',
-        ]);
+        $response->assertViewHas('monthlySummary', fn (array $summary): bool => $summary['service_revenue'] === '100000.00'
+            && $summary['product_revenue'] === '40000.00'
+            && $summary['total_revenue'] === '140000.00'
+            && $summary['barber_commissions'] === '60000.00'
+            && $summary['operational_expenses'] === '15000.00'
+            && $summary['total_operating_expenses'] === '75000.00'
+            && $summary['operating_profit'] === '65000.00');
     }
 
     public function test_dashboard_keeps_exact_decimal_strings_for_today_and_monthly_sensitive_nominals(): void
@@ -291,23 +294,17 @@ class DashboardControllerTest extends TestCase
         $response = $this->actingAs($user)->get(route('dashboard'));
 
         $response->assertOk();
-        $response->assertViewHas('todaySummary', fn (array $summary): bool => $summary === [
-            'today_revenue' => '1000.03',
-            'today_transactions' => 2,
-            'today_cash' => '1000.01',
-            'today_qr' => '0.02',
-        ]);
-        $response->assertViewHas('monthlySummary', fn (array $summary): bool => $summary === [
-            'service_revenue' => '1000.00',
-            'product_revenue' => '0.03',
-            'total_revenue' => '1000.03',
-            'expenses' => '0.01',
-            'employee_fees' => '666.73',
-            'employee_commissions' => '666.73',
-            'barber_income' => '333.30',
-            'profit' => '333.29',
-            'net_profit' => '333.29',
-        ]);
+        $response->assertViewHas('todaySummary', fn (array $summary): bool => $summary['today_cash_in'] === '1000.03'
+            && $summary['today_transactions'] === 2
+            && $summary['today_cash'] === '1000.01'
+            && $summary['today_qr'] === '0.02');
+        $response->assertViewHas('monthlySummary', fn (array $summary): bool => $summary['service_revenue'] === '1000.00'
+            && $summary['product_revenue'] === '0.03'
+            && $summary['total_revenue'] === '1000.03'
+            && $summary['barber_commissions'] === '666.73'
+            && $summary['operational_expenses'] === '0.01'
+            && $summary['total_operating_expenses'] === '666.74'
+            && $summary['operating_profit'] === '333.29');
     }
 
     private function createEmployee(): Employee

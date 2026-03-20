@@ -32,19 +32,8 @@
                     @endif
                 </div>
 
-                <div class="flex w-full flex-col gap-3 lg:w-auto">
-                    @unless ($isLocked)
-                        <div class="flex flex-wrap items-center gap-2">
-                            <x-delete-form
-                                :action="route('transactions.destroy', $transaction)"
-                                button-text="Hapus"
-                                confirm-message="Yakin ingin menghapus transaksi ini? Stok produk akan dikembalikan."
-                                variant="solid-danger"
-                            />
-                        </div>
-                    @endunless
-
-                    <a href="{{ route('transactions.index') }}" class="btn-brand-primary justify-center lg:self-end">
+                <div class="flex w-full lg:w-auto lg:justify-end">
+                    <a href="{{ route('transactions.index') }}" class="btn-brand-primary w-full justify-center lg:w-auto">
                         Selesai
                     </a>
                 </div>
@@ -79,7 +68,7 @@
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h3 class="text-base font-semibold text-slate-900">Item Snapshot Transaksi</h3>
-                    <p class="mt-1 text-sm text-slate-500">Bagian ini ditata sebagai ringkasan audit final. Setelah transaksi tersimpan dari input harian, halaman ini menjadi titik acuan histori, bukan pintu edit utama.</p>
+                    <p class="mt-1 text-sm text-slate-500">Bagian ini tetap menjadi ringkasan audit final. Jika transaksi belum terkunci payroll closed, owner masih bisa membuka mode edit untuk memperbaiki input tanpa menghapus transaksi.</p>
                 </div>
 
                 <span class="inline-flex items-center rounded-full bg-[#FAF3EF] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#7D4026]">
@@ -193,25 +182,20 @@
             </article>
         </section>
 
-        <section class="admin-card">
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                @unless ($isLocked)
-                    <div class="flex flex-wrap items-center gap-2">
-                        <x-delete-form
-                            :action="route('transactions.destroy', $transaction)"
-                            button-text="Hapus"
-                            confirm-message="Yakin ingin menghapus transaksi ini? Stok produk akan dikembalikan."
-                            variant="solid-danger"
-                        />
-                    </div>
-                @else
-                    <div></div>
-                @endunless
-
-                <a href="{{ route('transactions.index') }}" class="btn-brand-primary self-start sm:self-auto">
-                    Kembali
-                </a>
-            </div>
-        </section>
+        @unless ($isLocked)
+            <section class="admin-card">
+                <div class="flex flex-wrap items-center gap-2">
+                    <a href="{{ route('transactions.edit', $transaction) }}" class="btn-brand-primary">
+                        Edit
+                    </a>
+                    <x-delete-form
+                        :action="route('transactions.destroy', $transaction)"
+                        button-text="Hapus"
+                        confirm-message="Yakin ingin menghapus transaksi ini? Stok produk akan dikembalikan."
+                        variant="solid-danger"
+                    />
+                </div>
+            </section>
+        @endunless
     </div>
 </x-app-layout>

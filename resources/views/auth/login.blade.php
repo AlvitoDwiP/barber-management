@@ -5,6 +5,13 @@
     <form method="POST" action="{{ route('login') }}">
         @csrf
 
+        <div class="mb-6">
+            <h1 class="text-xl font-semibold text-gray-900">Login Owner</h1>
+            <p class="mt-2 text-sm text-gray-600">
+                Masuk menggunakan akun owner yang sudah dibuat untuk mengakses transaksi, payroll, laporan, dan pengaturan aplikasi.
+            </p>
+        </div>
+
         <!-- Email Address -->
         <div>
             <x-input-label for="email" :value="__('Email')" />

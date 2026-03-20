@@ -13,6 +13,11 @@ class MonthlyReportService
 {
     use InteractsWithExactReportMoney;
 
+    public function __construct(
+        private readonly BusinessMetricService $businessMetricService,
+    ) {
+    }
+
     public function getCurrentMonthSummary(?Carbon $month = null): array
     {
         $targetMonth = $month ?? Carbon::now(config('app.timezone'));
@@ -26,8 +31,8 @@ class MonthlyReportService
         return $this->buildMonthlySummary(
             serviceRevenue: $transactionMetrics['service_revenue'],
             productRevenue: $transactionMetrics['product_revenue'],
-            expenses: $expenses,
-            employeeFees: $transactionMetrics['employee_fees'],
+            operationalExpenses: $expenses,
+            barberCommissions: $transactionMetrics['barber_commissions'],
         );
     }
 
@@ -51,8 +56,8 @@ class MonthlyReportService
                     ...$this->buildMonthlySummary(
                         serviceRevenue: (string) ($transactionRow['service_revenue'] ?? '0.00'),
                         productRevenue: (string) ($transactionRow['product_revenue'] ?? '0.00'),
-                        expenses: (string) ($expenseRow['expenses'] ?? '0.00'),
-                        employeeFees: (string) ($transactionRow['employee_fees'] ?? '0.00'),
+                        operationalExpenses: (string) ($expenseRow['expenses'] ?? '0.00'),
+                        barberCommissions: (string) ($transactionRow['barber_commissions'] ?? '0.00'),
                     ),
                 ];
             })
@@ -61,21 +66,21 @@ class MonthlyReportService
 
     private function getTransactionMetricsForPeriod(string $startDate, string $endDate): array
     {
-        // Monthly fees and profit must use frozen transaction item snapshots, not live master commission rules.
+        // Monthly business metrics must use frozen transaction item snapshots, not live master commission rules.
         $metrics = TransactionItem::query()
             ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
             ->whereBetween('transactions.transaction_date', [$startDate, $endDate])
             ->selectRaw('
                 COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.subtotal ELSE 0 END), 0) as service_revenue,
                 COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.subtotal ELSE 0 END), 0) as product_revenue,
-                COALESCE(SUM(transaction_items.commission_amount), 0) as employee_fees
+                COALESCE(SUM(transaction_items.commission_amount), 0) as barber_commissions
             ', ['service', 'product'])
             ->first();
 
         return [
             'service_revenue' => $this->moneyToDecimal($metrics->service_revenue ?? 0),
             'product_revenue' => $this->moneyToDecimal($metrics->product_revenue ?? 0),
-            'employee_fees' => $this->moneyToDecimal($metrics->employee_fees ?? 0),
+            'barber_commissions' => $this->moneyToDecimal($metrics->barber_commissions ?? 0),
         ];
     }
 
@@ -100,7 +105,7 @@ class MonthlyReportService
                 '.$monthExpression.' as month_number,
                 COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.subtotal ELSE 0 END), 0) as service_revenue,
                 COALESCE(SUM(CASE WHEN transaction_items.item_type = ? THEN transaction_items.subtotal ELSE 0 END), 0) as product_revenue,
-                COALESCE(SUM(transaction_items.commission_amount), 0) as employee_fees
+                COALESCE(SUM(transaction_items.commission_amount), 0) as barber_commissions
             ', ['service', 'product'])
             ->groupByRaw($yearExpression.', '.$monthExpression)
             ->orderBy('month_number')
@@ -110,7 +115,7 @@ class MonthlyReportService
                     'month_number' => (int) $row->month_number,
                     'service_revenue' => $this->moneyToDecimal($row->service_revenue),
                     'product_revenue' => $this->moneyToDecimal($row->product_revenue),
-                    'employee_fees' => $this->moneyToDecimal($row->employee_fees),
+                    'barber_commissions' => $this->moneyToDecimal($row->barber_commissions),
                 ];
             });
     }
@@ -141,28 +146,15 @@ class MonthlyReportService
     private function buildMonthlySummary(
         string $serviceRevenue,
         string $productRevenue,
-        string $expenses,
-        string $employeeFees
+        string $operationalExpenses,
+        string $barberCommissions
     ): array {
-        $serviceRevenueMinorUnits = $this->moneyToMinorUnits($serviceRevenue);
-        $productRevenueMinorUnits = $this->moneyToMinorUnits($productRevenue);
-        $expensesMinorUnits = $this->moneyToMinorUnits($expenses);
-        $employeeFeesMinorUnits = $this->moneyToMinorUnits($employeeFees);
-        $totalRevenueMinorUnits = $serviceRevenueMinorUnits + $productRevenueMinorUnits;
-        $barberIncomeMinorUnits = $totalRevenueMinorUnits - $employeeFeesMinorUnits;
-        $netProfitMinorUnits = $totalRevenueMinorUnits - $employeeFeesMinorUnits - $expensesMinorUnits;
-
-        return [
-            'service_revenue' => $this->moneyFromMinorUnits($serviceRevenueMinorUnits),
-            'product_revenue' => $this->moneyFromMinorUnits($productRevenueMinorUnits),
-            'total_revenue' => $this->moneyFromMinorUnits($totalRevenueMinorUnits),
-            'expenses' => $this->moneyFromMinorUnits($expensesMinorUnits),
-            'employee_fees' => $this->moneyFromMinorUnits($employeeFeesMinorUnits),
-            'employee_commissions' => $this->moneyFromMinorUnits($employeeFeesMinorUnits),
-            'barber_income' => $this->moneyFromMinorUnits($barberIncomeMinorUnits),
-            'profit' => $this->moneyFromMinorUnits($netProfitMinorUnits),
-            'net_profit' => $this->moneyFromMinorUnits($netProfitMinorUnits),
-        ];
+        return $this->businessMetricService->buildOperatingPerformanceSummary(
+            serviceRevenue: $serviceRevenue,
+            productRevenue: $productRevenue,
+            barberCommissions: $barberCommissions,
+            operationalExpenses: $operationalExpenses,
+        );
     }
 
     private function getYearMonthExpressions(string $column): array

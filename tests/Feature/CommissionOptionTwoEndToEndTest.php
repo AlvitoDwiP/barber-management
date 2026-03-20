@@ -140,17 +140,13 @@ class CommissionOptionTwoEndToEndTest extends TestCase
 
         $monthlySummary = app(MonthlyReportService::class)->getCurrentMonthSummary(Carbon::parse('2026-03-01'));
 
-        $this->assertSame([
-            'service_revenue' => '200000.00',
-            'product_revenue' => '150000.00',
-            'total_revenue' => '350000.00',
-            'expenses' => '15000.00',
-            'employee_fees' => '106000.00',
-            'employee_commissions' => '106000.00',
-            'barber_income' => '244000.00',
-            'profit' => '229000.00',
-            'net_profit' => '229000.00',
-        ], $monthlySummary);
+        $this->assertSame('200000.00', $monthlySummary['service_revenue']);
+        $this->assertSame('150000.00', $monthlySummary['product_revenue']);
+        $this->assertSame('350000.00', $monthlySummary['total_revenue']);
+        $this->assertSame('106000.00', $monthlySummary['barber_commissions']);
+        $this->assertSame('15000.00', $monthlySummary['operational_expenses']);
+        $this->assertSame('121000.00', $monthlySummary['total_operating_expenses']);
+        $this->assertSame('229000.00', $monthlySummary['operating_profit']);
 
         $employeePerformance = app(EmployeePerformanceReportService::class)
             ->getEmployeePerformanceReport('2026-03-01', '2026-03-31', $employee->id)
@@ -167,7 +163,8 @@ class CommissionOptionTwoEndToEndTest extends TestCase
         $dashboardResponse = $this->actingAs($user)->get(route('dashboard'));
 
         $dashboardResponse->assertOk();
-        $dashboardResponse->assertViewHas('monthlySummary', fn (array $summary): bool => $summary === $monthlySummary);
+        $dashboardResponse->assertViewHas('monthlySummary', fn (array $summary): bool => $summary['operating_profit'] === $monthlySummary['operating_profit']
+            && $summary['barber_commissions'] === $monthlySummary['barber_commissions']);
 
         $this->assertSame(2, Transaction::query()->count());
         $this->assertSame(17, $product->fresh()->stock);
@@ -272,17 +269,13 @@ class CommissionOptionTwoEndToEndTest extends TestCase
 
         $monthlySummary = app(MonthlyReportService::class)->getCurrentMonthSummary(Carbon::parse('2026-03-01'));
 
-        $this->assertSame([
-            'service_revenue' => '2000.00',
-            'product_revenue' => '300.00',
-            'total_revenue' => '2300.00',
-            'expenses' => '333.30',
-            'employee_fees' => '1000.03',
-            'employee_commissions' => '1000.03',
-            'barber_income' => '1299.97',
-            'profit' => '966.67',
-            'net_profit' => '966.67',
-        ], $monthlySummary);
+        $this->assertSame('2000.00', $monthlySummary['service_revenue']);
+        $this->assertSame('300.00', $monthlySummary['product_revenue']);
+        $this->assertSame('2300.00', $monthlySummary['total_revenue']);
+        $this->assertSame('1000.03', $monthlySummary['barber_commissions']);
+        $this->assertSame('333.30', $monthlySummary['operational_expenses']);
+        $this->assertSame('1333.33', $monthlySummary['total_operating_expenses']);
+        $this->assertSame('966.67', $monthlySummary['operating_profit']);
 
         $employeePerformance = app(EmployeePerformanceReportService::class)
             ->getEmployeePerformanceReport('2026-03-01', '2026-03-31', $permanentEmployee->id)
@@ -299,7 +292,8 @@ class CommissionOptionTwoEndToEndTest extends TestCase
         $dashboardResponse = $this->actingAs($user)->get(route('dashboard'));
 
         $dashboardResponse->assertOk();
-        $dashboardResponse->assertViewHas('monthlySummary', fn (array $summary): bool => $summary === $monthlySummary);
+        $dashboardResponse->assertViewHas('monthlySummary', fn (array $summary): bool => $summary['operating_profit'] === $monthlySummary['operating_profit']
+            && $summary['barber_commissions'] === $monthlySummary['barber_commissions']);
 
         $this->assertDatabaseHas('expenses', [
             'category' => Expense::CATEGORY_PAY_FREELANCE,

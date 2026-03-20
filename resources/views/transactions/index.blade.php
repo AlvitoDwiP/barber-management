@@ -16,7 +16,7 @@
                 <div>
                     <p class="text-sm font-semibold uppercase tracking-[0.2em] text-[#934C2D]">Transaksi v1</p>
                     <h3 class="mt-2 text-2xl font-semibold text-slate-900">Daftar Transaksi</h3>
-                    <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-500">Pantau transaksi hasil input harian, buka detail audit, dan lihat dengan cepat mana transaksi yang masih bisa dihapus atau sudah terkunci karena payroll final.</p>
+                    <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-500">Pantau transaksi hasil input harian, buka detail audit, dan koreksi salah input selama transaksi belum terkunci karena payroll final.</p>
                 </div>
 
                 <a href="{{ route('transactions.daily-batch.create') }}" class="btn-brand-primary">
@@ -182,7 +182,7 @@
 
                             @if ($isLocked)
                                 <div class="mt-4 rounded-xl bg-amber-50 px-3 py-3 text-sm text-amber-900">
-                                    Transaksi ini sudah terkunci payroll final sehingga tidak bisa dihapus.
+                                    Transaksi ini sudah terkunci payroll final sehingga tidak bisa diedit atau dihapus.
                                 </div>
                             @endif
 
@@ -192,6 +192,9 @@
                                 </a>
 
                                 @unless ($isLocked)
+                                    <a href="{{ route('transactions.edit', $transaction) }}" class="btn-neutral-warm">
+                                        Edit
+                                    </a>
                                     <x-delete-form
                                         :action="route('transactions.destroy', $transaction)"
                                         button-text="Hapus"
@@ -265,6 +268,9 @@
                                             </a>
 
                                             @unless ($isLocked)
+                                                <a href="{{ route('transactions.edit', $transaction) }}" class="btn-neutral-warm">
+                                                    Edit
+                                                </a>
                                                 <x-delete-form
                                                     :action="route('transactions.destroy', $transaction)"
                                                     button-text="Hapus"

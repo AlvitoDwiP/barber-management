@@ -7,25 +7,37 @@
         $rows = collect($rows ?? []);
         $year = (int) ($year ?? now()->year);
         $yearOptions = collect(range(now()->year, now()->year - 4));
+        $sumMoney = fn (string $field): string => $rows->reduce(
+            fn (string $carry, $row): string => \App\Support\Money::parse($carry)
+                ->add(\App\Support\Money::parse($row[$field] ?? 0))
+                ->toDecimal(),
+            '0.00',
+        );
 
         $tableRows = $rows->map(function ($row) {
             return [
                 \Illuminate\Support\Carbon::createFromDate(null, (int) ($row['month_number'] ?? 1), 1)->locale('id')->translatedFormat('F'),
                 format_rupiah($row['total_cash'] ?? 0),
                 format_rupiah($row['total_qr'] ?? 0),
+                format_rupiah($row['cash_in'] ?? 0),
                 number_format((int) ($row['total_transactions'] ?? 0), 0, ',', '.'),
             ];
         })->all();
 
         $footer = [
             'Total',
-            format_rupiah($rows->sum('total_cash')),
-            format_rupiah($rows->sum('total_qr')),
+            format_rupiah($sumMoney('total_cash')),
+            format_rupiah($sumMoney('total_qr')),
+            format_rupiah($sumMoney('cash_in')),
             number_format((int) $rows->sum('total_transactions'), 0, ',', '.'),
         ];
     @endphp
 
     <div class="space-y-6">
+        <div class="admin-card">
+            <p class="text-sm text-slate-600">Laporan ini hanya menampilkan arus pembayaran transaksi. Kas Masuk bukan Laba Operasional.</p>
+        </div>
+
         <x-report-filter :action="route('reports.payment')" :showDateRange="false" :showYear="false" :filterKeys="['year']">
             <div>
                 <label for="year" class="text-sm font-medium text-slate-700">Tahun</label>
@@ -50,7 +62,7 @@
         </div>
 
         <x-report-table
-            :headers="['Bulan', 'Total cash', 'Total qr', 'Total transaksi']"
+            :headers="['Bulan', 'Cash', 'QR', 'Kas Masuk', 'Jumlah transaksi']"
             :rows="$tableRows"
             :footer="$footer"
             empty-message="Belum ada data transaksi pada tahun ini."

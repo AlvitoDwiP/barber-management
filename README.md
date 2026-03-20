@@ -164,7 +164,7 @@ Secara bisnis, aplikasi ini hanya memiliki satu role aktif:
 Catatan implementasi saat ini:
 
 - Belum ada pemisahan role seperti kasir, barber, supervisor, atau finance.
-- Mekanisme registrasi user masih tersedia di codebase dan perlu dibatasi bila aplikasi dipakai murni oleh satu owner di production.
+- Self-registration tidak dipakai. Pembuatan akun hanya tersedia melalui flow setup owner pertama saat tabel `users` masih kosong.
 
 ## Tampilan / Halaman Utama Sistem
 
@@ -211,7 +211,7 @@ app/
 
 database/
   migrations/           # Struktur database
-  seeders/              # Seeder data awal dan data bootstrap
+  seeders/              # Seeder data master operasional
 
 resources/
   views/                # Blade views per modul
@@ -278,6 +278,10 @@ DB_DATABASE=/absolute/path/to/database/database.sqlite
 # DB_PASSWORD=DB_PASSWORD
 
 SESSION_DRIVER=database
+SESSION_ENCRYPT=true
+SESSION_HTTP_ONLY=true
+SESSION_SAME_SITE=lax
+SESSION_SECURE_COOKIE=false
 CACHE_STORE=database
 QUEUE_CONNECTION=database
 ```
@@ -304,9 +308,9 @@ php artisan db:seed --class=ExpenseCategorySeeder
 
 Pendekatan ini cocok bila tim ingin:
 
-- menyiapkan master data dasar tanpa otomatis membuat kredensial bootstrap dari repo,
+- menyiapkan master data dasar tanpa membuat akun default dari repo,
 - meninjau ulang data sample sebelum dipakai owner,
-- dan membuat akun owner awal secara terkontrol.
+- dan membuat akun owner awal melalui flow setup pertama yang lebih aman.
 
 ### Opsi Seed Penuh untuk Lokal / Development
 
@@ -314,22 +318,26 @@ Pendekatan ini cocok bila tim ingin:
 php artisan migrate --seed
 ```
 
-Perlu dicatat bahwa `DatabaseSeeder` saat ini memanggil seeder data sample dan juga seeder akun admin bootstrap. Karena itu, untuk environment production atau serah terima final, isi seeder perlu direview lebih dahulu.
+`DatabaseSeeder` saat ini hanya mengisi data master operasional dasar seperti layanan, produk, pegawai sample, dan kategori pengeluaran. Seeder tidak lagi membuat akun login default.
 
 ## Akun Awal / Setup Awal
 
-Rekomendasi setup akun awal yang lebih aman:
+Flow akun awal yang sekarang dipakai:
 
 1. Jalankan migrasi dan seed master data tanpa kredensial bootstrap yang tidak diperlukan.
-2. Buat akun owner pertama secara terkontrol melalui halaman registrasi yang tersedia atau melalui proses provisioning internal tim.
-3. Setelah akun owner aktif, batasi atau nonaktifkan registrasi publik bila aplikasi dipakai hanya oleh satu owner.
-4. Wajib ganti password awal pada login pertama.
+2. Akses aplikasi melalui `APP_URL/` atau langsung ke `APP_URL/setup/owner`.
+3. Jika tabel `users` masih kosong, aplikasi akan menampilkan halaman `Buat akun owner pertama`.
+4. Isi `name`, `email`, `password`, dan `password_confirmation`.
+5. Setelah berhasil disimpan, owner akan langsung login ke aplikasi.
+6. Flow setup akan otomatis ditutup setelah user pertama terbentuk.
 
 Catatan implementasi saat ini:
 
-- Repo masih memiliki mekanisme bootstrap akun admin melalui seeder dan command internal.
-- Informasi kredensial bootstrap tidak sebaiknya didokumentasikan di README atau dipakai apa adanya di production.
-- Jika tim tetap memakai command internal `php artisan app:ensure-admin-user` untuk kebutuhan lokal, treat command tersebut sebagai alat bootstrap development, bukan kebijakan deployment final.
+- Route `register` sudah dinonaktifkan.
+- Route setup owner pertama hanya bisa diakses saat belum ada user sama sekali.
+- Jika route setup diakses setelah akun owner tersedia, aplikasi akan mengarahkan user ke login atau dashboard dengan pesan status yang sesuai.
+- Login biasa tetap dipakai setelah akun owner pertama selesai dibuat.
+- Fitur lupa password tetap dipertahankan, tetapi baru relevan jika akun owner sudah ada dan mailer production sudah dikonfigurasi dengan benar.
 
 ## Menjalankan Aplikasi
 
@@ -364,8 +372,14 @@ npm run build
 Setelah aplikasi aktif, akses:
 
 ```text
-APP_URL/login
+APP_URL/
 ```
+
+Perilaku akses awal:
+
+- Jika belum ada user, aplikasi akan mengarahkan ke halaman setup owner pertama.
+- Jika user sudah ada dan belum login, aplikasi akan mengarahkan ke halaman login.
+- Jika user sudah login, aplikasi akan langsung mengarah ke dashboard.
 
 ## Testing
 
@@ -388,12 +402,14 @@ Pengujian yang sudah tersedia di project ini mencakup area-area penting seperti:
 ## Catatan Keamanan
 
 - Jangan menyimpan kredensial final owner di repository.
-- Review seeder akun bootstrap sebelum menjalankan seed penuh pada environment selain lokal.
-- Owner wajib mengganti password awal segera setelah akun pertama aktif.
-- Batasi atau nonaktifkan fitur registrasi publik jika aplikasi dipakai hanya oleh satu owner.
+- Tidak ada akun default hardcoded yang boleh dipakai sebagai pola deployment.
+- Gunakan flow setup owner pertama untuk membuat akun awal secara aman.
+- Gunakan password owner yang kuat sejak setup pertama karena flow setup hanya bisa dipakai sekali.
+- Pastikan `APP_ENV=production`, `APP_DEBUG=false`, dan `SESSION_SECURE_COOKIE=true` pada deployment HTTPS production.
 - Simpan file `.env`, kredensial database, dan secret key di luar version control.
-- Gunakan `APP_ENV=production` dan `APP_DEBUG=false` pada deployment production.
 - Lakukan backup database berkala karena aplikasi ini menyimpan data transaksi, payroll, dan laporan bisnis yang bersifat penting.
+- Login throttling bawaan Laravel tetap aktif untuk membatasi percobaan login berulang.
+- Session aplikasi sebaiknya tetap memakai driver server-side seperti `database`, bukan konfigurasi eksperimental yang tidak diaudit.
 
 ## Batasan Sistem Saat Ini
 
@@ -404,7 +420,7 @@ Pengujian yang sudah tersedia di project ini mencakup area-area penting seperti:
 - Laporan yang dapat diunduh saat ini berfokus pada format CSV, belum PDF.
 - Rekonsiliasi kas harian yang formal antara cash fisik, QR, dan saldo akhir belum tersedia sebagai modul khusus.
 - Pengelolaan stok masih berfokus pada pengurangan stok akibat penjualan; alur restock, stock opname, dan mutasi stok detail belum lengkap di UI.
-- Mekanisme registrasi user masih aktif di codebase, sehingga perlu perhatian tambahan bila sistem dipasang di production single-owner.
+- Karena hanya mendukung satu owner, belum ada workflow formal untuk rotasi kepemilikan akun atau approval berlapis.
 
 ## Roadmap Pengembangan
 
@@ -416,8 +432,15 @@ Pengembangan berikutnya yang realistis dan bernilai tinggi untuk bisnis:
 - Menambahkan modul rekonsiliasi kas harian antara transaksi tercatat, kas fisik, dan pembayaran non-tunai.
 - Menambahkan dashboard operasional yang lebih detail untuk pemantauan performa harian dan bulanan.
 - Menambahkan workflow stok yang lebih lengkap, termasuk restock, stock opname, dan histori mutasi.
-- Menutup atau membatasi self-registration di production dan menambahkan kontrol akses yang lebih ketat.
+- Menambahkan recovery flow owner yang lebih terkontrol jika akses akun hilang dan email reset tidak tersedia.
 - Menambahkan mekanisme backup dan restore yang lebih eksplisit untuk kebutuhan operasional bisnis.
+
+## Catatan Developer
+
+- Root route disederhanakan menjadi decision point tunggal: setup owner pertama, login, atau dashboard sesuai kondisi user dan session.
+- Self-registration Breeze dinonaktifkan agar surface area auth lebih kecil untuk aplikasi single-owner.
+- Flow setup owner pertama dikunci oleh middleware khusus berbasis keberadaan data pada tabel `users`.
+- Password reset tetap dipertahankan karena implementasi Laravel Breeze sudah stabil, tetapi efektivitasnya tetap bergantung pada konfigurasi mail production.
 
 ## Kesimpulan
 

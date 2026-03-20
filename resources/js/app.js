@@ -136,15 +136,16 @@ const applyPercentageToMinorUnits = (amountMinorUnits, basisPoints) => {
 
 const itemTypeKey = (item) => (item?.item_type === 'product' ? 'product' : 'service');
 
-const createEmptyTransactionItem = (type = 'service') => ({
+const createEmptyTransactionItem = (type = 'service', employeeId = '') => ({
     key: createTransactionFormKey(type),
     item_type: type,
     service_id: '',
     product_id: '',
+    employee_id: normalizeSelectValue(employeeId),
     qty: type === 'service' ? 1 : 1,
 });
 
-const normalizeTransactionItem = (item) => {
+const normalizeTransactionItem = (item, fallbackEmployeeId = '') => {
     const itemType = item?.item_type === 'product' ? 'product' : 'service';
 
     return {
@@ -152,16 +153,17 @@ const normalizeTransactionItem = (item) => {
         item_type: itemType,
         service_id: itemType === 'service' ? normalizeSelectValue(item?.service_id) : '',
         product_id: itemType === 'product' ? normalizeSelectValue(item?.product_id) : '',
+        employee_id: normalizeSelectValue(item?.employee_id ?? fallbackEmployeeId),
         qty: itemType === 'service' ? 1 : toPositiveInteger(item?.qty, 1),
     };
 };
 
-const normalizeTransactionItems = (items) => {
+const normalizeTransactionItems = (items, defaultEmployeeId = '') => {
     if (! Array.isArray(items) || items.length === 0) {
-        return [createEmptyTransactionItem()];
+        return [createEmptyTransactionItem('service', defaultEmployeeId)];
     }
 
-    return items.map((item) => normalizeTransactionItem(item));
+    return items.map((item) => normalizeTransactionItem(item, defaultEmployeeId));
 };
 
 const normalizeDailyBatchEntry = (entry = {}) => {
@@ -174,9 +176,17 @@ const normalizeDailyBatchEntry = (entry = {}) => {
         employee_id: normalizeSelectValue(entry?.employee_id),
         notes: entry?.notes ?? '',
         payment_method: entry?.payment_method ?? 'cash',
-        items: normalizeTransactionItems(initialItems),
+        items: normalizeTransactionItems(initialItems, entry?.employee_id),
     };
 };
+
+const normalizeSingleTransactionPayload = (transaction = {}) => ({
+    transaction_date: transaction?.transaction_date ?? '',
+    employee_id: normalizeSelectValue(transaction?.employee_id),
+    payment_method: transaction?.payment_method ?? 'cash',
+    notes: transaction?.notes ?? '',
+    items: normalizeTransactionItems(transaction?.items ?? [], transaction?.employee_id),
+});
 
 const selectedItemId = (item) => (item?.item_type === 'product' ? item?.product_id : item?.service_id);
 
@@ -322,9 +332,10 @@ document.addEventListener('alpine:init', () => {
         changeItemType(entryIndex, rowIndex, nextType) {
             const currentItem = this.entries[entryIndex]?.items?.[rowIndex] ?? {};
             this.entries[entryIndex].items[rowIndex] = normalizeTransactionItem({
-                ...createEmptyTransactionItem(nextType),
+                ...createEmptyTransactionItem(nextType, currentItem.employee_id || this.entries[entryIndex]?.employee_id),
                 key: currentItem.key,
                 item_type: nextType,
+                employee_id: currentItem.employee_id || this.entries[entryIndex]?.employee_id,
             });
         },
         entryItems(entry) {
@@ -355,6 +366,64 @@ document.addEventListener('alpine:init', () => {
         },
         itemHasErrors(entryIndex, rowIndex) {
             return Object.keys(this.errors).some((key) => key.startsWith(`entries.${entryIndex}.items.${rowIndex}.`));
+        },
+        formatCurrency,
+    }));
+
+    Alpine.data('singleTransactionEditForm', (config = {}) => ({
+        ...transactionFormMixin(config),
+        transaction: normalizeSingleTransactionPayload(config.initialTransaction ?? {}),
+        init() {
+            this.transaction = normalizeSingleTransactionPayload(config.initialTransaction ?? {});
+        },
+        addItem() {
+            this.transaction.items.push(createEmptyTransactionItem('service', this.transaction.employee_id));
+        },
+        removeItem(rowIndex) {
+            this.transaction.items.splice(rowIndex, 1);
+
+            if (this.transaction.items.length === 0) {
+                this.transaction.items.push(createEmptyTransactionItem('service', this.transaction.employee_id));
+            }
+        },
+        changeItemType(rowIndex, nextType) {
+            const currentItem = this.transaction.items?.[rowIndex] ?? {};
+
+            this.transaction.items[rowIndex] = normalizeTransactionItem({
+                ...createEmptyTransactionItem(nextType, currentItem.employee_id || this.transaction.employee_id),
+                key: currentItem.key,
+                item_type: nextType,
+                employee_id: currentItem.employee_id || this.transaction.employee_id,
+            }, this.transaction.employee_id);
+        },
+        selectedItems() {
+            return filterSelectedItems(this.transaction.items ?? []);
+        },
+        selectedItemCount() {
+            return this.selectedItems().length;
+        },
+        serviceSubtotal() {
+            return this.selectedItems()
+                .filter((item) => item.item_type === 'service')
+                .reduce((total, item) => total + this.lineSubtotal(item), 0);
+        },
+        productSubtotal() {
+            return this.selectedItems()
+                .filter((item) => item.item_type === 'product')
+                .reduce((total, item) => total + this.lineSubtotal(item), 0);
+        },
+        grandTotal() {
+            return this.selectedItems()
+                .reduce((total, item) => total + this.lineSubtotal(item), 0);
+        },
+        itemHasErrors(rowIndex) {
+            return Object.keys(this.errors).some((key) => key.startsWith(`items.${rowIndex}.`));
+        },
+        applyTransactionEmployeeToItems() {
+            this.transaction.items = this.transaction.items.map((item) => ({
+                ...item,
+                employee_id: this.transaction.employee_id,
+            }));
         },
         formatCurrency,
     }));

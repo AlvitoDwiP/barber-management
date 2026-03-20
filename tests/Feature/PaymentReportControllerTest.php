@@ -55,12 +55,15 @@ class PaymentReportControllerTest extends TestCase
 
         $this->assertSame('1000.01', $rows->get(1)['total_cash']);
         $this->assertSame('0.02', $rows->get(1)['total_qr']);
+        $this->assertSame('1000.03', $rows->get(1)['cash_in']);
         $this->assertSame(2, $rows->get(1)['total_transactions']);
         $this->assertSame('50.00', $rows->get(2)['total_cash']);
         $this->assertSame('0.00', $rows->get(2)['total_qr']);
+        $this->assertSame('50.00', $rows->get(2)['cash_in']);
         $this->assertSame(1, $rows->get(2)['total_transactions']);
         $this->assertSame('0.00', $rows->get(3)['total_cash']);
         $this->assertSame('0.00', $rows->get(3)['total_qr']);
+        $this->assertSame('0.00', $rows->get(3)['cash_in']);
 
         $response = $this->actingAs(User::factory()->create())
             ->get(route('reports.payment', ['year' => 2026]));
@@ -71,8 +74,12 @@ class PaymentReportControllerTest extends TestCase
 
             return $rows->get(1)['total_cash'] === '1000.01'
                 && $rows->get(1)['total_qr'] === '0.02'
+                && $rows->get(1)['cash_in'] === '1000.03'
                 && $rows->get(2)['total_cash'] === '50.00'
                 && $rows->get(3)['total_cash'] === '0.00';
         });
+
+        $response->assertSeeText('Kas Masuk');
+        $response->assertSeeText('Jumlah transaksi');
     }
 }

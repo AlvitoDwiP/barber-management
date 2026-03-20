@@ -14,6 +14,11 @@ class DailyReportService
 {
     use InteractsWithExactReportMoney;
 
+    public function __construct(
+        private readonly BusinessMetricService $businessMetricService,
+    ) {
+    }
+
     public function getTodaySummary(?Carbon $date = null): array
     {
         $reportDate = ($date ?? Carbon::today(config('app.timezone')))->toDateString();
@@ -28,11 +33,19 @@ class DailyReportService
             ->whereDate('transaction_date', $reportDate)
             ->first();
 
+        $cashFlow = $this->businessMetricService->buildCashFlowSummary(
+            cash: $summary->today_cash ?? 0,
+            qr: $summary->today_qr ?? 0,
+        );
+
         return [
-            'today_revenue' => $this->moneyToDecimal($summary->today_revenue ?? 0),
+            'today_cash_in' => $this->moneyToDecimal($summary->today_revenue ?? 0),
             'today_transactions' => (int) ($summary->today_transactions ?? 0),
-            'today_cash' => $this->moneyToDecimal($summary->today_cash ?? 0),
-            'today_qr' => $this->moneyToDecimal($summary->today_qr ?? 0),
+            'today_cash' => $cashFlow['cash'],
+            'today_qr' => $cashFlow['qr'],
+
+            // Legacy alias retained for older callers that still read today_revenue.
+            'today_revenue' => $this->moneyToDecimal($summary->today_revenue ?? 0),
         ];
     }
 
@@ -55,35 +68,37 @@ class DailyReportService
     {
         $revenueRows = $this->getRevenueMetricsByDate($startDate, $endDate)->keyBy('report_date');
         $paymentRows = $this->getPaymentMetricsByDate($startDate, $endDate)->keyBy('report_date');
+        $commissionRows = $this->getCommissionMetricsByDate($startDate, $endDate)->keyBy('report_date');
         $expenseRows = $this->getExpenseMetricsByDate($startDate, $endDate)->keyBy('report_date');
 
         return $revenueRows->keys()
             ->merge($paymentRows->keys())
+            ->merge($commissionRows->keys())
             ->merge($expenseRows->keys())
             ->unique()
             ->sort()
             ->values()
-            ->map(function (string $reportDate) use ($revenueRows, $paymentRows, $expenseRows): array {
+            ->map(function (string $reportDate) use ($revenueRows, $paymentRows, $commissionRows, $expenseRows): array {
                 $revenueRow = $revenueRows->get($reportDate, []);
                 $paymentRow = $paymentRows->get($reportDate, []);
+                $commissionRow = $commissionRows->get($reportDate, []);
                 $expenseRow = $expenseRows->get($reportDate, []);
-                $serviceRevenueMinorUnits = $this->moneyToMinorUnits($revenueRow['service_revenue'] ?? 0);
-                $productRevenueMinorUnits = $this->moneyToMinorUnits($revenueRow['product_revenue'] ?? 0);
-                $totalRevenueMinorUnits = $serviceRevenueMinorUnits + $productRevenueMinorUnits;
-                $expensesMinorUnits = $this->moneyToMinorUnits($expenseRow['expenses'] ?? 0);
-                $cashMinorUnits = $this->moneyToMinorUnits($paymentRow['cash'] ?? 0);
-                $qrMinorUnits = $this->moneyToMinorUnits($paymentRow['qr'] ?? 0);
+                $cashFlow = $this->businessMetricService->buildCashFlowSummary(
+                    cash: $paymentRow['cash'] ?? 0,
+                    qr: $paymentRow['qr'] ?? 0,
+                );
+                $operatingPerformance = $this->businessMetricService->buildOperatingPerformanceSummary(
+                    serviceRevenue: $revenueRow['service_revenue'] ?? 0,
+                    productRevenue: $revenueRow['product_revenue'] ?? 0,
+                    barberCommissions: $commissionRow['barber_commissions'] ?? 0,
+                    operationalExpenses: $expenseRow['expenses'] ?? 0,
+                );
 
                 return [
                     'report_date' => $reportDate,
                     'total_transactions' => (int) ($paymentRow['total_transactions'] ?? 0),
-                    'service_revenue' => $this->moneyFromMinorUnits($serviceRevenueMinorUnits),
-                    'product_revenue' => $this->moneyFromMinorUnits($productRevenueMinorUnits),
-                    'total_revenue' => $this->moneyFromMinorUnits($totalRevenueMinorUnits),
-                    'cash' => $this->moneyFromMinorUnits($cashMinorUnits),
-                    'qr' => $this->moneyFromMinorUnits($qrMinorUnits),
-                    'expenses' => $this->moneyFromMinorUnits($expensesMinorUnits),
-                    'net_income' => $this->moneyFromMinorUnits($totalRevenueMinorUnits - $expensesMinorUnits),
+                    ...$cashFlow,
+                    ...$operatingPerformance,
                 ];
             })
             ->values();
@@ -102,8 +117,15 @@ class DailyReportService
             'total_revenue' => $this->sumMoney($rows, 'total_revenue'),
             'cash' => $this->sumMoney($rows, 'cash'),
             'qr' => $this->sumMoney($rows, 'qr'),
-            'expenses' => $this->sumMoney($rows, 'expenses'),
-            'net_income' => $this->sumMoney($rows, 'net_income'),
+            'cash_in' => $this->sumMoney($rows, 'cash_in'),
+            'barber_commissions' => $this->sumMoney($rows, 'barber_commissions'),
+            'operational_expenses' => $this->sumMoney($rows, 'operational_expenses'),
+            'total_operating_expenses' => $this->sumMoney($rows, 'total_operating_expenses'),
+            'operating_profit' => $this->sumMoney($rows, 'operating_profit'),
+
+            // Legacy aliases retained while callers move to the standardized keys.
+            'expenses' => $this->sumMoney($rows, 'operational_expenses'),
+            'net_income' => $this->sumMoney($rows, 'operating_profit'),
         ];
     }
 
@@ -155,6 +177,29 @@ class DailyReportService
                     'total_transactions' => (int) $row->total_transactions,
                     'cash' => $this->moneyToDecimal($row->cash),
                     'qr' => $this->moneyToDecimal($row->qr),
+                ];
+            });
+    }
+
+    private function getCommissionMetricsByDate(string $startDate, string $endDate): Collection
+    {
+        [$rangeStart, $rangeEnd] = $this->getRangeBounds($startDate, $endDate);
+        $dateExpression = $this->getDateExpression('transactions.transaction_date');
+
+        return TransactionItem::query()
+            ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
+            ->whereBetween('transactions.transaction_date', [$rangeStart, $rangeEnd])
+            ->selectRaw('
+                '.$dateExpression.' as report_date,
+                COALESCE(SUM(transaction_items.commission_amount), 0) as barber_commissions
+            ')
+            ->groupByRaw($dateExpression)
+            ->orderByRaw($dateExpression)
+            ->get()
+            ->map(function ($row): array {
+                return [
+                    'report_date' => Carbon::parse($row->report_date)->toDateString(),
+                    'barber_commissions' => $this->moneyToDecimal($row->barber_commissions),
                 ];
             });
     }

@@ -15,18 +15,18 @@ class TransactionFormViewTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_transaction_module_does_not_register_single_create_or_edit_routes(): void
+    public function test_transaction_module_registers_controlled_edit_routes_without_single_create_flow(): void
     {
         $this->assertTrue(Route::has('transactions.index'));
         $this->assertTrue(Route::has('transactions.show'));
+        $this->assertTrue(Route::has('transactions.edit'));
+        $this->assertTrue(Route::has('transactions.update'));
         $this->assertTrue(Route::has('transactions.destroy'));
         $this->assertTrue(Route::has('transactions.daily-batch.create'));
         $this->assertTrue(Route::has('transactions.daily-batch.store'));
 
         $this->assertFalse(Route::has('transactions.create'));
         $this->assertFalse(Route::has('transactions.store'));
-        $this->assertFalse(Route::has('transactions.edit'));
-        $this->assertFalse(Route::has('transactions.update'));
     }
 
     public function test_transaction_index_shows_only_daily_batch_call_to_action(): void
@@ -39,7 +39,6 @@ class TransactionFormViewTest extends TestCase
         $response->assertSee('Input Harian');
         $response->assertSee(route('transactions.daily-batch.create'), false);
         $response->assertDontSee('Tambah Transaksi');
-        $response->assertDontSee('Edit');
     }
 
     public function test_daily_batch_form_does_not_render_customer_field_and_only_lists_active_employees(): void
@@ -93,7 +92,7 @@ class TransactionFormViewTest extends TestCase
         $response->assertSee('Komisi produk mengikuti aturan produk atau global. Qty dapat diubah.');
     }
 
-    public function test_transaction_show_page_behaves_as_audit_page_without_edit_button(): void
+    public function test_transaction_show_page_shows_edit_button_for_unlocked_transaction(): void
     {
         $user = User::factory()->create();
         $employee = $this->createEmployee();
@@ -133,8 +132,8 @@ class TransactionFormViewTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Dokumen Audit');
+        $response->assertSee('Edit');
         $response->assertSee('Hapus');
-        $response->assertDontSee('Edit');
         $response->assertSee('Audit only', false);
     }
 

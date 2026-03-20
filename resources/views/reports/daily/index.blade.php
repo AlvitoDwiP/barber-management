@@ -22,6 +22,12 @@
     @endphp
 
     <div class="space-y-6">
+        <section class="admin-card space-y-2">
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-900">Definisi Metrik</h3>
+            <p class="text-sm text-slate-600">Kas Masuk = total pembayaran transaksi yang diterima pada tanggal tersebut.</p>
+            <p class="text-sm text-slate-600">Laba Operasional = Total Pendapatan - Komisi Barber - Pengeluaran Operasional.</p>
+        </section>
+
         <x-report-filter
             :action="route('reports.daily')"
             :showDateRange="true"

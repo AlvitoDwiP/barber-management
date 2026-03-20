@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Middleware\EnsureNoUsersExist;
+use App\Http\Middleware\EnsureUsersExist;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -13,7 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        $middleware->alias([
+            'owner.setup.open' => EnsureNoUsersExist::class,
+            'owner.account.exists' => EnsureUsersExist::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

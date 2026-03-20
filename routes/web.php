@@ -11,10 +11,24 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\CommissionSettingsController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\TransactionController;
+use App\Models\User;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 
 Route::get('/', function () {
-    return view('welcome');
+    if (! Schema::hasTable('users')) {
+        return response('', 200);
+    }
+
+    if (! User::query()->exists()) {
+        return redirect()->route('owner.setup.create');
+    }
+
+    if (auth()->check()) {
+        return redirect()->route('dashboard');
+    }
+
+    return redirect()->route('login');
 });
 
 Route::middleware('auth')->group(function () {
@@ -37,6 +51,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [TransactionController::class, 'index'])->name('index');
         Route::get('/daily-batch', [TransactionController::class, 'createDailyBatch'])->name('daily-batch.create');
         Route::post('/daily-batch', [TransactionController::class, 'storeDailyBatch'])->name('daily-batch.store');
+        Route::get('/{transaction}/edit', [TransactionController::class, 'edit'])->name('edit');
+        Route::put('/{transaction}', [TransactionController::class, 'update'])->name('update');
         Route::get('/{transaction}', [TransactionController::class, 'show'])->name('show');
         Route::delete('/{transaction}', [TransactionController::class, 'destroy'])->name('destroy');
     });

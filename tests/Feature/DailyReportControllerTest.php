@@ -28,23 +28,31 @@ class DailyReportControllerTest extends TestCase
         $haircut = Service::query()->create([
             'name' => 'Haircut Premium',
             'price' => '100000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '50.00',
         ]);
 
         $wash = Service::query()->create([
             'name' => 'Hair Wash',
             'price' => '50000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '50.00',
         ]);
 
         $pomade = Product::query()->create([
             'name' => 'Pomade',
             'price' => '20000.00',
             'stock' => 20,
+            'commission_type' => 'fixed',
+            'commission_value' => '5000.00',
         ]);
 
         $gel = Product::query()->create([
             'name' => 'Gel',
             'price' => '30000.00',
             'stock' => 20,
+            'commission_type' => 'fixed',
+            'commission_value' => '5000.00',
         ]);
 
         app(TransactionService::class)->recordTransaction([
@@ -89,53 +97,73 @@ class DailyReportControllerTest extends TestCase
         $report = app(DailyReportService::class)->getDailyReport('2026-03-10', '2026-03-12');
         $rows = $report['rows']->keyBy('report_date');
 
-        $this->assertSame([
+        $this->assertDailyMetrics($report['summary'], [
             'total_days_in_period' => 3,
             'total_transactions' => 3,
+            'cash' => '140000.00',
+            'qr' => '80000.00',
+            'cash_in' => '220000.00',
             'service_revenue' => '150000.00',
             'product_revenue' => '70000.00',
             'total_revenue' => '220000.00',
-            'cash' => '140000.00',
-            'qr' => '80000.00',
+            'barber_commissions' => '90000.00',
+            'operational_expenses' => '50000.00',
+            'total_operating_expenses' => '140000.00',
+            'operating_profit' => '80000.00',
             'expenses' => '50000.00',
-            'net_income' => '170000.00',
-        ], $report['summary']);
+            'net_income' => '80000.00',
+        ]);
 
-        $this->assertSame([
+        $this->assertDailyMetrics($rows->get('2026-03-10'), [
             'report_date' => '2026-03-10',
             'total_transactions' => 2,
+            'cash' => '140000.00',
+            'qr' => '50000.00',
+            'cash_in' => '190000.00',
             'service_revenue' => '150000.00',
             'product_revenue' => '40000.00',
             'total_revenue' => '190000.00',
-            'cash' => '140000.00',
-            'qr' => '50000.00',
+            'barber_commissions' => '85000.00',
+            'operational_expenses' => '15000.00',
+            'total_operating_expenses' => '100000.00',
+            'operating_profit' => '90000.00',
             'expenses' => '15000.00',
-            'net_income' => '175000.00',
-        ], $rows->get('2026-03-10'));
+            'net_income' => '90000.00',
+        ]);
 
-        $this->assertSame([
+        $this->assertDailyMetrics($rows->get('2026-03-11'), [
             'report_date' => '2026-03-11',
             'total_transactions' => 1,
+            'cash' => '0.00',
+            'qr' => '30000.00',
+            'cash_in' => '30000.00',
             'service_revenue' => '0.00',
             'product_revenue' => '30000.00',
             'total_revenue' => '30000.00',
-            'cash' => '0.00',
-            'qr' => '30000.00',
+            'barber_commissions' => '5000.00',
+            'operational_expenses' => '10000.00',
+            'total_operating_expenses' => '15000.00',
+            'operating_profit' => '15000.00',
             'expenses' => '10000.00',
-            'net_income' => '20000.00',
-        ], $rows->get('2026-03-11'));
+            'net_income' => '15000.00',
+        ]);
 
-        $this->assertSame([
+        $this->assertDailyMetrics($rows->get('2026-03-12'), [
             'report_date' => '2026-03-12',
             'total_transactions' => 0,
+            'cash' => '0.00',
+            'qr' => '0.00',
+            'cash_in' => '0.00',
             'service_revenue' => '0.00',
             'product_revenue' => '0.00',
             'total_revenue' => '0.00',
-            'cash' => '0.00',
-            'qr' => '0.00',
+            'barber_commissions' => '0.00',
+            'operational_expenses' => '25000.00',
+            'total_operating_expenses' => '25000.00',
+            'operating_profit' => '-25000.00',
             'expenses' => '25000.00',
             'net_income' => '-25000.00',
-        ], $rows->get('2026-03-12'));
+        ]);
 
         $response = $this->actingAs(User::factory()->create())
             ->get(route('reports.daily', [
@@ -144,16 +172,20 @@ class DailyReportControllerTest extends TestCase
             ]));
 
         $response->assertOk();
+        $response->assertSeeText('Kas Masuk');
         $response->assertSeeText('Pendapatan layanan');
         $response->assertSeeText('Pendapatan produk');
-        $response->assertSeeText('Pendapatan bersih');
+        $response->assertSeeText('Komisi barber');
+        $response->assertSeeText('Pengeluaran operasional');
+        $response->assertSeeText('Total beban operasional');
+        $response->assertSeeText('Laba operasional');
         $response->assertSeeText(Carbon::parse('2026-03-10')->locale('id')->translatedFormat('d M Y'));
         $response->assertSeeText(Carbon::parse('2026-03-12')->locale('id')->translatedFormat('d M Y'));
         $response->assertSeeText('Rp 220.000');
         $response->assertSeeText('Rp 140.000');
         $response->assertSeeText('Rp 80.000');
+        $response->assertSeeText('Rp 90.000');
         $response->assertSeeText('Rp 50.000');
-        $response->assertSeeText('Rp 170.000');
         $response->assertSeeText('Rp -25.000');
         $response->assertDontSeeText('Ringkasan laporan');
         $response->assertDontSeeText('Total hari pada periode');
@@ -197,12 +229,16 @@ class DailyReportControllerTest extends TestCase
         $service = Service::query()->create([
             'name' => 'Haircut Premium',
             'price' => '100000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '50.00',
         ]);
 
         $product = Product::query()->create([
             'name' => 'Pomade',
             'price' => '20000.00',
             'stock' => 20,
+            'commission_type' => 'fixed',
+            'commission_value' => '5000.00',
         ]);
 
         app(TransactionService::class)->recordTransaction([
@@ -237,9 +273,9 @@ class DailyReportControllerTest extends TestCase
         $csv = $this->parseCsv($response->streamedContent());
 
         $this->assertSame([
-            ['Tanggal', 'Jumlah transaksi', 'Pendapatan layanan', 'Pendapatan produk', 'Total pendapatan', 'Cash', 'QR', 'Pengeluaran', 'Pendapatan bersih'],
-            ['2026-03-10', '1', '100000', '20000', '120000', '120000', '0', '15000', '105000'],
-            ['Total', '1', '100000', '20000', '120000', '120000', '0', '15000', '105000'],
+            ['Tanggal', 'Jumlah transaksi', 'Cash', 'QR', 'Kas masuk', 'Pendapatan layanan', 'Pendapatan produk', 'Total pendapatan', 'Komisi barber', 'Pengeluaran operasional', 'Total beban operasional', 'Laba operasional'],
+            ['2026-03-10', '1', '120000', '0', '120000', '100000', '20000', '120000', '55000', '15000', '70000', '50000'],
+            ['Total', '1', '120000', '0', '120000', '100000', '20000', '120000', '55000', '15000', '70000', '50000'],
         ], $csv);
     }
 
@@ -297,7 +333,10 @@ class DailyReportControllerTest extends TestCase
         $this->assertSame('100000.00', $row['service_revenue']);
         $this->assertSame('40000.00', $row['product_revenue']);
         $this->assertSame('140000.00', $row['total_revenue']);
-        $this->assertSame('125000.00', $row['net_income']);
+        $this->assertSame('60000.00', $row['barber_commissions']);
+        $this->assertSame('15000.00', $row['operational_expenses']);
+        $this->assertSame('75000.00', $row['total_operating_expenses']);
+        $this->assertSame('65000.00', $row['operating_profit']);
     }
 
     public function test_daily_report_keeps_exact_decimal_totals_for_sensitive_nominals(): void
@@ -309,11 +348,15 @@ class DailyReportControllerTest extends TestCase
         $service = Service::query()->create([
             'name' => 'Color Consultation',
             'price' => '1000.00',
+            'commission_type' => 'percent',
+            'commission_value' => '66.67',
         ]);
         $product = Product::query()->create([
             'name' => 'Ampoule Sample',
             'price' => '0.01',
             'stock' => 10,
+            'commission_type' => 'fixed',
+            'commission_value' => '0.01',
         ]);
 
         app(TransactionService::class)->recordTransaction([
@@ -332,23 +375,30 @@ class DailyReportControllerTest extends TestCase
         $report = app(DailyReportService::class)->getDailyReport('2026-03-18', '2026-03-18');
         $row = $report['rows']->first();
 
-        $this->assertSame([
+        $this->assertDailyMetrics($report['summary'], [
             'total_days_in_period' => 1,
             'total_transactions' => 1,
+            'cash' => '1000.03',
+            'qr' => '0.00',
+            'cash_in' => '1000.03',
             'service_revenue' => '1000.00',
             'product_revenue' => '0.03',
             'total_revenue' => '1000.03',
-            'cash' => '1000.03',
-            'qr' => '0.00',
+            'barber_commissions' => '666.73',
+            'operational_expenses' => '0.01',
+            'total_operating_expenses' => '666.74',
+            'operating_profit' => '333.29',
             'expenses' => '0.01',
-            'net_income' => '1000.02',
-        ], $report['summary']);
+            'net_income' => '333.29',
+        ]);
 
         $this->assertSame('1000.00', $row['service_revenue']);
         $this->assertSame('0.03', $row['product_revenue']);
         $this->assertSame('1000.03', $row['total_revenue']);
-        $this->assertSame('0.01', $row['expenses']);
-        $this->assertSame('1000.02', $row['net_income']);
+        $this->assertSame('666.73', $row['barber_commissions']);
+        $this->assertSame('0.01', $row['operational_expenses']);
+        $this->assertSame('666.74', $row['total_operating_expenses']);
+        $this->assertSame('333.29', $row['operating_profit']);
     }
 
     private function parseCsv(string $content): array
@@ -357,5 +407,13 @@ class DailyReportControllerTest extends TestCase
         $lines = preg_split("/\r\n|\n|\r/", trim($content)) ?: [];
 
         return array_map(fn (string $line): array => str_getcsv($line), $lines);
+    }
+
+    private function assertDailyMetrics(array $actual, array $expected): void
+    {
+        foreach ($expected as $key => $value) {
+            $this->assertArrayHasKey($key, $actual);
+            $this->assertSame($value, $actual[$key], "Metric [{$key}] does not match the expected daily report value.");
+        }
     }
 }

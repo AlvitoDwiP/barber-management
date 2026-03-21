@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'default' => env('QUEUE_CONNECTION', 'database'),
+    'default' => env('QUEUE_CONNECTION', 'sync'),
 
     /*
     |--------------------------------------------------------------------------
@@ -104,9 +104,9 @@ return [
     */
 
     'failed' => [
-        'driver' => env('QUEUE_FAILED_DRIVER', 'database-uuids'),
-        'database' => env('DB_CONNECTION', 'sqlite'),
-        'table' => 'failed_jobs',
+        'driver' => env('QUEUE_FAILED_DRIVER', env('QUEUE_CONNECTION', 'sync') === 'sync' ? 'null' : 'database-uuids'),
+        'database' => env('QUEUE_FAILED_DATABASE', env('DB_CONNECTION', 'sqlite')),
+        'table' => env('QUEUE_FAILED_TABLE', 'failed_jobs'),
     ],
 
 ];

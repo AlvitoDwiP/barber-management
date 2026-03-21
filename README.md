@@ -71,16 +71,19 @@ php artisan migrate --seed
 composer run dev
 ```
 
-Env minimal yang penting:
+Env minimal untuk lokal cepat:
 
 ```env
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://localhost
 APP_TIMEZONE=Asia/Jakarta
 APP_LOCALE=id
 DB_CONNECTION=sqlite
 DB_DATABASE=/absolute/path/to/database/database.sqlite
-SESSION_DRIVER=database
-CACHE_STORE=database
-QUEUE_CONNECTION=database
+SESSION_DRIVER=file
+CACHE_STORE=file
+QUEUE_CONNECTION=sync
 ```
 
 Jika tidak ingin seed penuh, jalankan:
@@ -119,6 +122,68 @@ Build production assets:
 ```bash
 npm run build
 ```
+
+## Deploy Production: Shared Hosting + SQLite
+
+Default project ini sekarang diarahkan ke setup production yang ringan untuk shared hosting:
+
+- `DB_CONNECTION=sqlite`
+- `SESSION_DRIVER=file`
+- `CACHE_STORE=file`
+- `QUEUE_CONNECTION=sync`
+- `APP_ENV=production`
+- `APP_DEBUG=false`
+
+Rekomendasi penting:
+
+- letakkan file SQLite di luar `public_html` bila hosting memungkinkan
+- pakai `SESSION_SECURE_COOKIE=true` jika site berjalan di HTTPS
+- pertahankan `LOG_STACK=daily` agar log tidak menumpuk di satu file besar
+- hindari driver `database` untuk session, cache, dan queue bila belum benar-benar dibutuhkan
+
+Contoh env production yang aman:
+
+```env
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://your-domain.example
+
+DB_CONNECTION=sqlite
+DB_DATABASE=/absolute/path/outside/public_html/barber-management.sqlite
+DB_FOREIGN_KEYS=true
+DB_BUSY_TIMEOUT=5000
+DB_JOURNAL_MODE=DELETE
+DB_SYNCHRONOUS=FULL
+
+SESSION_DRIVER=file
+SESSION_ENCRYPT=true
+SESSION_HTTP_ONLY=true
+SESSION_SAME_SITE=lax
+SESSION_SECURE_COOKIE=true
+
+CACHE_STORE=file
+QUEUE_CONNECTION=sync
+QUEUE_FAILED_DRIVER=null
+
+LOG_CHANNEL=stack
+LOG_STACK=daily
+LOG_LEVEL=info
+```
+
+## Jalur Migrasi ke MySQL / MariaDB
+
+Saat kebutuhan naik, perpindahan ke MySQL atau MariaDB tetap sederhana:
+
+- ganti `DB_CONNECTION` ke `mysql` atau `mariadb`
+- isi `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, dan `DB_PASSWORD`
+- jalankan migrasi di database baru
+- pertahankan query lewat Eloquent atau Query Builder
+
+Catatan teknis:
+
+- beberapa report memang punya ekspresi tanggal per driver, tetapi sudah dibedakan secara eksplisit untuk SQLite, MySQL/MariaDB, dan PostgreSQL
+- migration sebaiknya tetap memakai schema builder Laravel, bukan asumsi khas SQLite
+- jangan mengandalkan perilaku tipe data longgar SQLite saat menambah fitur baru
 
 ## Testing
 

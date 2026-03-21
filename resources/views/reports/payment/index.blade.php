@@ -1,6 +1,9 @@
 <x-app-layout>
     <x-slot name="header">
-        <x-report-page-header title="Laporan Metode Pembayaran" />
+        <x-report-page-header
+            title="Laporan Metode Pembayaran"
+            subtitle="Laporan ini fokus pada arus pembayaran transaksi per metode. Gunakan halaman ini untuk membaca kas masuk, bukan laba operasional."
+        />
     </x-slot>
 
     @php
@@ -31,20 +34,36 @@
             format_rupiah($sumMoney('cash_in')),
             number_format((int) $rows->sum('total_transactions'), 0, ',', '.'),
         ];
+        $hasPaymentData = (int) $rows->sum('total_transactions') > 0;
     @endphp
 
     <div class="space-y-6">
-        <div class="admin-card">
-            <p class="text-sm text-slate-600">Laporan ini hanya menampilkan arus pembayaran transaksi. Kas Masuk bukan Laba Operasional.</p>
-        </div>
+        <section class="admin-card p-4 sm:p-5">
+            <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Kas masuk</p>
+                    <p class="mt-1 text-sm leading-6 text-slate-600">Kas masuk di halaman ini adalah total pembayaran transaksi yang diterima lewat cash dan QR.</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Batas laporan</p>
+                    <p class="mt-1 text-sm leading-6 text-slate-600">Halaman ini tidak menghitung pengeluaran atau laba operasional. Gunakan laporan harian atau bulanan untuk membaca profit.</p>
+                </div>
+            </div>
+        </section>
 
-        <x-report-filter :action="route('reports.payment')" :showDateRange="false" :showYear="false" :filterKeys="['year']">
+        <x-report-filter
+            :action="route('reports.payment')"
+            :showDateRange="false"
+            :showYear="false"
+            :filterKeys="['year']"
+            helperText="Pilih tahun untuk melihat arus pembayaran transaksi per bulan."
+        >
             <div>
                 <label for="year" class="text-sm font-medium text-slate-700">Tahun</label>
                 <select
                     id="year"
                     name="year"
-                    class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-[#A85F3B] focus:ring-[#A85F3B]"
+                    class="form-brand-control"
                 >
                     @foreach ($yearOptions as $optionYear)
                         <option value="{{ $optionYear }}" @selected((int) $year === (int) $optionYear)>{{ $optionYear }}</option>
@@ -56,16 +75,43 @@
             </div>
         </x-report-filter>
 
-        <div class="admin-card">
-            <p class="text-xs uppercase tracking-wide text-slate-500">Periode laporan</p>
-            <p class="mt-1 text-sm font-semibold text-slate-900">Tahun {{ $year }}</p>
-        </div>
+        <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <article class="transaction-metric-card">
+                <p class="transaction-metric-label">Tahun laporan</p>
+                <p class="transaction-metric-value">{{ $year }}</p>
+            </article>
+            <article class="transaction-metric-card">
+                <p class="transaction-metric-label">Total cash</p>
+                <p class="transaction-metric-value">{{ format_rupiah($sumMoney('total_cash')) }}</p>
+            </article>
+            <article class="transaction-metric-card">
+                <p class="transaction-metric-label">Total QR</p>
+                <p class="transaction-metric-value">{{ format_rupiah($sumMoney('total_qr')) }}</p>
+            </article>
+            <article class="transaction-metric-card">
+                <p class="transaction-metric-label">Kas masuk</p>
+                <p class="transaction-metric-value">{{ format_rupiah($sumMoney('cash_in')) }}</p>
+            </article>
+        </section>
 
-        <x-report-table
-            :headers="['Bulan', 'Cash', 'QR', 'Kas Masuk', 'Jumlah transaksi']"
-            :rows="$tableRows"
-            :footer="$footer"
-            empty-message="Belum ada data transaksi pada tahun ini."
-        />
+        @if ($hasPaymentData)
+            <x-report-table
+                :headers="['Bulan', 'Cash', 'QR', 'Kas Masuk', 'Jumlah transaksi']"
+                :rows="$tableRows"
+                :footer="$footer"
+            />
+        @else
+            <section class="admin-card">
+                <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
+                    <h3 class="text-base font-semibold text-slate-900">Belum ada arus pembayaran pada tahun ini</h3>
+                    <p class="mt-2 text-sm text-slate-500">
+                        Belum ada transaksi yang tercatat untuk tahun {{ $year }}, jadi kas masuk belum bisa diringkas.
+                    </p>
+                    <p class="mt-1 text-sm text-slate-500">
+                        Pilih tahun lain atau input transaksi dulu agar laporan pembayaran mulai terisi.
+                    </p>
+                </div>
+            </section>
+        @endif
     </div>
 </x-app-layout>

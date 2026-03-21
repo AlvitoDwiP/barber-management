@@ -81,5 +81,7 @@ class PaymentReportControllerTest extends TestCase
 
         $response->assertSeeText('Kas Masuk');
         $response->assertSeeText('Jumlah transaksi');
+        $response->assertSeeText('Kas masuk di halaman ini adalah total pembayaran transaksi yang diterima lewat cash dan QR.');
+        $response->assertSeeText('Tahun laporan');
     }
 }

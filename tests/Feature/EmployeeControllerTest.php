@@ -24,7 +24,7 @@ class EmployeeControllerTest extends TestCase
         $response = $this->actingAs($user)->delete(route('employees.destroy', $employee));
 
         $response->assertRedirect(route('employees.index'));
-        $response->assertSessionHas('success', 'Data pegawai berhasil dihapus.');
+        $response->assertSessionHas('success', 'Pegawai berhasil dihapus.');
         $this->assertDatabaseMissing('employees', ['id' => $employee->id]);
     }
 
@@ -51,7 +51,7 @@ class EmployeeControllerTest extends TestCase
         $response = $this->actingAs($user)->delete(route('employees.destroy', $employee));
 
         $response->assertRedirect(route('employees.index'));
-        $response->assertSessionHas('success', 'Pegawai memiliki data historis sehingga dinonaktifkan, bukan dihapus.');
+        $response->assertSessionHas('success', 'Pegawai punya data historis, jadi dinonaktifkan dan tetap disimpan.');
         $this->assertDatabaseHas('employees', [
             'id' => $employee->id,
             'is_active' => false,
@@ -81,7 +81,7 @@ class EmployeeControllerTest extends TestCase
         $response = $this->actingAs($user)->delete(route('employees.destroy', $employee));
 
         $response->assertRedirect(route('employees.index'));
-        $response->assertSessionHas('success', 'Pegawai ini sudah nonaktif dan tetap disimpan karena memiliki data historis.');
+        $response->assertSessionHas('success', 'Pegawai ini sudah nonaktif dan tetap disimpan karena punya data historis.');
         $this->assertDatabaseHas('employees', [
             'id' => $employee->id,
             'is_active' => false,

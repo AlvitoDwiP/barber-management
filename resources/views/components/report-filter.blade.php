@@ -11,6 +11,7 @@
     'year' => request('year', now()->year),
     'filterLabel' => 'Filter Laporan',
     'filterKeys' => [],
+    'helperText' => 'Filter memengaruhi tampilan tabel dan file export pada halaman ini.',
 ])
 
 @php
@@ -35,11 +36,11 @@
     $filterId = 'report-filter-'.md5($action.'|'.$resolvedFilterKeys->implode('|'));
 @endphp
 
-<section class="admin-card" x-data="{ filterOpen: @js($hasActiveFilters), closedLabel: @js($filterLabel) }">
+<section class="admin-card p-4 sm:p-5" x-data="{ filterOpen: @js($hasActiveFilters), closedLabel: @js($filterLabel) }">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <h3 class="text-base font-semibold text-slate-900">{{ $filterLabel }}</h3>
-            <p class="text-sm text-slate-500">Buka filter saat diperlukan untuk menyaring data laporan.</p>
+            <p class="text-sm text-slate-500">{{ $helperText }}</p>
         </div>
 
         <div class="flex flex-wrap items-center gap-3">
@@ -57,6 +58,20 @@
                 <span x-text="filterOpen ? 'Tutup Filter' : closedLabel"></span>
             </button>
         </div>
+    </div>
+
+    <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide">
+        @if ($hasActiveFilters)
+            <span class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700">
+                Filter aktif
+            </span>
+            <span class="text-slate-500">Tabel dan export mengikuti filter yang dipilih.</span>
+        @else
+            <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-600">
+                Filter default
+            </span>
+            <span class="text-slate-500">Gunakan filter saat perlu melihat periode atau fokus tertentu.</span>
+        @endif
     </div>
 
     <div
@@ -78,7 +93,7 @@
                             value="{{ $startDate }}"
                             data-flatpickr="date"
                             autocomplete="off"
-                            class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-[#A85F3B] focus:ring-[#A85F3B]"
+                            class="form-brand-control"
                         />
                         @error($startDateField)
                             <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
@@ -93,7 +108,7 @@
                             value="{{ $endDate }}"
                             data-flatpickr="date"
                             autocomplete="off"
-                            class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-[#A85F3B] focus:ring-[#A85F3B]"
+                            class="form-brand-control"
                         />
                         @error($endDateField)
                             <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
@@ -111,7 +126,7 @@
                             min="2000"
                             max="{{ now()->year + 1 }}"
                             value="{{ $year }}"
-                            class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-[#A85F3B] focus:ring-[#A85F3B]"
+                            class="form-brand-control"
                         />
                     </div>
                 @endif

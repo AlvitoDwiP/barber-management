@@ -1,6 +1,9 @@
 <x-app-layout>
     <x-slot name="header">
-        <x-report-page-header title="Laporan Kinerja Pegawai" />
+        <x-report-page-header
+            title="Laporan Kinerja Pegawai"
+            subtitle="Laporan ini membantu melihat kontribusi tiap pegawai dari jumlah transaksi, layanan, produk, omzet, dan total komisi."
+        />
     </x-slot>
 
     @php
@@ -37,6 +40,7 @@
             :startDate="$tanggalAwal"
             :endDate="$tanggalAkhir"
             :filterKeys="['tanggal_awal', 'tanggal_akhir', 'pegawai_id']"
+            helperText="Atur periode dan pegawai jika ingin fokus ke kontribusi tertentu. Filter yang sama dipakai saat export CSV."
         >
             <x-slot name="actions">
                 <a href="{{ route('reports.employees.export.csv', $exportQuery) }}" class="btn-neutral-warm shrink-0">
@@ -49,7 +53,7 @@
                 <select
                     id="pegawai_id"
                     name="pegawai_id"
-                    class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-[#A85F3B] focus:ring-[#A85F3B]"
+                    class="form-brand-control"
                 >
                     <option value="">Semua pegawai</option>
                     @foreach ($employees as $employee)

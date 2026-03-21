@@ -32,7 +32,7 @@ class EmployeeController extends Controller
 
         return redirect()
             ->route('employees.index')
-            ->with('success', 'Data pegawai berhasil ditambahkan.');
+            ->with('success', 'Pegawai berhasil ditambahkan.');
     }
 
     public function show(Employee $employee): RedirectResponse
@@ -51,7 +51,7 @@ class EmployeeController extends Controller
 
         return redirect()
             ->route('employees.index')
-            ->with('success', 'Data pegawai berhasil diperbarui.');
+            ->with('success', 'Pegawai berhasil diperbarui.');
     }
 
     public function destroy(Employee $employee): RedirectResponse
@@ -61,7 +61,7 @@ class EmployeeController extends Controller
 
             return redirect()
                 ->route('employees.index')
-                ->with('success', 'Data pegawai berhasil dihapus.');
+                ->with('success', 'Pegawai berhasil dihapus.');
         }
 
         if ($employee->isActive()) {
@@ -69,11 +69,11 @@ class EmployeeController extends Controller
 
             return redirect()
                 ->route('employees.index')
-                ->with('success', 'Pegawai memiliki data historis sehingga dinonaktifkan, bukan dihapus.');
+                ->with('success', 'Pegawai punya data historis, jadi dinonaktifkan dan tetap disimpan.');
         }
 
         return redirect()
             ->route('employees.index')
-            ->with('success', 'Pegawai ini sudah nonaktif dan tetap disimpan karena memiliki data historis.');
+            ->with('success', 'Pegawai ini sudah nonaktif dan tetap disimpan karena punya data historis.');
     }
 }

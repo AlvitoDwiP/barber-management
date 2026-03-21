@@ -65,7 +65,7 @@ class ExpenseController extends Controller
 
             return redirect()
                 ->route('expenses.index')
-                ->with('success', 'Data pengeluaran berhasil ditambahkan.');
+                ->with('success', 'Pengeluaran berhasil dicatat.');
         } catch (DomainException $exception) {
             return redirect()
                 ->back()
@@ -77,7 +77,7 @@ class ExpenseController extends Controller
             return redirect()
                 ->back()
                 ->withInput()
-                ->with('error', 'Terjadi kesalahan saat menyimpan pengeluaran. Silakan coba lagi.');
+                ->with('error', 'Pengeluaran belum berhasil disimpan. Coba lagi beberapa saat lagi.');
         }
     }
 
@@ -110,7 +110,7 @@ class ExpenseController extends Controller
 
             return redirect()
                 ->route('expenses.index')
-                ->with('success', 'Data pengeluaran berhasil diperbarui.');
+                ->with('success', 'Perubahan pengeluaran berhasil disimpan.');
         } catch (DomainException $exception) {
             return redirect()
                 ->route('expenses.index')
@@ -127,7 +127,7 @@ class ExpenseController extends Controller
 
             return redirect()
                 ->route('expenses.index')
-                ->with('success', 'Data pengeluaran berhasil dihapus.');
+                ->with('success', 'Pengeluaran berhasil dihapus.');
         } catch (DomainException $exception) {
             return redirect()
                 ->route('expenses.index')

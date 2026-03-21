@@ -20,7 +20,7 @@ class DailyBatchTransactionControllerTest extends TestCase
         $response = $this->actingAs($user)->get(route('transactions.daily-batch.create'));
 
         $response->assertOk();
-        $response->assertSeeText('Input harian beberapa transaksi sekaligus');
+        $response->assertSeeText('Input transaksi harian sekaligus');
         $response->assertSeeText('Tambah Transaksi');
         $response->assertSeeText('Duplikat');
         $response->assertSeeText('Ringkasan Input Harian');
@@ -80,7 +80,7 @@ class DailyBatchTransactionControllerTest extends TestCase
         ]);
 
         $response->assertRedirect(route('transactions.index'));
-        $response->assertSessionHas('success');
+        $response->assertSessionHas('success', '2 transaksi berhasil disimpan. Hasilnya sudah masuk ke daftar transaksi.');
         $this->assertDatabaseCount('transactions', 2);
         $this->assertDatabaseHas('transactions', [
             'transaction_date' => '2026-03-15 00:00:00',

@@ -40,7 +40,7 @@
     </x-slot>
 
     <div
-        class="space-y-6"
+        class="space-y-5 sm:space-y-6"
         x-data="dailyBatchTransactionForm({
             employeeOptions: @js($employeeOptions),
             serviceOptions: @js($serviceOptions),
@@ -51,15 +51,15 @@
         })"
         x-init="init()"
     >
-        <section class="admin-card">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <section class="admin-card p-4 sm:p-5">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                     <p class="text-sm font-semibold uppercase tracking-[0.2em] text-[#934C2D]">Transaksi v1</p>
-                    <h3 class="mt-2 text-2xl font-semibold text-slate-900">Input harian beberapa transaksi sekaligus</h3>
-                    <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-500">Ini adalah satu-satunya alur input transaksi. Setiap blok di bawah akan disimpan sebagai transaksi terpisah agar operasional harian tetap cepat, tetapi histori tetap rapi untuk audit.</p>
+                    <h3 class="mt-1.5 text-xl font-semibold text-slate-900 sm:text-2xl">Input transaksi harian sekaligus</h3>
+                    <p class="mt-1.5 max-w-3xl text-sm leading-5 text-slate-500">Pakai halaman ini setelah operasional selesai untuk mencatat beberapa transaksi sekaligus. Setiap blok akan disimpan sebagai transaksi terpisah.</p>
                 </div>
 
-                <a href="{{ route('transactions.index') }}" class="btn-neutral-warm">
+                <a href="{{ route('transactions.index') }}" class="btn-neutral-warm w-full justify-center sm:w-auto">
                     Kembali
                 </a>
             </div>
@@ -71,15 +71,15 @@
                         Periode {{ $activePayroll->start_date?->locale('id')->translatedFormat('d F Y') ?? '-' }}
                         sampai
                         {{ $activePayroll->end_date?->locale('id')->translatedFormat('d F Y') ?? '-' }} sedang terbuka.
-                        Setiap blok dari input harian ini tetap direkam sebagai transaksi terpisah di periode payroll yang sedang berjalan.
+                        Semua transaksi yang disimpan dari halaman ini akan langsung ikut ke periode payroll yang sedang berjalan.
                     </p>
                 </div>
             @endif
 
             @if ($errors->any())
                 <div class="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700">
-                    <p class="font-semibold">Masih ada input yang perlu diperbaiki.</p>
-                    <p class="mt-1">Periksa blok transaksi dan item yang ditandai. Error tetap ditempatkan sedekat mungkin dengan field terkait supaya halaman tidak terasa rusak.</p>
+                    <p class="font-semibold">Masih ada yang perlu dicek.</p>
+                    <p class="mt-1">Periksa blok dan item yang ditandai, lalu simpan lagi setelah semuanya lengkap.</p>
                 </div>
             @endif
         </section>
@@ -87,8 +87,8 @@
         <form id="daily-batch-form" method="POST" action="{{ route('transactions.daily-batch.store') }}" class="space-y-6" x-ref="dailyBatchForm">
             @csrf
 
-            <section class="admin-card">
-                <div class="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.9fr)]">
+            <section class="admin-card p-4 sm:p-5">
+                <div class="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.9fr)]">
                     <div>
                         <x-input-label for="transaction_date" :value="__('Tanggal Transaksi')" />
                         <x-text-input
@@ -104,17 +104,17 @@
                         <x-input-error :messages="$errors->get('transaction_date')" class="mt-2" />
                     </div>
 
-                    <div class="rounded-2xl border border-[#E1C5B8] bg-[#FAF3EF] px-4 py-4">
-                        <p class="text-sm font-semibold text-[#7D4026]">Aturan input harian</p>
-                        <p class="mt-2 text-sm leading-6 text-[#8B533B]">Setiap blok transaksi memakai satu pegawai transaksi. Item di dalam blok cukup memilih layanan atau produk, lalu sistem menampilkan snapshot harga dan komisi dari aturan yang berlaku.</p>
+                    <div class="rounded-2xl border border-[#E1C5B8] bg-[#FAF3EF] px-3.5 py-3.5 sm:px-4 sm:py-4">
+                        <p class="text-sm font-semibold text-[#7D4026]">Cara pakai cepat</p>
+                        <p class="mt-1.5 text-sm leading-5 text-[#8B533B]">Satu blok = satu transaksi. Pilih pegawai, metode bayar, lalu item untuk melihat total, harga, dan komisi.</p>
                     </div>
                 </div>
             </section>
 
-            <div class="space-y-5">
+            <div class="space-y-4">
                 <template x-for="(entry, entryIndex) in entries" :key="entry.key">
                     <section
-                        class="admin-card"
+                        class="admin-card p-4 sm:p-5"
                         :data-entry-key="entry.key"
                         :class="entryHasErrors(entryIndex)
                             ? 'ring-1 ring-rose-200'
@@ -122,7 +122,7 @@
                                 ? 'ring-1 ring-amber-200'
                                 : ''"
                     >
-                        <div class="flex flex-col gap-4 border-b border-slate-200 pb-5 lg:flex-row lg:items-start lg:justify-between">
+                        <div class="flex flex-col gap-3 border-b border-slate-200 pb-4 lg:flex-row lg:items-start lg:justify-between">
                             <div>
                                 <div class="flex flex-wrap items-center gap-2">
                                     <h3 class="text-base font-semibold text-slate-900" x-text="`Transaksi ${entryIndex + 1}`"></h3>
@@ -132,27 +132,28 @@
                                         x-text="entryStatus(entryIndex).label"
                                     ></span>
                                 </div>
-                                <p class="mt-1 text-sm text-slate-500">Setiap blok adalah 1 transaksi terpisah. Item di dalamnya tetap memakai aturan layanan, produk, komisi, dan payroll yang sama di seluruh modul transaksi.</p>
+                                <p class="mt-1 text-xs leading-4 text-slate-500">Satu blok akan disimpan sebagai satu transaksi.</p>
                             </div>
 
-                            <div class="flex flex-wrap items-center gap-2 self-start">
-                                <button type="button" class="btn-brand-soft" @click="duplicateTransaction(entryIndex)">
+                            <div class="grid w-full grid-cols-2 gap-2 self-start sm:flex sm:w-auto sm:flex-wrap sm:items-center">
+                                <button type="button" class="btn-brand-soft w-full justify-center" @click="duplicateTransaction(entryIndex)">
                                     Duplikat
                                 </button>
-                                <button type="button" class="btn-neutral-warm" @click="removeTransaction(entryIndex)">
+                                <button type="button" class="btn-neutral-warm w-full justify-center" @click="removeTransaction(entryIndex)">
                                     Hapus
                                 </button>
                             </div>
                         </div>
 
-                        <div class="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-                            <div>
+                        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-12">
+                            <div class="xl:col-span-5">
                                 <x-input-label :value="__('Pegawai Transaksi')" />
                                 <select
                                     class="form-brand-control"
                                     :name="`entries[${entryIndex}][employee_id]`"
                                     data-entry-employee-select="true"
                                     x-model="entry.employee_id"
+                                    x-effect="syncSelectValue($el, entry.employee_id)"
                                     required
                                 >
                                     <option value="">Pilih pegawai transaksi</option>
@@ -160,13 +161,13 @@
                                         <option :value="String(employee.id)" x-text="`${employee.name} - ${employee.employment_label}`"></option>
                                     </template>
                                 </select>
-                                <p class="mt-2 text-xs leading-5 text-slate-500">Semua item dalam blok ini otomatis memakai pegawai yang sama.</p>
+                                <p class="mt-1.5 text-[11px] leading-4 text-slate-500">Dipakai untuk semua item dalam blok ini.</p>
                                 <template x-for="message in fieldErrors(`entries.${entryIndex}.employee_id`)" :key="message">
                                     <p class="mt-2 text-sm text-rose-600" x-text="message"></p>
                                 </template>
                             </div>
 
-                            <div>
+                            <div class="xl:col-span-4">
                                 <x-input-label :value="__('Metode Pembayaran')" />
                                 <select class="form-brand-control" :name="`entries[${entryIndex}][payment_method]`" x-model="entry.payment_method" required>
                                     <option value="cash">cash</option>
@@ -177,12 +178,13 @@
                                 </template>
                             </div>
 
-                            <div class="lg:col-span-2 xl:col-span-3">
+                            <div class="sm:col-span-2 xl:col-span-3">
                                 <x-input-label :value="__('Catatan Transaksi')" />
                                 <textarea
-                                    rows="3"
-                                    class="form-brand-control"
+                                    rows="2"
+                                    class="form-brand-control min-h-[72px] resize-y"
                                     :name="`entries[${entryIndex}][notes]`"
+                                    placeholder="Catatan opsional"
                                     x-model="entry.notes"
                                 ></textarea>
                                 <template x-for="message in fieldErrors(`entries.${entryIndex}.notes`)" :key="message">
@@ -195,18 +197,18 @@
                             <div class="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" x-text="message"></div>
                         </template>
 
-                        <div class="mt-6 border-b border-slate-200 pb-5">
+                        <div class="mt-5 border-b border-slate-200 pb-4">
                             <h4 class="text-sm font-semibold text-slate-900">Item transaksi</h4>
-                            <p class="mt-1 text-sm text-slate-500">Form item hanya dipakai untuk memilih item, qty produk, dan melihat preview snapshot harga serta komisi sesuai aturan yang sudah ada.</p>
+                            <p class="mt-1 text-xs leading-4 text-slate-500">Pilih layanan atau produk, atur qty bila perlu, lalu cek preview totalnya.</p>
                         </div>
 
-                        <div class="mt-5 space-y-4">
+                        <div class="mt-4 space-y-3">
                             <template x-for="(item, rowIndex) in entry.items" :key="item.key">
                                 <article
-                                    class="transaction-item-card"
+                                    class="transaction-item-card p-3.5 sm:p-4"
                                     :class="itemHasErrors(entryIndex, rowIndex) ? 'ring-1 ring-rose-200' : ''"
                                 >
-                                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div class="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
                                         <div>
                                             <div class="flex flex-wrap items-center gap-2">
                                                 <p class="text-sm font-semibold text-slate-900" x-text="`Item ${rowIndex + 1}`"></p>
@@ -218,18 +220,18 @@
                                                     x-text="item.item_type === 'service' ? 'Layanan' : 'Produk'"
                                                 ></span>
                                             </div>
-                                            <p class="mt-1 text-sm text-slate-500" x-text="item.item_type === 'service'
-                                                ? 'Qty layanan selalu 1 dan komisi mengikuti aturan layanan atau global.'
-                                                : 'Komisi produk mengikuti aturan produk atau global. Qty dapat diubah.'"></p>
+                                            <p class="mt-1 text-[11px] leading-4 text-slate-500" x-text="item.item_type === 'service'
+                                                ? 'Qty layanan tetap 1.'
+                                                : 'Qty produk bisa diubah.'"></p>
                                         </div>
 
-                                        <button type="button" class="btn-neutral-warm self-start" @click="removeItem(entryIndex, rowIndex)">
+                                        <button type="button" class="btn-neutral-warm w-full justify-center self-start sm:w-auto" @click="removeItem(entryIndex, rowIndex)">
                                             Hapus
                                         </button>
                                     </div>
 
-                                    <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-12 xl:items-start">
-                                        <div class="xl:col-span-3">
+                                    <div class="mt-3.5 grid grid-cols-1 gap-3 sm:grid-cols-12 xl:grid-cols-12 xl:items-start">
+                                        <div class="sm:col-span-4 xl:col-span-3">
                                             <x-input-label :value="__('Jenis')" />
                                             <select
                                                 class="form-brand-control"
@@ -242,35 +244,28 @@
                                             </select>
                                         </div>
 
-                                        <div class="xl:col-span-7">
+                                        <div class="sm:col-span-8 xl:col-span-7">
                                             <x-input-label :value="__('Item Master')" />
-                                            <template x-if="item.item_type === 'service'">
-                                                <select
-                                                    class="form-brand-control"
-                                                    :name="`entries[${entryIndex}][items][${rowIndex}][service_id]`"
-                                                    :data-entry-item-select="rowIndex === 0 ? 'true' : null"
-                                                    x-model="item.service_id"
-                                                >
-                                                    <option value="">Pilih layanan</option>
-                                                    <template x-for="service in serviceOptions" :key="service.id">
-                                                        <option :value="String(service.id)" x-text="`${service.name} - ${formatCurrency(service.price_minor_units)}`"></option>
-                                                    </template>
-                                                </select>
-                                            </template>
-
-                                            <template x-if="item.item_type === 'product'">
-                                                <select
-                                                    class="form-brand-control"
-                                                    :name="`entries[${entryIndex}][items][${rowIndex}][product_id]`"
-                                                    :data-entry-item-select="rowIndex === 0 ? 'true' : null"
-                                                    x-model="item.product_id"
-                                                >
-                                                    <option value="">Pilih produk</option>
-                                                    <template x-for="product in productOptions" :key="product.id">
-                                                        <option :value="String(product.id)" x-text="`${product.name} - ${formatCurrency(product.price_minor_units)} (stok ${product.stock})`"></option>
-                                                    </template>
-                                                </select>
-                                            </template>
+                                            <select
+                                                class="form-brand-control"
+                                                :name="item.item_type === 'product'
+                                                    ? `entries[${entryIndex}][items][${rowIndex}][product_id]`
+                                                    : `entries[${entryIndex}][items][${rowIndex}][service_id]`"
+                                                :data-entry-item-select="rowIndex === 0 ? 'true' : null"
+                                                :value="resolvedItemMasterValue(item)"
+                                                x-effect="syncItemMasterSelect($el, item)"
+                                                @change="setItemMaster(entryIndex, rowIndex, $event.target.value)"
+                                            >
+                                                <option value="" x-text="itemMasterPlaceholder(item)"></option>
+                                                <template x-for="option in itemMasterOptions(item)" :key="option.id">
+                                                    <option
+                                                        :value="option.id"
+                                                        x-text="item.item_type === 'product'
+                                                            ? `${option.name} - ${formatCurrency(option.price_minor_units)} (stok ${option.stock})`
+                                                            : `${option.name} - ${formatCurrency(option.price_minor_units)}`"
+                                                    ></option>
+                                                </template>
+                                            </select>
 
                                             <template x-for="message in item.item_type === 'service'
                                                 ? fieldErrors(`entries.${entryIndex}.items.${rowIndex}.service_id`)
@@ -280,7 +275,7 @@
                                         </div>
 
                                         <template x-if="item.item_type === 'product'">
-                                            <div class="xl:col-span-2">
+                                            <div class="sm:col-span-4 xl:col-span-2">
                                                 <x-input-label :value="__('Qty')" />
                                                 <input
                                                     type="number"
@@ -297,7 +292,7 @@
                                         </template>
                                     </div>
 
-                                    <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
+                                    <div class="mt-3 grid grid-cols-2 gap-2.5 xl:grid-cols-5">
                                         <template x-if="item.item_type === 'service'">
                                             <input
                                                 type="hidden"
@@ -306,64 +301,70 @@
                                             />
                                         </template>
 
-                                        <div class="transaction-preview-card transaction-preview-card-feature md:col-span-2 xl:col-span-2">
-                                            <p class="transaction-preview-label">Aturan Item</p>
-                                            <p class="transaction-preview-note transaction-preview-note-compact" x-text="item.item_type === 'service'
-                                                ? 'Qty layanan selalu 1 dan komisi mengikuti aturan layanan atau global.'
-                                                : 'Komisi produk mengikuti aturan produk atau global. Qty dapat diubah.'"></p>
+                                        <div class="transaction-preview-card transaction-preview-card-feature col-span-2 rounded-xl px-3 py-2.5 xl:col-span-1">
+                                            <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Aturan</p>
+                                            <p class="mt-1 text-[11px] leading-4 text-slate-500" x-text="item.item_type === 'service'
+                                                ? 'Qty 1, komisi layanan/global.'
+                                                : 'Qty fleksibel, komisi produk/global.'"></p>
                                         </div>
 
-                                        <div class="transaction-preview-card">
-                                            <p class="transaction-preview-label">Harga</p>
-                                            <p class="transaction-preview-value" x-text="formatCurrency(unitPrice(item))"></p>
-                                            <p class="transaction-preview-note transaction-preview-note-compact" x-text="item.item_type === 'product' && selectedOption(item)
+                                        <div class="transaction-preview-card rounded-xl px-3 py-2.5">
+                                            <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Harga</p>
+                                            <p class="mt-1 text-sm font-semibold leading-5 text-slate-900" x-text="formatCurrency(unitPrice(item))"></p>
+                                            <p class="mt-1 text-[11px] leading-4 text-slate-500" x-text="item.item_type === 'product' && selectedOption(item)
                                                 ? `Stok: ${selectedOption(item).stock ?? 0}`
                                                 : 'Preview harga item master'"></p>
                                         </div>
 
-                                        <div class="transaction-preview-card">
-                                            <p class="transaction-preview-label">Sumber</p>
-                                            <p class="transaction-preview-value text-sm" x-text="commissionSourceLabel(item)"></p>
+                                        <div class="transaction-preview-card rounded-xl px-3 py-2.5">
+                                            <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Sumber</p>
+                                            <p class="mt-1 text-sm font-semibold leading-5 text-slate-900" x-text="commissionSourceLabel(item)"></p>
                                         </div>
 
-                                        <div class="transaction-preview-card">
-                                            <p class="transaction-preview-label">Komisi</p>
-                                            <p class="transaction-preview-value" x-text="formatCurrency(commissionAmount(item))"></p>
-                                            <p class="transaction-preview-note transaction-preview-note-compact" x-text="commissionTypeDisplay(item)"></p>
+                                        <div class="transaction-preview-card rounded-xl px-3 py-2.5">
+                                            <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Komisi</p>
+                                            <p class="mt-1 text-sm font-semibold leading-5 text-slate-900" x-text="formatCurrency(commissionAmount(item))"></p>
+                                            <p class="mt-1 text-[11px] leading-4 text-slate-500" x-text="commissionTypeDisplay(item)"></p>
                                         </div>
 
-                                        <div class="transaction-preview-card">
-                                            <p class="transaction-preview-label">Subtotal</p>
-                                            <p class="transaction-preview-value" x-text="formatCurrency(lineSubtotal(item))"></p>
+                                        <div class="transaction-preview-card rounded-xl px-3 py-2.5">
+                                            <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Subtotal</p>
+                                            <p class="mt-1 text-base font-semibold leading-5 text-slate-900" x-text="formatCurrency(lineSubtotal(item))"></p>
                                         </div>
                                     </div>
                                 </article>
                             </template>
                         </div>
 
-                        <div class="mt-5 flex">
-                            <button type="button" class="btn-brand-soft self-start" @click="addItem(entryIndex)">
+                        <template x-if="entrySelectedItemCount(entry) === 0">
+                            <div class="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                                Belum ada item dipilih. Pilih layanan atau produk agar total transaksi di blok ini mulai terhitung.
+                            </div>
+                        </template>
+
+                        <div class="mt-4 flex">
+                            <button type="button" class="btn-brand-soft w-full justify-center self-start sm:w-auto" @click="addItem(entryIndex)">
                                 Tambah Item
                             </button>
                         </div>
 
-                        <div class="mt-6 rounded-2xl border border-[#E1C5B8] bg-[#FAF3EF] px-4 py-4">
-                            <div class="grid grid-cols-1 gap-3 md:grid-cols-4">
-                                <div>
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-[#8B533B]">Jumlah item</p>
-                                    <p class="mt-1 text-sm font-semibold text-[#6B3721]" x-text="entrySelectedItemCount(entry)"></p>
+                        <div class="mt-4 rounded-2xl border border-[#E1C5B8] bg-[#FAF3EF] px-3.5 py-3.5 sm:px-4 sm:py-4">
+                            <div class="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+                                <div class="rounded-xl bg-white/70 px-3 py-2.5">
+                                    <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8B533B]">Item</p>
+                                    <p class="mt-1 text-sm font-semibold leading-5 text-[#6B3721]" x-text="entrySelectedItemCount(entry)"></p>
                                 </div>
-                                <div>
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-[#8B533B]">Total layanan</p>
-                                    <p class="mt-1 text-sm font-semibold text-[#6B3721]" x-text="formatCurrency(entryServiceSubtotal(entry))"></p>
+                                <div class="rounded-xl bg-white/70 px-3 py-2.5">
+                                    <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8B533B]">Layanan</p>
+                                    <p class="mt-1 text-sm font-semibold leading-5 text-[#6B3721]" x-text="formatCurrency(entryServiceSubtotal(entry))"></p>
                                 </div>
-                                <div>
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-[#8B533B]">Total produk</p>
-                                    <p class="mt-1 text-sm font-semibold text-[#6B3721]" x-text="formatCurrency(entryProductSubtotal(entry))"></p>
+                                <div class="rounded-xl bg-white/70 px-3 py-2.5">
+                                    <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8B533B]">Produk</p>
+                                    <p class="mt-1 text-sm font-semibold leading-5 text-[#6B3721]" x-text="formatCurrency(entryProductSubtotal(entry))"></p>
                                 </div>
-                                <div>
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-[#8B533B]">Total transaksi</p>
-                                    <p class="mt-1 text-sm font-semibold text-[#6B3721]" x-text="formatCurrency(entryGrandTotal(entry))"></p>
+                                <div class="rounded-xl bg-white px-3 py-2.5 ring-1 ring-white/70">
+                                    <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8B533B]">Total transaksi</p>
+                                    <p class="mt-1 text-base font-semibold leading-5 text-[#6B3721]" x-text="formatCurrency(entryGrandTotal(entry))"></p>
                                 </div>
                             </div>
                         </div>
@@ -377,11 +378,11 @@
                 </button>
             </div>
 
-            <section class="admin-card">
-                <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <section class="admin-card p-4 sm:p-5">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div class="space-y-2">
                         <h4 class="text-base font-semibold text-slate-900">Ringkasan Input Harian</h4>
-                        <p class="text-sm text-slate-500">Cek total input hari ini sebelum semua blok disimpan. Ringkas, cepat dibaca, dan tetap nyaman di mobile.</p>
+                        <p class="text-sm leading-5 text-slate-500">Cek total transaksi hari ini sebelum semuanya disimpan.</p>
                     </div>
 
                     <div
@@ -391,41 +392,41 @@
                             : 'border-emerald-200 bg-emerald-50 text-emerald-800'"
                     >
                         <span x-text="batchSummary().attentionEntries > 0
-                            ? `${formatWholeNumber(batchSummary().attentionEntries)} blok perlu dicek`
-                            : 'Semua blok aktif sudah siap dicek'"></span>
+                            ? `${formatWholeNumber(batchSummary().attentionEntries)} blok masih perlu dilengkapi`
+                            : 'Semua blok yang terisi sudah siap disimpan'"></span>
                     </div>
                 </div>
 
-                <div class="mt-5 space-y-4">
-                    <dl class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <div class="mt-4 space-y-3">
+                    <dl class="grid grid-cols-2 gap-2.5 xl:grid-cols-3">
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
                             <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Transaksi terisi</dt>
                             <dd class="mt-1 text-base font-semibold text-slate-900" x-text="formatWholeNumber(batchSummary().filledEntries)"></dd>
                         </div>
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
                             <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Kas Masuk</dt>
                             <dd class="mt-1 text-base font-semibold text-slate-900" x-text="formatCurrency(batchSummary().grossCashIn)"></dd>
                         </div>
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
                             <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Cash</dt>
                             <dd class="mt-1 text-base font-semibold text-slate-900" x-text="formatCurrency(batchSummary().cash)"></dd>
                         </div>
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
                             <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">QR</dt>
                             <dd class="mt-1 text-base font-semibold text-slate-900" x-text="formatCurrency(batchSummary().qr)"></dd>
                         </div>
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
                             <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pendapatan Layanan</dt>
                             <dd class="mt-1 text-base font-semibold text-slate-900" x-text="formatCurrency(batchSummary().serviceRevenue)"></dd>
                         </div>
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
                             <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pendapatan Produk</dt>
                             <dd class="mt-1 text-base font-semibold text-slate-900" x-text="formatCurrency(batchSummary().productRevenue)"></dd>
                         </div>
                     </dl>
 
-                    <div class="rounded-2xl border border-[#E1C5B8] bg-[#FAF3EF] px-4 py-4">
-                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div class="rounded-2xl border border-[#E1C5B8] bg-[#FAF3EF] px-3.5 py-3.5 sm:px-4 sm:py-4">
+                        <div class="grid grid-cols-3 gap-2.5">
                             <div>
                                 <p class="text-xs font-semibold uppercase tracking-wide text-[#8B533B]">Blok total</p>
                                 <p class="mt-1 text-sm font-semibold text-[#6B3721]" x-text="formatWholeNumber(batchSummary().totalBlocks)"></p>
@@ -442,7 +443,7 @@
                     </div>
                 </div>
 
-                <div class="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <a href="{{ route('transactions.index') }}" class="btn-neutral-warm justify-center">
                         Batal
                     </a>
@@ -452,7 +453,7 @@
                         class="btn-brand-primary justify-center"
                         x-on:click="$dispatch('open-modal', 'confirm-save-daily-batch')"
                     >
-                        Simpan Semua
+                        Simpan Transaksi Harian
                     </button>
                 </div>
             </section>
@@ -460,8 +461,8 @@
 
         <x-modal name="confirm-save-daily-batch" maxWidth="md" focusable>
             <div class="p-6">
-                <h3 class="text-lg font-semibold text-slate-900">Simpan semua transaksi?</h3>
-                <p class="mt-2 text-sm leading-6 text-slate-600">Semua blok transaksi pada halaman ini akan disimpan sekaligus. Jika ada satu blok yang tidak valid, seluruh proses penyimpanan dibatalkan agar data tetap konsisten.</p>
+                <h3 class="text-lg font-semibold text-slate-900">Simpan transaksi harian sekarang?</h3>
+                <p class="mt-2 text-sm leading-6 text-slate-600">Semua blok di halaman ini akan disimpan sekaligus. Jika masih ada blok yang belum lengkap, proses simpan akan dibatalkan supaya data tetap rapi.</p>
 
                 <div class="mt-6 flex items-center justify-end gap-3">
                     <button
@@ -469,7 +470,7 @@
                         class="btn-neutral-warm"
                         x-on:click="$dispatch('close-modal', 'confirm-save-daily-batch')"
                     >
-                        Batal
+                        Cek Lagi
                     </button>
                     <button
                         type="button"

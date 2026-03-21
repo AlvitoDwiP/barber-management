@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
     buildAutofillEntrySeed,
     buildDuplicatedEntrySeed,
+    getBatchEntryStatusKey,
     summarizeDailyBatchEntries,
 } from '../../resources/js/transactions/daily-batch-reconciliation.js';
 
@@ -153,4 +154,56 @@ test('blok yang belum lengkap tetap terhitung sebagai perlu dicek tanpa menggang
     assert.equal(summary.readyEntries, 1);
     assert.equal(summary.attentionEntries, 1);
     assert.equal(summary.grossCashIn, 17000000);
+});
+
+test('blok kosong ditandai sebagai draft kosong', () => {
+    const status = getBatchEntryStatusKey({
+        employee_id: '',
+        payment_method: 'cash',
+        notes: '',
+        items: [
+            { item_type: 'service', service_id: '', product_id: '', qty: 1 },
+        ],
+    });
+
+    assert.equal(status, 'empty');
+});
+
+test('blok dengan metode bayar terisi tetapi item atau pegawai belum lengkap ditandai belum lengkap', () => {
+    const status = getBatchEntryStatusKey({
+        employee_id: '',
+        payment_method: 'qr',
+        notes: '',
+        items: [
+            { item_type: 'service', service_id: '', product_id: '', qty: 1 },
+        ],
+    });
+
+    assert.equal(status, 'incomplete');
+});
+
+test('blok dengan pegawai, metode bayar, dan item valid ditandai siap input', () => {
+    const status = getBatchEntryStatusKey({
+        employee_id: '8',
+        payment_method: 'cash',
+        notes: '',
+        items: [
+            { item_type: 'service', service_id: '10', product_id: '', qty: 1 },
+        ],
+    });
+
+    assert.equal(status, 'ready');
+});
+
+test('blok produk dengan qty nol tetap ditandai belum lengkap', () => {
+    const status = getBatchEntryStatusKey({
+        employee_id: '8',
+        payment_method: 'cash',
+        notes: '',
+        items: [
+            { item_type: 'product', service_id: '', product_id: '20', qty: 0 },
+        ],
+    });
+
+    assert.equal(status, 'incomplete');
 });

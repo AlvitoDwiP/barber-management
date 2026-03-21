@@ -39,6 +39,7 @@ class TransactionFormViewTest extends TestCase
         $response->assertSee('Input Harian');
         $response->assertSee(route('transactions.daily-batch.create'), false);
         $response->assertDontSee('Tambah Transaksi');
+        $response->assertSee('Belum ada transaksi tercatat.');
     }
 
     public function test_daily_batch_form_does_not_render_customer_field_and_only_lists_active_employees(): void
@@ -58,7 +59,7 @@ class TransactionFormViewTest extends TestCase
         $response = $this->actingAs($user)->get(route('transactions.daily-batch.create'));
 
         $response->assertOk();
-        $response->assertSee('Input harian beberapa transaksi sekaligus');
+        $response->assertSee('Input transaksi harian sekaligus');
         $response->assertSee('Pegawai Aktif');
         $response->assertDontSee('Pegawai Nonaktif');
         $response->assertDontSee('Nama Customer');
@@ -78,9 +79,12 @@ class TransactionFormViewTest extends TestCase
         $response->assertSee('entries[${entryIndex}][items][${rowIndex}][service_id]', false);
         $response->assertSee('entries[${entryIndex}][items][${rowIndex}][product_id]', false);
         $response->assertSee('entries[${entryIndex}][items][${rowIndex}][qty]', false);
-        $response->assertSee('x-model="item.service_id"', false);
-        $response->assertSee('x-model="item.product_id"', false);
-        $response->assertDontSee('x-model="item.item_type === \'service\' ? item.service_id : item.product_id"', false);
+        $response->assertSee(':value="resolvedItemMasterValue(item)"', false);
+        $response->assertSee('@change="setItemMaster(entryIndex, rowIndex, $event.target.value)"', false);
+        $response->assertSee('x-text="itemMasterPlaceholder(item)"', false);
+        $response->assertSee('itemMasterOptions(item)', false);
+        $response->assertDontSee('x-model="item.service_id"', false);
+        $response->assertDontSee('x-model="item.product_id"', false);
         $response->assertDontSee('entries[${entryIndex}][items][${rowIndex}][employee_id]', false);
         $response->assertDontSee('entries[${entryIndex}][items][${rowIndex}][commission_type]', false);
         $response->assertDontSee('entries[${entryIndex}][items][${rowIndex}][commission_value]', false);
@@ -88,8 +92,22 @@ class TransactionFormViewTest extends TestCase
         $response->assertSee('Pegawai Transaksi');
         $response->assertDontSee('Mode Komisi');
         $response->assertDontSee('Nilai Komisi');
-        $response->assertSee('Qty layanan selalu 1 dan komisi mengikuti aturan layanan atau global.');
-        $response->assertSee('Komisi produk mengikuti aturan produk atau global. Qty dapat diubah.');
+        $response->assertSee('Qty layanan tetap 1.');
+        $response->assertSee('Qty produk bisa diubah.');
+        $response->assertSee('Qty 1, komisi layanan/global.');
+        $response->assertSee('Qty fleksibel, komisi produk/global.');
+        $response->assertSee('Belum ada item dipilih. Pilih layanan atau produk agar total transaksi di blok ini mulai terhitung.');
+    }
+
+    public function test_daily_batch_form_syncs_select_ui_with_internal_state_for_employee_and_item_master(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->get(route('transactions.daily-batch.create'));
+
+        $response->assertOk();
+        $response->assertSee('x-effect="syncSelectValue($el, entry.employee_id)"', false);
+        $response->assertSee('x-effect="syncItemMasterSelect($el, item)"', false);
     }
 
     public function test_transaction_show_page_shows_edit_button_for_unlocked_transaction(): void
@@ -131,8 +149,10 @@ class TransactionFormViewTest extends TestCase
         $response = $this->actingAs($user)->get(route('transactions.show', $transaction));
 
         $response->assertOk();
-        $response->assertSee('Dokumen Audit');
-        $response->assertSee('Edit');
+        $response->assertSee('Detail transaksi');
+        $response->assertSee('Ringkasan Utama');
+        $response->assertSee('Total transaksi');
+        $response->assertSee('Edit Transaksi');
         $response->assertSee('Hapus');
         $response->assertSee('Audit only', false);
     }

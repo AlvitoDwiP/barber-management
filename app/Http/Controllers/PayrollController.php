@@ -67,7 +67,7 @@ class PayrollController extends Controller
 
             return redirect()
                 ->route('payroll.index')
-                ->with('success', 'Payroll period berhasil dibuka.');
+                ->with('success', 'Periode payroll berhasil dibuka.');
         } catch (DomainException $exception) {
             return redirect()
                 ->route('payroll.index')
@@ -77,7 +77,7 @@ class PayrollController extends Controller
 
             return redirect()
                 ->route('payroll.index')
-                ->with('error', 'Terjadi kesalahan saat membuka payroll period. Silakan coba lagi.');
+                ->with('error', 'Terjadi kendala saat membuka periode payroll. Silakan coba lagi.');
         }
     }
 

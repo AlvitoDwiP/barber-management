@@ -160,6 +160,8 @@ class MonthlyReportControllerTest extends TestCase
         $response->assertSeeText('Rp 30.000');
         $response->assertSeeText('Rp 10.000');
         $response->assertSeeText('Rp -25.000');
+        $response->assertSeeText('Tahun laporan');
+        $response->assertSeeText('Pilih tahun untuk melihat rekap per bulan.');
     }
 
     public function test_monthly_report_shows_empty_state_when_year_has_no_data(): void
@@ -170,6 +172,7 @@ class MonthlyReportControllerTest extends TestCase
         $response->assertOk();
         $response->assertSeeText('Belum ada data pada tahun ini');
         $response->assertSeeText('Belum ada transaksi atau pengeluaran yang tercatat untuk tahun 2026.');
+        $response->assertSeeText('Lihat Tahun Berjalan');
         $response->assertDontSeeText('Januari 2026');
     }
 

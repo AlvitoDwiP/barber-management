@@ -21,7 +21,7 @@ use RuntimeException;
 class TransactionService
 {
     private const MINIMUM_ITEM_MESSAGE = 'Transaksi harus berisi minimal 1 item.';
-    private const CLOSED_PAYROLL_MESSAGE = 'Transaksi yang sudah terikat ke payroll tertutup tidak dapat diubah atau dihapus.';
+    private const CLOSED_PAYROLL_MESSAGE = 'Transaksi ini sudah masuk payroll final, jadi tidak bisa diedit atau dihapus.';
     private const TRANSACTION_CODE_RETRY_LIMIT = 5;
 
     public function __construct(

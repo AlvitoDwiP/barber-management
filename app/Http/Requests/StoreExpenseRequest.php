@@ -30,7 +30,15 @@ class StoreExpenseRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'amount.decimal' => 'Jumlah nominal maksimal boleh memiliki 2 angka desimal.',
+            'expense_date.required' => 'Tanggal pengeluaran wajib diisi.',
+            'expense_date.date' => 'Tanggal pengeluaran tidak valid.',
+            'category.required' => 'Pilih kategori pengeluaran.',
+            'category.in' => 'Kategori pengeluaran tidak tersedia.',
+            'amount.required' => 'Nominal pengeluaran wajib diisi.',
+            'amount.decimal' => 'Nominal pengeluaran maksimal boleh memiliki 2 angka desimal.',
+            'note.string' => 'Catatan pengeluaran harus berupa teks.',
+            'freelance_payment_id.integer' => 'Data pembayaran freelance tidak valid.',
+            'freelance_payment_id.exists' => 'Pembayaran freelance tidak ditemukan.',
         ];
     }
 }

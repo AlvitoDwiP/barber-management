@@ -36,7 +36,7 @@ class ServiceController extends Controller
 
         return redirect()
             ->route('services.index')
-            ->with('success', 'Data layanan berhasil ditambahkan.');
+            ->with('success', 'Layanan berhasil ditambahkan.');
     }
 
     public function show(Service $service): RedirectResponse
@@ -58,7 +58,7 @@ class ServiceController extends Controller
 
         return redirect()
             ->route('services.index')
-            ->with('success', 'Data layanan berhasil diperbarui.');
+            ->with('success', 'Layanan berhasil diperbarui.');
     }
 
     public function destroy(Service $service): RedirectResponse
@@ -67,6 +67,6 @@ class ServiceController extends Controller
 
         return redirect()
             ->route('services.index')
-            ->with('success', 'Data layanan berhasil dihapus.');
+            ->with('success', 'Layanan berhasil dihapus.');
     }
 }

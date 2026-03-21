@@ -1,6 +1,9 @@
 <x-app-layout>
     <x-slot name="header">
-        <x-report-page-header title="Laporan Bulanan" />
+        <x-report-page-header
+            title="Laporan Bulanan"
+            subtitle="Laporan ini membantu owner membaca performa usaha per bulan dalam satu tahun, dengan istilah yang sama seperti laporan harian."
+        />
     </x-slot>
 
     @php
@@ -17,16 +20,35 @@
             (float) ($row['barber_commissions'] ?? 0),
             (float) ($row['operational_expenses'] ?? 0),
         ])->contains(fn (float $value): bool => abs($value) > 0.0));
+        $sumMoney = fn (string $field): string => $rows->reduce(
+            fn (string $carry, array $row): string => \App\Support\Money::parse($carry)
+                ->add(\App\Support\Money::parse($row[$field] ?? 0))
+                ->toDecimal(),
+            '0.00',
+        );
     @endphp
 
     <div class="space-y-6">
-        <section class="admin-card space-y-2">
-            <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-900">Definisi Metrik</h3>
-            <p class="text-sm text-slate-600">Komisi Barber dihitung sebagai beban operasional saat transaksi terjadi, bukan saat komisi dibayar.</p>
-            <p class="text-sm text-slate-600">Laba Operasional = Total Pendapatan - Komisi Barber - Pengeluaran Operasional.</p>
+        <section class="admin-card p-4 sm:p-5">
+            <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Komisi barber</p>
+                    <p class="mt-1 text-sm leading-6 text-slate-600">Komisi dihitung sebagai beban operasional saat transaksi terjadi, bukan saat komisi dibayar.</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Laba operasional</p>
+                    <p class="mt-1 text-sm leading-6 text-slate-600">Total pendapatan dikurangi komisi barber dan pengeluaran operasional.</p>
+                </div>
+            </div>
         </section>
 
-        <x-report-filter :action="route('reports.monthly')" :showDateRange="false" :showYear="false" :filterKeys="['year']">
+        <x-report-filter
+            :action="route('reports.monthly')"
+            :showDateRange="false"
+            :showYear="false"
+            :filterKeys="['year']"
+            helperText="Pilih tahun untuk melihat rekap per bulan. Tahun yang sama juga dipakai saat export CSV."
+        >
             <x-slot name="actions">
                 <a href="{{ route('reports.monthly.export.csv', ['year' => $year]) }}" class="btn-neutral-warm shrink-0">
                     Export CSV
@@ -38,7 +60,7 @@
                 <select
                     id="year"
                     name="year"
-                    class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-[#A85F3B] focus:ring-[#A85F3B]"
+                    class="form-brand-control"
                 >
                     @foreach ($yearOptions as $optionYear)
                         <option value="{{ $optionYear }}" @selected((int) $year === (int) $optionYear)>{{ $optionYear }}</option>
@@ -50,7 +72,24 @@
             </div>
         </x-report-filter>
 
-        <p class="px-1 text-xs uppercase tracking-wide text-slate-500">Menampilkan rekap tahun {{ $year }}</p>
+        <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <article class="transaction-metric-card">
+                <p class="transaction-metric-label">Tahun laporan</p>
+                <p class="transaction-metric-value">{{ $year }}</p>
+            </article>
+            <article class="transaction-metric-card">
+                <p class="transaction-metric-label">Total pendapatan</p>
+                <p class="transaction-metric-value">{{ format_rupiah($sumMoney('total_revenue')) }}</p>
+            </article>
+            <article class="transaction-metric-card">
+                <p class="transaction-metric-label">Total beban operasional</p>
+                <p class="transaction-metric-value">{{ format_rupiah($sumMoney('total_operating_expenses')) }}</p>
+            </article>
+            <article class="transaction-metric-card">
+                <p class="transaction-metric-label">Laba operasional</p>
+                <p class="transaction-metric-value">{{ format_rupiah($sumMoney('operating_profit')) }}</p>
+            </article>
+        </section>
 
         @if ($hasData)
             <x-report-table
@@ -66,8 +105,13 @@
                         Belum ada transaksi atau pengeluaran yang tercatat untuk tahun {{ $year }}.
                     </p>
                     <p class="mt-1 text-sm text-slate-500">
-                        Pilih tahun lain untuk melihat rekap performa bisnis per bulan.
+                        Pilih tahun lain atau kembali ke tahun berjalan untuk melihat rekap performa bisnis per bulan.
                     </p>
+                    <div class="mt-5 flex flex-wrap justify-center gap-3">
+                        <a href="{{ route('reports.monthly') }}" class="btn-neutral-warm">
+                            Lihat Tahun Berjalan
+                        </a>
+                    </div>
                 </div>
             </section>
         @endif

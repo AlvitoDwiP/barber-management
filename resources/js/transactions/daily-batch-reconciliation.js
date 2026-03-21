@@ -1,4 +1,6 @@
 const hasFilledValue = (value) => value !== null && value !== undefined && String(value).trim() !== '';
+const VALID_PAYMENT_METHODS = ['cash', 'qr'];
+const DEFAULT_PAYMENT_METHOD = 'cash';
 const toPositiveInteger = (value, fallback = 1) => {
     const parsed = Number.parseInt(value, 10);
 
@@ -54,6 +56,12 @@ export const hasSelectedTransactionItem = (item) => {
     return hasFilledValue(item?.service_id);
 };
 
+export const transactionItemHasMeaningfulInput = (item = {}) => (
+    item?.item_type === 'product'
+    || hasFilledValue(item?.service_id)
+    || hasFilledValue(item?.product_id)
+);
+
 export const isTransactionItemReady = (item) => {
     if (! hasSelectedTransactionItem(item)) {
         return false;
@@ -70,28 +78,43 @@ export const isTransactionItemReady = (item) => {
 
 export const entryHasMeaningfulInput = (entry = {}) => {
     const items = Array.isArray(entry?.items) ? entry.items : [];
+    const activeItems = items.filter((item) => transactionItemHasMeaningfulInput(item));
 
     return hasFilledValue(entry?.employee_id)
+        || (VALID_PAYMENT_METHODS.includes(entry?.payment_method) && entry.payment_method !== DEFAULT_PAYMENT_METHOD)
         || hasFilledValue(entry?.notes)
-        || items.some((item) => hasSelectedTransactionItem(item) || (item?.item_type === 'product' && hasFilledValue(item?.qty)));
+        || activeItems.length > 0;
 };
 
 export const isBatchEntryReady = (entry = {}) => {
     const items = Array.isArray(entry?.items) ? entry.items : [];
+    const activeItems = items.filter((item) => transactionItemHasMeaningfulInput(item));
 
     if (! hasFilledValue(entry?.employee_id)) {
         return false;
     }
 
-    if (! ['cash', 'qr'].includes(entry?.payment_method)) {
+    if (! VALID_PAYMENT_METHODS.includes(entry?.payment_method)) {
         return false;
     }
 
-    if (items.length === 0) {
+    if (activeItems.length === 0) {
         return false;
     }
 
-    return items.every((item) => isTransactionItemReady(item));
+    return activeItems.every((item) => isTransactionItemReady(item));
+};
+
+export const getBatchEntryStatusKey = (entry = {}) => {
+    if (isBatchEntryReady(entry)) {
+        return 'ready';
+    }
+
+    if (entryHasMeaningfulInput(entry)) {
+        return 'incomplete';
+    }
+
+    return 'empty';
 };
 
 export const summarizeDailyBatchEntries = (entries = [], { lineSubtotal } = {}) => {
@@ -111,8 +134,9 @@ export const summarizeDailyBatchEntries = (entries = [], { lineSubtotal } = {}) 
             .filter((item) => item?.item_type === 'product')
             .reduce((total, item) => total + Math.max(0, Number.parseInt(item?.qty, 10) || 0), 0);
         const hasSelectedItems = selectedItems.length > 0;
-        const isReady = isBatchEntryReady(entry);
-        const needsAttention = entryHasMeaningfulInput(entry) && ! isReady;
+        const statusKey = getBatchEntryStatusKey(entry);
+        const isReady = statusKey === 'ready';
+        const needsAttention = statusKey === 'incomplete';
 
         return {
             totalBlocks: summary.totalBlocks + 1,

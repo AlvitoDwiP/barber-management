@@ -19,14 +19,15 @@ class ReportIndexControllerTest extends TestCase
         $response->assertSeeText('Menu laporan');
         $response->assertSeeText('Laporan Harian');
         $response->assertSeeText('Laporan Bulanan');
+        $response->assertSeeText('Laporan Metode Pembayaran');
         $response->assertSeeText('Laporan Kinerja Pegawai');
         $response->assertSeeText('Laporan Penjualan Produk');
-        $response->assertDontSeeText('Laporan metode pembayaran');
         $response->assertDontSeeText('Laporan Produktivitas Pegawai');
         $response->assertDontSeeText('Laporan produk');
 
         $response->assertSee(route('reports.daily'), false);
         $response->assertSee(route('reports.monthly'), false);
+        $response->assertSee(route('reports.payment'), false);
         $response->assertSee(route('reports.employees'), false);
         $response->assertSee(route('reports.products'), false);
     }

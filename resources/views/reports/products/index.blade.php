@@ -1,6 +1,9 @@
 <x-app-layout>
     <x-slot name="header">
-        <x-report-page-header title="Laporan Penjualan Produk" />
+        <x-report-page-header
+            title="Laporan Penjualan Produk"
+            subtitle="Gunakan laporan ini untuk melihat produk mana yang paling sering terjual, rata-rata harga jual, dan total omzetnya."
+        />
     </x-slot>
 
     @php
@@ -37,6 +40,7 @@
             :startDate="$tanggalAwal"
             :endDate="$tanggalAkhir"
             :filterKeys="['tanggal_awal', 'tanggal_akhir', 'produk_id']"
+            helperText="Atur periode dan produk jika ingin melihat penjualan tertentu. Filter yang sama dipakai saat export CSV."
         >
             <x-slot name="actions">
                 <a href="{{ route('reports.products.export.csv', $exportQuery) }}" class="btn-neutral-warm shrink-0">
@@ -49,7 +53,7 @@
                 <select
                     id="produk_id"
                     name="produk_id"
-                    class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-[#A85F3B] focus:ring-[#A85F3B]"
+                    class="form-brand-control"
                 >
                     <option value="">Semua produk</option>
                     @foreach ($products as $product)

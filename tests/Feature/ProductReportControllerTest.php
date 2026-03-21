@@ -235,7 +235,7 @@ class ProductReportControllerTest extends TestCase
         $response->assertOk();
         $response->assertHeader(
             'content-disposition',
-            'attachment; filename=laporan-penjualan-produk-2026-03-10_sampai_2026-03-10-gel-styling.csv'
+            'attachment; filename=laporan-penjualan-produk-2026-03-10-sampai-2026-03-10-gel-styling.csv'
         );
 
         $csv = $this->parseCsv($response->streamedContent());

@@ -11,11 +11,184 @@ use App\Services\Reports\DailyReportService;
 use App\Services\PayrollService;
 use App\Services\TransactionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class TransactionControllerTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_transaction_index_shows_operational_empty_state_when_no_transactions_exist(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->get(route('transactions.index'));
+
+        $response->assertOk();
+        $response->assertSeeText('Belum ada transaksi tercatat.');
+        $response->assertSeeText('Mulai dari input transaksi harian.');
+        $response->assertSeeText('Input Harian');
+        $response->assertDontSeeText('Tidak ada transaksi yang cocok.');
+    }
+
+    public function test_transaction_index_shows_filter_empty_state_when_filter_has_no_result(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->get(route('transactions.index', [
+            'start_date' => '2026-03-10',
+            'end_date' => '2026-03-10',
+        ]));
+
+        $response->assertOk();
+        $response->assertSeeText('Tidak ada transaksi yang cocok.');
+        $response->assertSeeText('Belum ada transaksi untuk filter ini.');
+        $response->assertSeeText('Lihat Hari Ini');
+        $response->assertSeeText('Reset Filter');
+        $response->assertDontSeeText('Belum ada transaksi tercatat.');
+    }
+
+    public function test_transaction_index_shows_today_summary_by_default_without_filters(): void
+    {
+        config(['app.timezone' => 'Asia/Jakarta']);
+
+        $this->travelTo(Carbon::parse('2026-03-15 09:00:00', config('app.timezone')));
+
+        $user = User::factory()->create();
+        $employee = $this->createEmployee('Budi');
+        $haircut = Service::query()->create([
+            'name' => 'Haircut',
+            'price' => '50000.00',
+        ]);
+        $wash = Service::query()->create([
+            'name' => 'Wash',
+            'price' => '30000.00',
+        ]);
+        $pomade = Product::query()->create([
+            'name' => 'Pomade',
+            'price' => '20000.00',
+            'stock' => 20,
+        ]);
+
+        app(TransactionService::class)->recordTransaction([
+            'transaction_date' => '2026-03-15',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'items' => $this->transactionItems($employee->id, [$haircut->id], [$pomade->id => 2]),
+        ]);
+
+        app(TransactionService::class)->recordTransaction([
+            'transaction_date' => '2026-03-15',
+            'employee_id' => $employee->id,
+            'payment_method' => 'qr',
+            'items' => $this->transactionItems($employee->id, [$wash->id]),
+        ]);
+
+        app(TransactionService::class)->recordTransaction([
+            'transaction_date' => '2026-03-14',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'items' => $this->transactionItems($employee->id, [$haircut->id]),
+        ]);
+
+        $response = $this->actingAs($user)->get(route('transactions.index'));
+
+        $response->assertOk();
+        $response->assertViewHas('summary', fn (array $summary): bool => $summary['total_transactions'] === 2
+            && $summary['cash_in'] === '120000'
+            && $summary['cash'] === '90000'
+            && $summary['qr'] === '30000'
+            && $summary['service_revenue'] === '80000'
+            && $summary['product_revenue'] === '40000');
+        $response->assertViewHas('summaryContext', fn (array $context): bool => $context['uses_default_today'] === true
+            && $context['badge_label'] === 'Hari ini');
+        $response->assertSeeText('Ringkasan Cepat');
+        $response->assertSeeText('Kas Masuk');
+        $response->assertSeeText('Pendapatan Layanan');
+        $response->assertSeeText('Pendapatan Produk');
+        $response->assertSeeText('Tanpa filter, ringkasan menampilkan hasil transaksi hari ini.');
+    }
+
+    public function test_transaction_index_summary_follows_active_date_filter(): void
+    {
+        $user = User::factory()->create();
+        $employee = $this->createEmployee('Budi');
+        $haircut = Service::query()->create([
+            'name' => 'Haircut',
+            'price' => '50000.00',
+        ]);
+        $pomade = Product::query()->create([
+            'name' => 'Pomade',
+            'price' => '25000.00',
+            'stock' => 20,
+        ]);
+
+        $filteredTransaction = app(TransactionService::class)->recordTransaction([
+            'transaction_date' => '2026-03-12',
+            'employee_id' => $employee->id,
+            'payment_method' => 'qr',
+            'items' => $this->transactionItems($employee->id, [$haircut->id], [$pomade->id => 2]),
+        ]);
+
+        $otherTransaction = app(TransactionService::class)->recordTransaction([
+            'transaction_date' => '2026-03-13',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'items' => $this->transactionItems($employee->id, [$haircut->id]),
+        ]);
+
+        $response = $this->actingAs($user)->get(route('transactions.index', [
+            'start_date' => '2026-03-12',
+            'end_date' => '2026-03-12',
+        ]));
+
+        $response->assertOk();
+        $response->assertViewHas('summary', fn (array $summary): bool => $summary['total_transactions'] === 1
+            && $summary['cash_in'] === '100000'
+            && $summary['cash'] === '0'
+            && $summary['qr'] === '100000'
+            && $summary['service_revenue'] === '50000'
+            && $summary['product_revenue'] === '50000');
+        $response->assertViewHas('summaryContext', fn (array $context): bool => $context['uses_default_today'] === false
+            && $context['badge_label'] === 'Filter aktif');
+        $response->assertSeeText($filteredTransaction->transaction_code);
+        $response->assertDontSeeText($otherTransaction->transaction_code);
+        $response->assertSeeText('Ringkasan mengikuti seluruh hasil filter aktif, bukan hanya transaksi di halaman ini.');
+    }
+
+    public function test_transaction_index_summary_uses_full_filtered_result_not_only_current_page(): void
+    {
+        $user = User::factory()->create();
+        $employee = $this->createEmployee('Budi');
+        $haircut = Service::query()->create([
+            'name' => 'Haircut',
+            'price' => '10000.00',
+        ]);
+
+        for ($i = 0; $i < 11; $i++) {
+            app(TransactionService::class)->recordTransaction([
+                'transaction_date' => '2026-03-20',
+                'employee_id' => $employee->id,
+                'payment_method' => 'cash',
+                'items' => $this->transactionItems($employee->id, [$haircut->id]),
+            ]);
+        }
+
+        $response = $this->actingAs($user)->get(route('transactions.index', [
+            'start_date' => '2026-03-20',
+            'end_date' => '2026-03-20',
+        ]));
+
+        $response->assertOk();
+        $response->assertViewHas('summary', fn (array $summary): bool => $summary['total_transactions'] === 11
+            && $summary['cash_in'] === '110000'
+            && $summary['cash'] === '110000'
+            && $summary['qr'] === '0'
+            && $summary['service_revenue'] === '110000'
+            && $summary['product_revenue'] === '0');
+        $response->assertViewHas('transactions', fn ($transactions): bool => $transactions->total() === 11
+            && $transactions->count() === 10);
+    }
 
     public function test_user_can_open_edit_form_for_unlocked_transaction(): void
     {
@@ -304,7 +477,7 @@ class TransactionControllerTest extends TestCase
             ->delete(route('transactions.destroy', $transaction));
 
         $response->assertRedirect(route('transactions.index'));
-        $response->assertSessionHas('success');
+        $response->assertSessionHas('success', 'Transaksi berhasil dihapus. Stok produk yang terkait sudah dikembalikan.');
         $this->assertDatabaseMissing('transactions', ['id' => $transaction->id]);
     }
 
@@ -332,7 +505,7 @@ class TransactionControllerTest extends TestCase
             ->delete(route('transactions.destroy', $transaction));
 
         $response->assertRedirect(route('transactions.show', $transaction));
-        $response->assertSessionHas('error', 'Transaksi yang sudah terikat ke payroll tertutup tidak dapat diubah atau dihapus.');
+        $response->assertSessionHas('error', 'Transaksi ini sudah masuk payroll final, jadi tidak bisa diedit atau dihapus.');
         $this->assertDatabaseHas('transactions', ['id' => $transaction->id]);
     }
 
@@ -358,7 +531,7 @@ class TransactionControllerTest extends TestCase
         $response = $this->actingAs($user)->get(route('transactions.show', $transaction));
 
         $response->assertOk();
-        $response->assertSee('Transaksi terkunci payroll');
+        $response->assertSee('Transaksi sudah final');
         $response->assertDontSee('Edit');
     }
 
@@ -384,7 +557,7 @@ class TransactionControllerTest extends TestCase
         $this->actingAs($user)
             ->get(route('transactions.edit', $transaction))
             ->assertRedirect(route('transactions.show', $transaction))
-            ->assertSessionHas('error', 'Transaksi yang sudah terikat ke payroll tertutup tidak dapat diubah atau dihapus.');
+            ->assertSessionHas('error', 'Transaksi ini sudah masuk payroll final, jadi tidak bisa diedit atau dihapus.');
 
         $this->actingAs($user)
             ->from(route('transactions.show', $transaction))
@@ -403,7 +576,7 @@ class TransactionControllerTest extends TestCase
                 ],
             ])
             ->assertRedirect(route('transactions.show', $transaction))
-            ->assertSessionHas('error', 'Transaksi yang sudah terikat ke payroll tertutup tidak dapat diubah atau dihapus.');
+            ->assertSessionHas('error', 'Transaksi ini sudah masuk payroll final, jadi tidak bisa diedit atau dihapus.');
     }
 
     private function createEmployee(string $name): Employee

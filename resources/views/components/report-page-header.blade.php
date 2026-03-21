@@ -1,6 +1,7 @@
 @props([
     'title',
     'backUrl' => null,
+    'subtitle' => null,
 ])
 
 @php
@@ -13,8 +14,13 @@
     }
 @endphp
 
-<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-    <h2 class="text-lg font-semibold leading-tight text-slate-900">{{ $title }}</h2>
+<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div class="space-y-1">
+        <h2 class="text-lg font-semibold leading-tight text-slate-900">{{ $title }}</h2>
+        @if (filled($subtitle))
+            <p class="max-w-3xl text-sm leading-6 text-slate-500">{{ $subtitle }}</p>
+        @endif
+    </div>
 
     <a
         href="{{ $resolvedBackUrl }}"

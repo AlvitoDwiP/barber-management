@@ -6,10 +6,16 @@ import Alpine from 'alpinejs';
 import {
     buildAutofillEntrySeed,
     buildDuplicatedEntrySeed,
-    entryHasMeaningfulInput,
-    isBatchEntryReady,
+    getBatchEntryStatusKey,
     summarizeDailyBatchEntries,
 } from './transactions/daily-batch-reconciliation';
+import {
+    applyItemMasterSelection,
+    getItemMasterOptions,
+    getItemMasterPlaceholder,
+    getResolvedItemMasterValue,
+    getItemMasterValue,
+} from './transactions/daily-batch-item-master';
 
 window.Alpine = Alpine;
 
@@ -103,10 +109,22 @@ const roundMinorUnitsToWholeRupiah = (minorUnits) => {
 const formatCurrency = (minorUnits) => `Rp ${currencyFormatter.format(roundMinorUnitsToWholeRupiah(minorUnits))}`;
 const formatWholeNumber = (value) => currencyFormatter.format(value ?? 0);
 
+const normalizeOptionId = (value) => normalizeSelectValue(value);
+
+const normalizeEmployeeOptions = (options) => (
+    Array.isArray(options)
+        ? options.map((option) => ({
+            ...option,
+            id: normalizeOptionId(option?.id),
+        }))
+        : []
+);
+
 const normalizePricedOptions = (options) => (
     Array.isArray(options)
         ? options.map((option) => ({
             ...option,
+            id: normalizeOptionId(option?.id),
             price: normalizeMoneyInput(option?.price),
             price_minor_units: parseDecimalToMinorUnits(option?.price),
             commission_value: option?.commission_value === null ? null : normalizeMoneyInput(option?.commission_value),
@@ -255,10 +273,48 @@ const filterSelectedItems = (items = []) => items.filter((item) => selectedItemI
 
 const transactionFormMixin = (config = {}) => ({
     errors: config.errors ?? {},
-    employeeOptions: config.employeeOptions ?? [],
+    employeeOptions: normalizeEmployeeOptions(config.employeeOptions ?? []),
     serviceOptions: normalizePricedOptions(config.serviceOptions ?? []),
     productOptions: normalizePricedOptions(config.productOptions ?? []),
     commissionDefaults: normalizeCommissionDefaults(config.commissionDefaults ?? {}),
+    syncSelectValue(element, value) {
+        if (! element) {
+            return;
+        }
+
+        const normalizedValue = normalizeSelectValue(value);
+
+        if (element.value !== normalizedValue) {
+            element.value = normalizedValue;
+        }
+    },
+    itemMasterValue(item) {
+        return getItemMasterValue(item);
+    },
+    resolvedItemMasterValue(item) {
+        return getResolvedItemMasterValue({
+            item,
+            serviceOptions: this.serviceOptions,
+            productOptions: this.productOptions,
+        });
+    },
+    itemMasterPlaceholder(item) {
+        return getItemMasterPlaceholder(item);
+    },
+    itemMasterOptions(item) {
+        return getItemMasterOptions({
+            item,
+            serviceOptions: this.serviceOptions,
+            productOptions: this.productOptions,
+        });
+    },
+    syncItemMasterSelect(element, item) {
+        const resolvedValue = this.resolvedItemMasterValue(item);
+
+        this.$nextTick(() => {
+            this.syncSelectValue(element, resolvedValue);
+        });
+    },
     selectedOption(item) {
         return item?.item_type === 'product'
             ? findOptionById(this.productOptions, item?.product_id)
@@ -380,6 +436,11 @@ document.addEventListener('alpine:init', () => {
                 employee_id: currentItem.employee_id || this.entries[entryIndex]?.employee_id,
             });
         },
+        setItemMaster(entryIndex, rowIndex, nextValue) {
+            const currentItem = this.entries[entryIndex]?.items?.[rowIndex] ?? {};
+
+            this.entries[entryIndex].items[rowIndex] = applyItemMasterSelection(currentItem, nextValue);
+        },
         entryItems(entry) {
             return filterSelectedItems(entry?.items ?? []);
         },
@@ -408,7 +469,7 @@ document.addEventListener('alpine:init', () => {
         entryNeedsAttention(entryIndex) {
             const entry = this.entries[entryIndex] ?? {};
 
-            return entryHasMeaningfulInput(entry) && ! isBatchEntryReady(entry);
+            return getBatchEntryStatusKey(entry) === 'incomplete';
         },
         entryStatus(entryIndex) {
             if (this.entryHasErrors(entryIndex)) {
@@ -418,24 +479,22 @@ document.addEventListener('alpine:init', () => {
                 };
             }
 
-            if (this.entryNeedsAttention(entryIndex)) {
-                return {
-                    label: 'Belum lengkap',
-                    badgeClass: 'bg-amber-100 text-amber-700',
-                };
-            }
-
-            if (isBatchEntryReady(this.entries[entryIndex] ?? {})) {
-                return {
-                    label: 'Siap input',
-                    badgeClass: 'bg-[#FAF3EF] text-[#7D4026]',
-                };
-            }
+            const statusKey = getBatchEntryStatusKey(this.entries[entryIndex] ?? {});
 
             return {
-                label: 'Draft kosong',
-                badgeClass: 'bg-slate-100 text-slate-600',
-            };
+                ready: {
+                    label: 'Siap disimpan',
+                    badgeClass: 'bg-[#FAF3EF] text-[#7D4026]',
+                },
+                incomplete: {
+                    label: 'Perlu dilengkapi',
+                    badgeClass: 'bg-amber-100 text-amber-700',
+                },
+                empty: {
+                    label: 'Masih kosong',
+                    badgeClass: 'bg-slate-100 text-slate-600',
+                },
+            }[statusKey];
         },
         entryHasErrors(entryIndex) {
             return Object.keys(this.errors).some((key) => key.startsWith(`entries.${entryIndex}.`));

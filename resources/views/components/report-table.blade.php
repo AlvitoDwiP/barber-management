@@ -5,20 +5,20 @@
     'footer' => [],
 ])
 
-<div class="admin-card overflow-x-auto">
-    <table class="min-w-full divide-y divide-slate-200 text-sm">
-        <thead class="bg-slate-50">
+<div class="admin-card overflow-x-auto p-0">
+    <table class="admin-table min-w-full">
+        <thead>
             <tr>
                 @foreach ($headers as $header)
-                    <th class="px-4 py-3 text-left font-semibold text-slate-700">{{ $header }}</th>
+                    <th>{{ $header }}</th>
                 @endforeach
             </tr>
         </thead>
         <tbody class="divide-y divide-slate-100 bg-white">
             @forelse ($rows as $row)
-                <tr>
+                <tr class="hover:bg-slate-50/70">
                     @foreach ($row as $cell)
-                        <td class="px-4 py-3 text-slate-700">{{ $cell }}</td>
+                        <td>{{ $cell }}</td>
                     @endforeach
                 </tr>
             @empty
@@ -29,7 +29,7 @@
                 </tr>
             @endforelse
         </tbody>
-        @if (! empty($footer))
+        @if (! empty($footer) && count($rows) > 0)
             <tfoot class="bg-slate-50">
                 <tr>
                     @foreach ($footer as $cell)

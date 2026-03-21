@@ -54,7 +54,7 @@ class ReportController extends Controller
         $table = $reportTableService->buildDailyTable($rows);
 
         return $csvExportService->download(
-            "laporan-harian-{$tanggalAwal}_sampai_{$tanggalAkhir}.csv",
+            "laporan-harian-{$tanggalAwal}-sampai-{$tanggalAkhir}.csv",
             $table['headers'],
             $table['csvRows'],
             $table['csvFooter'],
@@ -164,7 +164,7 @@ class ReportController extends Controller
 
         return $csvExportService->download(
             'laporan-penjualan-produk-'
-            .$tanggalAwal.'_sampai_'.$tanggalAkhir
+            .$tanggalAwal.'-sampai-'.$tanggalAkhir
             .$this->buildOptionalFilenameSuffix($productName)
             .'.csv',
             $table['headers'],
@@ -220,7 +220,7 @@ class ReportController extends Controller
 
         return $csvExportService->download(
             'laporan-kinerja-pegawai-'
-            .$tanggalAwal.'_sampai_'.$tanggalAkhir
+            .$tanggalAwal.'-sampai-'.$tanggalAkhir
             .$this->buildOptionalFilenameSuffix($employeeName)
             .'.csv',
             $table['headers'],

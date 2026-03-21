@@ -172,7 +172,7 @@ class DailyReportControllerTest extends TestCase
             ]));
 
         $response->assertOk();
-        $response->assertSeeText('Kas Masuk');
+        $response->assertSeeText('Kas masuk');
         $response->assertSeeText('Pendapatan layanan');
         $response->assertSeeText('Pendapatan produk');
         $response->assertSeeText('Komisi barber');
@@ -187,8 +187,9 @@ class DailyReportControllerTest extends TestCase
         $response->assertSeeText('Rp 90.000');
         $response->assertSeeText('Rp 50.000');
         $response->assertSeeText('Rp -25.000');
-        $response->assertDontSeeText('Ringkasan laporan');
-        $response->assertDontSeeText('Total hari pada periode');
+        $response->assertSeeText('Kas masuk periode ini');
+        $response->assertSeeText('Laba operasional');
+        $response->assertSeeText('Filter yang sama dipakai saat export CSV.');
     }
 
     public function test_daily_report_rejects_invalid_date_range(): void
@@ -217,6 +218,7 @@ class DailyReportControllerTest extends TestCase
         $response->assertOk();
         $response->assertSeeText('Belum ada data pada periode ini');
         $response->assertSeeText('Tidak ada transaksi atau pengeluaran yang tercatat');
+        $response->assertSeeText('Lihat Periode Default');
     }
 
     public function test_daily_report_can_export_csv_using_active_filters(): void
@@ -268,7 +270,7 @@ class DailyReportControllerTest extends TestCase
             ]));
 
         $response->assertOk();
-        $response->assertHeader('content-disposition', 'attachment; filename=laporan-harian-2026-03-10_sampai_2026-03-10.csv');
+        $response->assertHeader('content-disposition', 'attachment; filename=laporan-harian-2026-03-10-sampai-2026-03-10.csv');
 
         $csv = $this->parseCsv($response->streamedContent());
 

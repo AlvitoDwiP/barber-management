@@ -30,7 +30,7 @@
 
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <div>
-                        <x-input-label for="start_date" :value="__('Start Date')" />
+                        <x-input-label for="start_date" value="Tanggal Mulai" />
                         <x-text-input
                             id="start_date"
                             name="start_date"
@@ -45,7 +45,7 @@
                     </div>
 
                     <div>
-                        <x-input-label for="end_date" :value="__('End Date')" />
+                        <x-input-label for="end_date" value="Tanggal Selesai" />
                         <x-text-input
                             id="end_date"
                             name="end_date"
@@ -65,7 +65,7 @@
                             class="btn-brand-primary w-full justify-center disabled:cursor-not-allowed disabled:opacity-60"
                             :disabled="requiresOverlapConfirm && !overlapConfirmed"
                         >
-                            Open Payroll
+                            Buka Payroll
                         </button>
                     </div>
                 </div>
@@ -97,8 +97,8 @@
                     <table class="admin-table w-full min-w-[760px]">
                         <thead>
                             <tr>
-                                <th>Start Date</th>
-                                <th>End Date</th>
+                                <th>Tanggal Mulai</th>
+                                <th>Tanggal Selesai</th>
                                 <th>Status</th>
                                 <th>Aksi</th>
                             </tr>
@@ -110,7 +110,7 @@
                                     <td>{{ $period->end_date?->locale('id')->translatedFormat('d F Y') ?? '-' }}</td>
                                     <td>
                                         <span class="payment-badge {{ $period->status === 'open' ? 'payment-badge-qr' : 'payment-badge-cash' }}">
-                                            {{ $period->status }}
+                                            {{ $period->status === 'open' ? 'Terbuka' : 'Ditutup' }}
                                         </span>
                                     </td>
                                     <td>
@@ -130,7 +130,7 @@
                                                         type="submit"
                                                         class="inline-flex items-center rounded-lg border border-transparent bg-red-600 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-red-500"
                                                     >
-                                                        Close Payroll
+                                                        Tutup Payroll
                                                     </button>
                                                 </form>
 

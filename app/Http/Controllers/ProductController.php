@@ -36,7 +36,7 @@ class ProductController extends Controller
 
         return redirect()
             ->route('products.index')
-            ->with('success', 'Data produk berhasil ditambahkan.');
+            ->with('success', 'Produk berhasil ditambahkan.');
     }
 
     public function show(Product $product): RedirectResponse
@@ -58,7 +58,7 @@ class ProductController extends Controller
 
         return redirect()
             ->route('products.index')
-            ->with('success', 'Data produk berhasil diperbarui.');
+            ->with('success', 'Produk berhasil diperbarui.');
     }
 
     public function destroy(Product $product): RedirectResponse
@@ -67,6 +67,6 @@ class ProductController extends Controller
 
         return redirect()
             ->route('products.index')
-            ->with('success', 'Data produk berhasil dihapus.');
+            ->with('success', 'Produk berhasil dihapus.');
     }
 }

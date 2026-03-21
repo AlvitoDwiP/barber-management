@@ -64,7 +64,7 @@ class FreelancePayrollController extends Controller
 
             return redirect()
                 ->route('payroll.freelance.index')
-                ->with('error', 'Terjadi kesalahan saat menyiapkan pembayaran freelance. Silakan coba lagi.');
+                ->with('error', 'Terjadi kendala saat menyiapkan pembayaran freelance. Silakan coba lagi.');
         }
     }
 }

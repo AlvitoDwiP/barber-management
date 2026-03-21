@@ -16,6 +16,11 @@
                 'url' => route('reports.monthly'),
             ],
             [
+                'title' => 'Laporan Metode Pembayaran',
+                'description' => 'Pantau arus pembayaran transaksi per bulan. Cocok untuk membaca kas masuk, bukan laba operasional.',
+                'url' => route('reports.payment'),
+            ],
+            [
                 'title' => 'Laporan Kinerja Pegawai',
                 'description' => 'Lihat kontribusi tiap pegawai berdasarkan transaksi, omzet, dan komisi.',
                 'url' => route('reports.employees'),
@@ -31,7 +36,7 @@
     <section class="admin-card">
         <div class="flex flex-col gap-2">
             <h3 class="text-base font-semibold text-slate-900">Menu laporan</h3>
-            <p class="text-sm text-slate-600">Pilih laporan utama yang ingin dibuka untuk melihat performa bisnis hair studio.</p>
+            <p class="text-sm text-slate-600">Pilih laporan utama untuk melihat performa bisnis, arus pembayaran, dan kontribusi operasional dengan istilah yang konsisten.</p>
         </div>
 
         <div class="mt-5 space-y-3">

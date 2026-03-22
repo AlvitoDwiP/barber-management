@@ -146,7 +146,8 @@ Contoh env production yang aman:
 ```env
 APP_ENV=production
 APP_DEBUG=false
-APP_URL=https://your-domain.example
+# Gunakan http:// saat deploy awal bila SSL belum aktif.
+APP_URL=http://your-domain.example
 
 DB_CONNECTION=sqlite
 DB_DATABASE=/absolute/path/outside/public_html/barber-management.sqlite
@@ -159,7 +160,8 @@ SESSION_DRIVER=file
 SESSION_ENCRYPT=true
 SESSION_HTTP_ONLY=true
 SESSION_SAME_SITE=lax
-SESSION_SECURE_COOKIE=true
+# Set true hanya jika HTTPS sudah aktif, atau biarkan kosong agar ikut APP_URL
+# SESSION_SECURE_COOKIE=true
 
 CACHE_STORE=file
 QUEUE_CONNECTION=sync
@@ -167,8 +169,32 @@ QUEUE_FAILED_DRIVER=null
 
 LOG_CHANNEL=stack
 LOG_STACK=daily
-LOG_LEVEL=info
+LOG_LEVEL=warning
+LOG_DAILY_DAYS=7
 ```
+
+Checklist deploy murah yang paling sering terlupakan:
+
+- file SQLite harus benar-benar ada dan writable
+- folder `storage/` dan `bootstrap/cache/` harus writable oleh PHP
+- jika project dipisah dari `public_html`, pastikan `APP_URL` dan document root tidak tertukar
+- setelah mengubah `.env`, jalankan `php artisan optimize:clear` jika CLI tersedia
+- jika CLI tidak tersedia, hapus file cache lama di `bootstrap/cache/` lewat file manager hosting
+- jika login gagal setelah deploy awal tanpa SSL, cek `APP_URL` dan jangan paksa `SESSION_SECURE_COOKIE=true` lebih dulu
+- periksa ukuran `storage/logs/` secara berkala agar akun hosting tidak cepat penuh
+
+Fallback pragmatis jika environment hosting tidak ideal:
+
+- bila belum ada HTTPS, pakai `APP_URL=http://...` dulu dan biarkan cookie secure mengikuti skema itu
+- bila SSH atau cron terbatas, tetap aman karena queue sudah `sync`
+- bila akses artisan hanya sesekali, prioritaskan `config:clear`, `cache:clear`, dan `migrate --force`
+- bila storage sangat kecil, turunkan `LOG_LEVEL` ke `error`
+
+Catatan deploy praktis:
+
+- build asset bisa dilakukan lokal lalu hasil `public/build` di-upload ke hosting bila `npm` tidak tersedia di server
+- untuk SQLite, backup paling sederhana adalah menyalin file database saat aplikasi sedang tidak dipakai
+- jika nanti pindah ke MySQL/MariaDB, pastikan data dipindah lewat export/import yang terstruktur, bukan sekadar mengganti env
 
 ## Jalur Migrasi ke MySQL / MariaDB
 

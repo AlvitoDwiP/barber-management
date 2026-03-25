@@ -354,7 +354,7 @@
                             type="email"
                             name="email"
                             value="{{ old('email') }}"
-                            placeholder="owner@sejatihairstudio.com"
+                            placeholder="Masukkan email"
                             required
                             autofocus
                             autocomplete="username"

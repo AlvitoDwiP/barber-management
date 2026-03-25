@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Expense;
+use App\Models\FreelancePayment;
+use App\Models\Employee;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -73,6 +75,43 @@ class ExpenseViewTest extends TestCase
         $editResponse->assertSeeText('Isi ulang galon');
         $editResponse->assertSeeText('Lainnya');
         $editResponse->assertSeeText('Simpan Perubahan');
+    }
+
+    public function test_expense_index_shows_payroll_label_for_freelance_expense_without_manual_actions(): void
+    {
+        $user = User::factory()->create();
+        $employee = Employee::query()->create([
+            'name' => 'Dafasand',
+            'status' => 'freelance',
+            'employment_type' => 'freelance',
+            'is_active' => true,
+        ]);
+        $expense = Expense::query()->create([
+            'expense_date' => '2026-03-19',
+            'category' => Expense::CATEGORY_PAY_FREELANCE,
+            'amount' => '175000.00',
+            'note' => 'Pembayaran freelance',
+        ]);
+
+        FreelancePayment::query()->create([
+            'employee_id' => $employee->id,
+            'work_date' => '2026-03-19',
+            'total_service_amount' => '350000.00',
+            'service_commission' => '150000.00',
+            'total_product_qty' => 1,
+            'product_commission' => '25000.00',
+            'total_commission' => '175000.00',
+            'expense_id' => $expense->id,
+            'payment_status' => FreelancePayment::STATUS_PAID,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('expenses.index'));
+
+        $response->assertOk();
+        $response->assertSeeText('Bayar Freelance');
+        $response->assertSeeText('Dikelola via Payroll');
+        $response->assertDontSee(route('expenses.edit', $expense), false);
+        $response->assertDontSee(route('expenses.destroy', $expense), false);
     }
 
     public function test_expense_store_uses_clear_validation_messages(): void

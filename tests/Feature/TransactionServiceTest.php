@@ -741,7 +741,64 @@ class TransactionServiceTest extends TestCase
         ]);
 
         $this->assertNotSame($firstTransaction->transaction_code, $secondTransaction->transaction_code);
+        $this->assertSame('TRX-120326-0001', $firstTransaction->transaction_code);
+        $this->assertSame('TRX-120326-0002', $secondTransaction->transaction_code);
         $this->assertSame(2, Transaction::query()->count());
+    }
+
+    public function test_generated_transaction_codes_reset_for_a_new_transaction_date(): void
+    {
+        $employee = $this->createEmployee();
+        $service = Service::query()->create([
+            'name' => 'Creambath',
+            'price' => '85000.00',
+        ]);
+
+        $firstTransaction = app(TransactionService::class)->recordTransaction([
+            'transaction_date' => '2026-03-12',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'items' => $this->transactionItems($employee->id, [$service->id]),
+        ]);
+
+        $secondTransaction = app(TransactionService::class)->recordTransaction([
+            'transaction_date' => '2026-03-13',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'items' => $this->transactionItems($employee->id, [$service->id]),
+        ]);
+
+        $this->assertSame('TRX-120326-0001', $firstTransaction->transaction_code);
+        $this->assertSame('TRX-130326-0001', $secondTransaction->transaction_code);
+    }
+
+    public function test_generated_transaction_codes_ignore_legacy_long_codes_on_the_same_day(): void
+    {
+        $employee = $this->createEmployee();
+        $service = Service::query()->create([
+            'name' => 'Hair Spa',
+            'price' => '90000.00',
+        ]);
+
+        Transaction::query()->create([
+            'transaction_code' => 'TRX-20260312-01KMG89F3RPDB1AVNJFYQ9QSZ8',
+            'transaction_date' => '2026-03-12',
+            'employee_id' => $employee->id,
+            'payment_method' => 'cash',
+            'subtotal_amount' => '0.00',
+            'discount_amount' => '0.00',
+            'total_amount' => '0.00',
+            'notes' => 'Legacy transaction code',
+        ]);
+
+        $transaction = app(TransactionService::class)->recordTransaction([
+            'transaction_date' => '2026-03-12',
+            'employee_id' => $employee->id,
+            'payment_method' => 'qr',
+            'items' => $this->transactionItems($employee->id, [$service->id]),
+        ]);
+
+        $this->assertSame('TRX-120326-0001', $transaction->transaction_code);
     }
 
     public function test_store_daily_batch_creates_multiple_separate_transactions(): void

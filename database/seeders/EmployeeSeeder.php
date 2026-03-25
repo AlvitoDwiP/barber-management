@@ -12,16 +12,12 @@ class EmployeeSeeder extends Seeder
      */
     public function run(): void
     {
-        $employees = [
-            ['name' => 'Andi', 'employment_type' => 'permanent'],
-            ['name' => 'Budi', 'employment_type' => 'freelance'],
-        ];
-
-        foreach ($employees as $employee) {
-            Employee::query()->updateOrCreate(
-                ['name' => $employee['name']],
-                ['employment_type' => $employee['employment_type']]
-            );
-        }
+        Employee::query()->updateOrCreate(
+            ['name' => 'dafasand'],
+            [
+                'employment_type' => Employee::EMPLOYMENT_TYPE_PERMANENT,
+                'is_active' => true,
+            ]
+        );
     }
 }

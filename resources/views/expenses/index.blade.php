@@ -81,7 +81,10 @@
                     @foreach ($expenses as $expense)
                         @php
                             $isLinkedToFreelance = $expense->freelancePayment !== null;
+                            $isFreelanceExpense = $isLinkedToFreelance
+                                || strcasecmp((string) $expense->category, \App\Models\Expense::CATEGORY_PAY_FREELANCE) === 0;
                             $categoryLabel = \Illuminate\Support\Str::of((string) $expense->category)->title()->value();
+                            $noteText = filled($expense->note) ? $expense->note : 'Tanpa catatan.';
                         @endphp
 
                         <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -101,12 +104,12 @@
 
                             <div class="mt-3 rounded-xl bg-slate-50 px-3 py-3">
                                 <p class="text-xs uppercase tracking-wide text-slate-500">Catatan</p>
-                                <p class="mt-1 text-sm leading-6 text-slate-700">{{ filled($expense->note) ? $expense->note : 'Tanpa catatan.' }}</p>
+                                <p class="mt-1 text-sm leading-6 text-slate-700">{{ $noteText }}</p>
                             </div>
 
-                            @if ($isLinkedToFreelance)
+                            @if ($isFreelanceExpense)
                                 <div class="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-900">
-                                    Terhubung ke pembayaran freelance. Edit dan hapus dikelola dari flow payroll freelance.
+                                    Dikelola via payroll freelance. Edit dan hapus tidak tersedia di halaman ini.
                                 </div>
                             @else
                                 <div class="mt-4 flex flex-col gap-2 sm:flex-row">
@@ -126,42 +129,47 @@
                 </div>
 
                 <div class="admin-table-wrap hidden md:block">
-                    <table class="admin-table w-full">
+                    <table class="admin-table table-fixed w-full">
                         <thead>
                             <tr>
-                                <th>Tanggal</th>
-                                <th>Kategori</th>
+                                <th class="w-[120px]">Tanggal</th>
+                                <th class="w-[150px]">Kategori</th>
                                 <th>Catatan</th>
-                                <th class="text-right">Nominal</th>
-                                <th>Aksi</th>
+                                <th class="w-[130px] text-right">Nominal</th>
+                                <th class="w-[150px]">Aksi</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 bg-white">
                             @foreach ($expenses as $expense)
                                 @php
                                     $isLinkedToFreelance = $expense->freelancePayment !== null;
+                                    $isFreelanceExpense = $isLinkedToFreelance
+                                        || strcasecmp((string) $expense->category, \App\Models\Expense::CATEGORY_PAY_FREELANCE) === 0;
                                     $categoryLabel = \Illuminate\Support\Str::of((string) $expense->category)->title()->value();
+                                    $noteText = filled($expense->note) ? $expense->note : 'Tanpa catatan.';
                                 @endphp
 
                                 <tr class="hover:bg-slate-50/70">
-                                    <td>{{ $expense->expense_date?->locale('id')->translatedFormat('d M Y') ?? '-' }}</td>
-                                    <td>
+                                    <td class="w-[120px]">{{ $expense->expense_date?->locale('id')->translatedFormat('d M Y') ?? '-' }}</td>
+                                    <td class="w-[150px]">
                                         <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
                                             {{ $categoryLabel }}
                                         </span>
                                     </td>
-                                    <td class="max-w-[380px] whitespace-normal text-slate-700">
-                                        {{ filled($expense->note) ? $expense->note : 'Tanpa catatan.' }}
+                                    <td class="text-slate-700">
+                                        <div class="max-w-[250px] overflow-hidden text-ellipsis whitespace-nowrap" title="{{ $noteText }}">
+                                            {{ $noteText }}
+                                        </div>
                                     </td>
-                                    <td class="text-right font-semibold text-slate-900">{{ format_rupiah($expense->amount) }}</td>
-                                    <td>
-                                        @if ($isLinkedToFreelance)
-                                            <div class="space-y-1">
-                                                <span class="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                                                    Pembayaran freelance
-                                                </span>
-                                                <p class="text-xs leading-5 text-slate-500">Edit dan hapus dikelola dari flow payroll freelance.</p>
-                                            </div>
+                                    <td class="w-[130px] whitespace-nowrap text-right font-semibold text-slate-900">{{ format_rupiah($expense->amount) }}</td>
+                                    <td class="w-[150px] whitespace-normal">
+                                        @if ($isFreelanceExpense)
+                                            <span
+                                                class="text-xs italic text-slate-400"
+                                                title="Edit dan hapus dikelola dari flow payroll freelance."
+                                            >
+                                                Dikelola via Payroll
+                                            </span>
                                         @else
                                             <div class="flex flex-wrap items-center gap-2">
                                                 <a href="{{ route('expenses.edit', $expense) }}" class="btn-neutral-warm">

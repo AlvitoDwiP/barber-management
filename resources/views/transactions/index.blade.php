@@ -312,11 +312,11 @@
                                     <td>{{ $transaction->transaction_date?->locale('id')->translatedFormat('d M Y') }}</td>
                                     <td>
                                         <div class="space-y-1">
-                                            <p class="font-semibold text-slate-900">{{ $transaction->transaction_code }}</p>
-                                            <p class="text-xs text-slate-500">
+                                            <span class="font-medium text-slate-900">{{ $transaction->transaction_code }}</span>
+                                            <div class="text-xs text-slate-500">
                                                 {{ (int) ($transaction->total_services ?? 0) }} layanan,
                                                 {{ (int) ($transaction->total_products ?? 0) }} produk
-                                            </p>
+                                            </div>
                                         </div>
                                     </td>
                                     <td class="max-w-[260px] whitespace-normal text-slate-700">

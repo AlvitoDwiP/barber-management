@@ -15,7 +15,6 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use RuntimeException;
 
 class TransactionService
@@ -581,13 +580,31 @@ class TransactionService
 
     private function generateTransactionCode(string $transactionDate): string
     {
-        return 'TRX-'.str_replace('-', '', $transactionDate).'-'.Str::upper((string) Str::ulid());
+        $tanggal = Carbon::parse($transactionDate)->toDateString();
+        $formattedDate = Carbon::parse($transactionDate)->format('dmy');
+        $prefix = 'TRX-'.$formattedDate.'-';
+
+        $lastTransaction = Transaction::query()
+            ->whereDate('transaction_date', $tanggal)
+            ->where('transaction_code', 'like', $prefix.'%')
+            ->lockForUpdate()
+            ->orderByDesc('transaction_code')
+            ->first(['transaction_code']);
+
+        if (! $lastTransaction instanceof Transaction) {
+            return $prefix.'0001';
+        }
+
+        $lastNumber = (int) substr((string) $lastTransaction->transaction_code, -4);
+        $nextNumber = str_pad((string) ($lastNumber + 1), 4, '0', STR_PAD_LEFT);
+
+        return $prefix.$nextNumber;
     }
 
     private function isTransactionCodeCollision(QueryException $exception): bool
     {
         $sqlState = $exception->errorInfo[0] ?? $exception->getCode();
-        $message = Str::lower($exception->getMessage());
+        $message = \Illuminate\Support\Str::lower($exception->getMessage());
 
         return in_array((string) $sqlState, ['23000', '23505', '19'], true)
             && str_contains($message, 'transaction_code');

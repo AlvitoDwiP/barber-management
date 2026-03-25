@@ -16,10 +16,10 @@
         <div class="min-h-screen" x-data="{ sidebarOpen: false, userMenuOpen: false }" @keydown.escape.window="sidebarOpen = false; userMenuOpen = false">
             @include('layouts.partials.sidebar')
 
-            <div class="lg:pl-72">
+            <div class="flex min-h-screen flex-col lg:pl-72">
                 @include('layouts.partials.topbar')
 
-                <main class="px-4 pb-8 pt-6 sm:px-6 lg:px-8 lg:pt-8">
+                <main class="flex-1 px-4 pb-8 pt-6 sm:px-6 lg:px-8 lg:pt-8">
                     @isset($header)
                         <div class="mb-6">{{ $header }}</div>
                     @endisset
@@ -27,6 +27,8 @@
                     <x-flash-message />
                     {{ $slot }}
                 </main>
+
+                @include('layouts.partials.footer')
             </div>
         </div>
     </body>

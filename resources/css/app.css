@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=DM+Sans:wght@300;400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -18,6 +20,64 @@
         --warm-50: #f8f5f2;
 
         --brand-ring: rgba(147, 76, 45, 0.3);
+    }
+
+    * {
+        font-family: 'DM Sans', sans-serif;
+    }
+
+    body {
+        font-family: 'DM Sans', sans-serif;
+        font-weight: 400;
+        color: #2C1A0E;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6,
+    .page-title {
+        font-family: 'Playfair Display', serif;
+        font-weight: 500;
+    }
+
+    label,
+    input,
+    textarea,
+    select,
+    button,
+    .btn,
+    nav a,
+    th,
+    td,
+    small,
+    .payment-badge,
+    .transaction-status-badge,
+    .transaction-preview-label,
+    .transaction-preview-note,
+    .transaction-metric-label,
+    .transaction-metric-value,
+    .btn-brand-primary,
+    .btn-brand-sidebar,
+    .btn-brand-soft,
+    .btn-neutral-warm {
+        font-family: 'DM Sans', sans-serif;
+    }
+
+    button,
+    .btn,
+    .payment-badge,
+    .transaction-status-badge,
+    .transaction-preview-label,
+    .transaction-metric-label,
+    .transaction-metric-value,
+    .btn-brand-primary,
+    .btn-brand-sidebar,
+    .btn-brand-soft,
+    .btn-neutral-warm {
+        font-weight: 500;
     }
 
     body.admin-body {
